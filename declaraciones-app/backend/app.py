@@ -1,38 +1,63 @@
 """
 Declaraciones de Importación — Backend
 Lógica:
-  1. Recibe factura (PDF/Excel/imagen)
+  1. Recibe factura PDF
   2. Extrae productos con Gemini AI
-  3. Busca en Google Drive (carpeta MANIFIESTOS) los PDFs más recientes por proveedor
-  4. Indexa el texto de cada declaración y busca coincidencias exactas de referencia/EAN
-  5. Por cada proveedor con match: toma las 2 páginas (pág 1 + pág 2) de esa declaración
-  6. Une todo en un solo PDF y lo devuelve
+  3. Se autentica en Google Drive con Service Account (sin token manual)
+  4. Busca en carpeta MANIFIESTOS las declaraciones DIAN más recientes
+  5. Devuelve PDF con las páginas que coinciden
 """
-import os, re, json, base64, tempfile, datetime, io
+import os, re, json, datetime, io
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import pdfplumber
 from pypdf import PdfReader, PdfWriter
 import google.generativeai as genai
+from google.oauth2 import service_account
+import google.auth.transport.requests
+import urllib.request, urllib.parse, ssl
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 CORS(app)
 
-# ── Constantes ───────────────────────────────────────────────────────────────
+# ── Constantes ────────────────────────────────────────────────────────────────
 MANIFIESTOS_FOLDER_ID = "1REBnSu-CJbOqrbhyKi6wfNSl2PPAaPhL"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 genai.configure(api_key=GEMINI_API_KEY)
 
-# ── Helper Drive via MCP-like calls ──────────────────────────────────────────
-# En Claude Code el usuario tiene Google Drive conectado.
-# El backend necesita un token OAuth; en producción se pasa via env var.
-# Aquí usamos la API de Google Drive directamente con las credenciales del usuario.
+# ── Service Account — autenticación automática con Google Drive ───────────────
+_sa_credentials = None
 
-import urllib.request, urllib.parse, ssl
-from concurrent.futures import ThreadPoolExecutor, as_completed
+def get_drive_token():
+    """
+    Obtiene (y cachea) un token Bearer para Google Drive usando la cuenta de servicio.
+    Se refresca automáticamente cuando expira.
+    """
+    global _sa_credentials
 
+    sa_json_str = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+    if not sa_json_str:
+        raise Exception(
+            "Variable GOOGLE_SERVICE_ACCOUNT_JSON no configurada. "
+            "Ve a Railway → Variables y agrega las credenciales JSON de la cuenta de servicio."
+        )
+
+    if _sa_credentials is None or not _sa_credentials.valid:
+        sa_info = json.loads(sa_json_str)
+        _sa_credentials = service_account.Credentials.from_service_account_info(
+            sa_info,
+            scopes=["https://www.googleapis.com/auth/drive.readonly"]
+        )
+        req = google.auth.transport.requests.Request()
+        _sa_credentials.refresh(req)
+
+    return _sa_credentials.token
+
+
+# ── Helpers Drive ─────────────────────────────────────────────────────────────
 def drive_request(path, token):
-    """Hace una petición GET a Google Drive API v3."""
+    """Petición GET a Google Drive API v3."""
     sep = "&" if "?" in path else "?"
     url = f"https://www.googleapis.com/drive/v3/{path}{sep}supportsAllDrives=true&includeItemsFromAllDrives=true"
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
@@ -50,59 +75,58 @@ def drive_download(file_id, token):
 
 def get_subfolders(folder_id, token):
     """Lista subcarpetas de una carpeta Drive."""
-    q = urllib.parse.quote(f"'{folder_id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false")
-    data = drive_request(f"files?q={q}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime%20desc&pageSize=100", token)
+    q = urllib.parse.quote(
+        f"'{folder_id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    )
+    data = drive_request(
+        f"files?q={q}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime%20desc&pageSize=100",
+        token
+    )
     return data.get("files", [])
 
 def get_pdfs_in_folder(folder_id, token):
-    """Lista PDFs en una carpeta, ordenados por fecha de modificación desc."""
-    q = urllib.parse.quote(f"'{folder_id}' in parents and mimeType = 'application/pdf' and trashed = false")
-    data = drive_request(f"files?q={q}&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime%20desc&pageSize=50", token)
+    """Lista PDFs en una carpeta, ordenados por fecha desc."""
+    q = urllib.parse.quote(
+        f"'{folder_id}' in parents and mimeType = 'application/pdf' and trashed = false"
+    )
+    data = drive_request(
+        f"files?q={q}&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime%20desc&pageSize=50",
+        token
+    )
     return data.get("files", [])
 
 
-# ── Extracción de texto de declaración ──────────────────────────────────────
-def extract_declaration_text(pdf_bytes):
-    """Extrae todo el texto de un PDF de declaración."""
-    reader = PdfReader(io.BytesIO(pdf_bytes))
-    text = ""
-    for page in reader.pages:
-        t = page.extract_text() or ""
-        text += t + "\n"
-    return text
+# ── Extracción de texto ───────────────────────────────────────────────────────
+def extract_invoice_pdf_text(pdf_bytes):
+    """Extrae texto de la factura agrupando palabras por línea según coordenadas Y."""
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            all_lines = []
+            for page in pdf.pages:
+                words = page.extract_words(x_tolerance=3, y_tolerance=3)
+                if not words:
+                    t = page.extract_text()
+                    if t:
+                        all_lines.append(t)
+                    continue
+                from collections import defaultdict
+                lines = defaultdict(list)
+                for w in words:
+                    y_key = round(w["top"] / 4) * 4
+                    lines[y_key].append(w)
+                for y_key in sorted(lines.keys()):
+                    row_words = sorted(lines[y_key], key=lambda w: w["x0"])
+                    line_text = "  ".join(w["text"] for w in row_words)
+                    all_lines.append(line_text)
+            return "\n".join(all_lines)
+    except Exception:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        return "\n".join(p.extract_text() or "" for p in reader.pages)
 
-def parse_referencias_from_declaration(text):
-    """
-    Extrae referencias y EAN de una declaración DIAN.
-    Patrones identificados:
-      - REFERENCIA: OCT-JK42234C-ROSA
-      - REFERENCIA/CODIGO: PTE-TE44
-      - CODIGO DE BARRAS EAN: 7901000070457
-      - CODIGO DE BARRAS: 7592325120448
-    Retorna set de strings normalizados (uppercase, sin espacios).
-    """
-    refs = set()
-    
-    # Referencias alfanuméricas
-    for m in re.finditer(r'REFERENCIA(?:/CODIGO)?[:\s]+([A-Z0-9][A-Z0-9\-\.\/]+)', text, re.IGNORECASE):
-        refs.add(m.group(1).strip().upper())
-    
-    # Códigos de barras EAN (7-14 dígitos)
-    for m in re.finditer(r'CODIGO DE BARRAS(?:\s+EAN)?[:\s]+(\d{7,14})', text, re.IGNORECASE):
-        refs.add(m.group(1).strip())
-    
-    # Datos según factura (campo "DATOS SEGUN FACTURA: OCT-K80456L ...")
-    for m in re.finditer(r'DATOS SEGUN FACTURA[:\s]+([A-Z0-9][A-Z0-9\-\.\/]+)', text, re.IGNORECASE):
-        val = m.group(1).strip().upper()
-        # Solo tomar la parte antes del primer espacio
-        refs.add(val.split()[0] if ' ' in val else val)
-    
-    return refs
 
 def find_matching_pages(pdf_bytes, search_terms, already_matched=None):
     """
-    Busca declaraciones DIAN que contengan alguno de los términos buscados.
-    already_matched: set de términos ya encontrados en PDFs anteriores (para no duplicar).
+    Busca en un PDF de declaración los términos indicados.
     Retorna (page_indices, newly_matched_terms).
     """
     if already_matched is None:
@@ -137,40 +161,11 @@ def find_matching_pages(pdf_bytes, search_terms, already_matched=None):
     return sorted(set(matched_page_indices)), newly_matched
 
 
-# ── Extracción de productos de la factura ────────────────────────────────────
-def extract_invoice_pdf_text(pdf_bytes):
-    """Extrae texto de la factura agrupando palabras por línea según coordenadas Y."""
-    try:
-        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            all_lines = []
-            for page in pdf.pages:
-                words = page.extract_words(x_tolerance=3, y_tolerance=3)
-                if not words:
-                    t = page.extract_text()
-                    if t:
-                        all_lines.append(t)
-                    continue
-                # Agrupar palabras por línea (mismo Y aprox)
-                from collections import defaultdict
-                lines = defaultdict(list)
-                for w in words:
-                    y_key = round(w["top"] / 4) * 4  # agrupar por bloques de 4pt
-                    lines[y_key].append(w)
-                for y_key in sorted(lines.keys()):
-                    row_words = sorted(lines[y_key], key=lambda w: w["x0"])
-                    line_text = "  ".join(w["text"] for w in row_words)
-                    all_lines.append(line_text)
-            return "\n".join(all_lines)
-    except Exception:
-        reader = PdfReader(io.BytesIO(pdf_bytes))
-        return "\n".join(p.extract_text() or "" for p in reader.pages)
-
-
 def build_search_variants(reference):
     """
     Genera variantes de búsqueda desde una referencia de producto ALUMAR.
-    Siempre incluye la referencia original (>= 5 chars).
-    Las variantes derivadas (más cortas) requieren >= 6 chars para evitar falsos positivos.
+    Siempre incluye el original (>= 5 chars).
+    Variantes derivadas requieren >= 6 chars para evitar falsos positivos.
     """
     if not reference or len(reference) < 4:
         return set()
@@ -186,8 +181,6 @@ def build_search_variants(reference):
         if len(parts) >= 3:
             v3 = '-'.join(parts[1:-1])
             if '-' in v3: derived.add(v3)
-        # Solo para sufijos cortos (≤5 dígitos): agregar/quitar un cero inicial
-        # Ej: TAATI-19406 → TAATI-019406. NO tocar 007293, 008026, etc.
         last = parts[-1]
         if last.isdigit() and len(last) <= 5:
             padded = last.zfill(len(last) + 1)
@@ -206,7 +199,7 @@ def extract_products_with_ai(invoice_text):
 
     prompt = f"""Eres un experto en facturas de ALUMAR S.A.S., empresa colombiana importadora de productos para el hogar.
 
-TEXTO DE FACTURA (columnas separadas por |):
+TEXTO DE FACTURA (columnas separadas por espacios/tabulaciones):
 {invoice_text[:8000]}
 
 TAREA: Extrae TODOS los productos de la factura. La columna "Referencia" contiene los códigos de producto de ALUMAR, que son exactamente los que aparecen en las declaraciones de importación DIAN.
@@ -232,7 +225,6 @@ Responde ÚNICAMENTE JSON válido (sin bloques de código, sin texto adicional):
 
     response = model.generate_content(prompt)
     text = response.text.strip()
-    # Extraer bloque JSON robusto: buscar desde el primer { hasta el último }
     start = text.find('{')
     end = text.rfind('}')
     if start != -1 and end != -1 and end > start:
@@ -240,57 +232,27 @@ Responde ÚNICAMENTE JSON válido (sin bloques de código, sin texto adicional):
     return json.loads(text)
 
 
-# ── API Endpoints ─────────────────────────────────────────────────────────────
+# ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.route("/api/health")
 def health():
-    return jsonify({"ok": True, "ts": datetime.datetime.now().isoformat()})
-
-
-@app.route("/api/debug-invoice", methods=["POST"])
-def debug_invoice():
-    """Diagnóstico: muestra el texto extraído de la factura y lo que devuelve la IA."""
-    if "invoice" not in request.files:
-        return jsonify({"error": "Falta archivo invoice"}), 400
-    invoice_bytes = request.files["invoice"].read()
-    extracted_text = extract_invoice_pdf_text(invoice_bytes)
+    """Verifica que el backend y la conexión con Drive estén funcionando."""
+    drive_ok = False
+    drive_error = None
     try:
-        # Llamar con el texto ya extraído
-        gemini_model = genai.GenerativeModel("gemini-2.0-flash")
-        prompt = f"""Eres un experto en facturas de importación colombianas de ALUMAR S.A.S.
-Analiza este texto de factura y extrae los productos con su referencia del PROVEEDOR EXTERNO.
-
-TEXTO DE FACTURA (columnas separadas por |):
-{extracted_text[:8000]}
-
-REGLAS CRÍTICAS para identificar la referencia del proveedor:
-- Las referencias del proveedor tienen formato como: OCT-DKC5015D-G, PTE-TE44, AW30927-014, KC79317F-BL, ST147
-- Suelen estar en columnas llamadas "REF", "REFERENCIA", "CODIGO", "SKU", "ITEM"
-- IGNORAR códigos internos de Alumar: comienzan con números (01..., 02...) o son palabras sueltas (UZFEL, FLETE)
-- IGNORAR líneas de flete, descuento, impuesto — no son productos
-
-Responde ÚNICAMENTE JSON válido (sin bloques de código, sin texto adicional):
-{{
-  "productos": [
-    {{
-      "descripcion": "descripción del producto",
-      "referencia": "referencia exacta del proveedor"
-    }}
-  ],
-  "numero_factura": "número de factura"
-}}"""
-        response = gemini_model.generate_content(prompt)
-        ai_raw = response.text.strip()
-        start = ai_raw.find('{')
-        end = ai_raw.rfind('}')
-        ai_json = json.loads(ai_raw[start:end+1]) if start != -1 else {}
+        token = get_drive_token()
+        folders = get_subfolders(MANIFIESTOS_FOLDER_ID, token)
+        drive_ok = True
+        folder_count = len(folders)
     except Exception as e:
-        ai_json = {"error": str(e)}
-        ai_raw = ""
+        drive_error = str(e)
+        folder_count = 0
+
     return jsonify({
-        "texto_extraido": extracted_text[:5000],
-        "ai_resultado": ai_json,
-        "ai_raw": ai_raw[:2000]
+        "ok": True,
+        "ts": datetime.datetime.now().isoformat(),
+        "drive": {"connected": drive_ok, "folders": folder_count, "error": drive_error},
+        "gemini": {"configured": bool(GEMINI_API_KEY)}
     })
 
 
@@ -298,30 +260,32 @@ Responde ÚNICAMENTE JSON válido (sin bloques de código, sin texto adicional):
 def process_invoice():
     """
     Endpoint principal.
-    Recibe: factura PDF + token OAuth de Google Drive
+    Recibe: factura PDF
     Devuelve: PDF con las declaraciones correspondientes
     """
-    token = request.form.get("drive_token", "")
-    if not token:
-        return jsonify({"error": "Se requiere token de Google Drive (drive_token)"}), 400
-    
     if "invoice" not in request.files:
         return jsonify({"error": "Se requiere archivo de factura (invoice)"}), 400
-    
+
     invoice_file = request.files["invoice"]
     invoice_bytes = invoice_file.read()
     invoice_name = invoice_file.filename
-    
-    # 1. Extraer texto de la factura
+
+    # 1. Autenticar con Drive
+    try:
+        token = get_drive_token()
+    except Exception as e:
+        return jsonify({"error": f"Error de autenticación con Google Drive: {str(e)}"}), 500
+
+    # 2. Extraer texto de la factura
     try:
         invoice_text = extract_invoice_pdf_text(invoice_bytes)
     except Exception as e:
         return jsonify({"error": f"No se pudo leer la factura: {str(e)}"}), 400
-    
+
     if not invoice_text.strip():
         return jsonify({"error": "La factura no tiene texto extraíble"}), 400
-    
-    # 2. Extraer productos con IA
+
+    # 3. Extraer productos con IA
     print("=" * 60)
     print("TEXTO EXTRAÍDO (primeros 1000 chars):")
     print(invoice_text[:1000])
@@ -336,7 +300,7 @@ def process_invoice():
     productos = invoice_data.get("productos", [])
     if not productos:
         return jsonify({"error": "No se encontraron productos en la factura"}), 400
-    
+
     # Construir set de términos de búsqueda con variantes
     search_terms = set()
     for p in productos:
@@ -346,21 +310,20 @@ def process_invoice():
             search_terms.add(p["ean"].strip())
 
     print("=" * 60)
-    print("PRODUCTOS EXTRAÍDOS DE LA FACTURA:")
+    print("PRODUCTOS EXTRAÍDOS:")
     for p in productos:
         print(f"  - {p}")
     print(f"TÉRMINOS DE BÚSQUEDA: {search_terms}")
     print("=" * 60)
-    
-    # 3. Obtener subcarpetas de MANIFIESTOS (una por proveedor)
+
+    # 4. Obtener subcarpetas de MANIFIESTOS
     try:
         supplier_folders = get_subfolders(MANIFIESTOS_FOLDER_ID, token)
-        print(f"DEBUG carpetas encontradas en process: {len(supplier_folders)}")
+        print(f"Carpetas encontradas: {len(supplier_folders)}")
     except Exception as e:
-        print(f"DEBUG error get_subfolders: {e}")
         return jsonify({"error": f"Error accediendo a Drive: {str(e)}"}), 500
 
-    # 4. Para cada carpeta de proveedor en paralelo: buscar matches
+    # 5. Buscar en paralelo
     matched_declarations = []
     search_log = []
 
@@ -369,26 +332,23 @@ def process_invoice():
         folder_id = folder["id"]
         try:
             pdfs = get_pdfs_in_folder(folder_id, token)
-            print(f"  [{folder_name}] PDFs: {len(pdfs)}")
         except Exception as e:
             print(f"  [{folder_name}] ERROR get_pdfs: {e}")
             return None
         if not pdfs:
             return None
-        # Buscar en múltiples PDFs de la carpeta, acumulando matches
-        # PDFs ya vienen ordenados de más reciente a más antiguo → primer match = importación más reciente
+
         folder_matched_terms = set()
         folder_pdfs_results = []
         consecutive_misses = 0
         found_any = False
+
         for pdf_meta in pdfs:
             remaining = {t for t in search_terms if t not in folder_matched_terms}
             if not remaining:
                 break
-            # Salida rápida: carpeta irrelevante (3 PDFs sin ningún match)
             if not found_any and consecutive_misses >= 3:
                 break
-            # Salida después de match: 2 PDFs consecutivos sin match nuevo
             if found_any and consecutive_misses >= 2:
                 break
             try:
@@ -412,6 +372,7 @@ def process_invoice():
                 found_any = True
             else:
                 consecutive_misses += 1
+
         if not folder_pdfs_results:
             return None
         return {
@@ -436,8 +397,7 @@ def process_invoice():
             "log": search_log
         }), 404
 
-    # 5. Construir PDF final con deduplicación global
-    # Recopilar todos los PDF results y ordenar por fecha desc (más reciente primero)
+    # 6. Construir PDF final con deduplicación global
     all_pdf_results = []
     for decl in matched_declarations:
         for pdf_result in decl["pdfs"]:
@@ -447,12 +407,12 @@ def process_invoice():
     global_matched = set()
     writer = PdfWriter()
     resumen = []
+    not_found = []
 
     for pdf_result in all_pdf_results:
-        # Solo incluir si aporta al menos un término nuevo globalmente
         new_terms = pdf_result["matched_terms"] - global_matched
         if not new_terms:
-            print(f"  SKIP (duplicado): {pdf_result['archivo']} — términos ya cubiertos")
+            print(f"  SKIP (duplicado): {pdf_result['archivo']}")
             continue
         global_matched.update(new_terms)
         reader = PdfReader(io.BytesIO(pdf_result["pdf_bytes"]))
@@ -467,16 +427,21 @@ def process_invoice():
             "archivo": pdf_result["archivo"],
             "paginas_incluidas": pages_added
         })
-    
-    # Guardar PDF
+
+    # Calcular referencias no encontradas
+    refs_originales = {p["referencia"].upper().strip() for p in productos if p.get("referencia")}
+    for ref in refs_originales:
+        variants = build_search_variants(ref)
+        if not any(v in global_matched for v in variants):
+            not_found.append(ref)
+
     output = io.BytesIO()
     writer.write(output)
     output.seek(0)
-    
+
     fecha_str = datetime.date.today().strftime("%Y%m%d")
     filename = f"declaraciones_{invoice_name.replace('.pdf','').replace(' ','_')}_{fecha_str}.pdf"
-    
-    # Devolver como archivo con header de metadata
+
     response = send_file(
         output,
         mimetype="application/pdf",
@@ -484,50 +449,66 @@ def process_invoice():
         download_name=filename
     )
     response.headers["X-Resumen"] = json.dumps(resumen)
+    response.headers["X-No-Encontrados"] = json.dumps(not_found)
     response.headers["X-Productos-Buscados"] = json.dumps(list(search_terms)[:20])
     return response
 
 
+@app.route("/api/debug-invoice", methods=["POST"])
+def debug_invoice():
+    """Diagnóstico: muestra el texto extraído y lo que devuelve la IA."""
+    if "invoice" not in request.files:
+        return jsonify({"error": "Falta archivo invoice"}), 400
+
+    invoice_bytes = request.files["invoice"].read()
+    extracted_text = extract_invoice_pdf_text(invoice_bytes)
+
+    try:
+        ai_json = extract_products_with_ai(extracted_text)
+        ai_raw = json.dumps(ai_json, ensure_ascii=False)
+    except Exception as e:
+        ai_json = {"error": str(e)}
+        ai_raw = str(e)
+
+    return jsonify({
+        "texto_extraido": extracted_text[:5000],
+        "ai_resultado": ai_json,
+        "ai_raw": ai_raw[:2000]
+    })
+
+
 @app.route("/api/preview", methods=["POST"])
 def preview_invoice():
-    """
-    Preview: extrae productos de la factura y muestra qué encontraría,
-    sin descargar PDFs completos (más rápido para validar antes de procesar).
-    """
-    token = request.form.get("drive_token", "")
-    if not token:
-        return jsonify({"error": "Se requiere token de Google Drive"}), 400
-    
+    """Preview: extrae productos y lista carpetas disponibles."""
     if "invoice" not in request.files:
         return jsonify({"error": "Se requiere archivo de factura"}), 400
-    
+
     invoice_bytes = request.files["invoice"].read()
-    
+
     try:
         invoice_text = extract_invoice_pdf_text(invoice_bytes)
         invoice_data = extract_products_with_ai(invoice_text)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
-    # Lista de proveedores en Drive
+
     try:
+        token = get_drive_token()
         folders = get_subfolders(MANIFIESTOS_FOLDER_ID, token)
-        proveedores_disponibles = [{"nombre": f["name"], "ultima_actualizacion": f.get("modifiedTime","")} for f in folders]
-    except Exception as e:
-        proveedores_disponibles = []
-    
+        proveedores = [{"nombre": f["name"], "ultima_actualizacion": f.get("modifiedTime", "")} for f in folders]
+    except Exception:
+        proveedores = []
+
     return jsonify({
         "factura": {
             "numero": invoice_data.get("numero_factura"),
-            "proveedor": invoice_data.get("proveedor_principal"),
             "productos": invoice_data.get("productos", [])
         },
         "terminos_busqueda": list({
             t for p in invoice_data.get("productos", [])
-            for t in [p.get("referencia",""), p.get("ean","")]
+            for t in build_search_variants(p.get("referencia", ""))
             if t
         }),
-        "proveedores_en_drive": proveedores_disponibles
+        "proveedores_en_drive": proveedores
     })
 
 
