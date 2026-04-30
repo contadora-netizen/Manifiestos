@@ -1,8 +1,8 @@
 """
 Declaraciones de Importación — Backend
-Lógica: 
+Lógica:
   1. Recibe factura (PDF/Excel/imagen)
-  2. Extrae productos con Claude AI
+  2. Extrae productos con Gemini AI
   3. Busca en Google Drive (carpeta MANIFIESTOS) los PDFs más recientes por proveedor
   4. Indexa el texto de cada declaración y busca coincidencias exactas de referencia/EAN
   5. Por cada proveedor con match: toma las 2 páginas (pág 1 + pág 2) de esa declaración
@@ -13,14 +13,15 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import pdfplumber
 from pypdf import PdfReader, PdfWriter
-import anthropic
+import google.generativeai as genai
 
 app = Flask(__name__)
 CORS(app)
 
 # ── Constantes ───────────────────────────────────────────────────────────────
 MANIFIESTOS_FOLDER_ID = "1REBnSu-CJbOqrbhyKi6wfNSl2PPAaPhL"
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+genai.configure(api_key=GEMINI_API_KEY)
 
 # ── Helper Drive via MCP-like calls ──────────────────────────────────────────
 # En Claude Code el usuario tiene Google Drive conectado.
@@ -200,8 +201,8 @@ def build_search_variants(reference):
 
 
 def extract_products_with_ai(invoice_text):
-    """Usa Claude para extraer referencias de producto desde la factura de ALUMAR."""
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    """Usa Gemini para extraer referencias de producto desde la factura de ALUMAR."""
+    model = genai.GenerativeModel("gemini-2.0-flash")
 
     prompt = f"""Eres un experto en facturas de ALUMAR S.A.S., empresa colombiana importadora de productos para el hogar.
 
@@ -217,7 +218,7 @@ REGLAS:
 - NO ignorar ningún código de producto por su formato
 - IMPORTANTE: el texto puede tener errores de OCR. Corrige caracteres confundidos: 0↔O, 1↔I, 6↔G. Ej: "0O6X0-002959" debe leerse como "OX-002959", "0CT-PLYG" como "OCT-PLYG"
 
-Responde ÚNICAMENTE JSON válido:
+Responde ÚNICAMENTE JSON válido (sin bloques de código, sin texto adicional):
 {{
   "productos": [
     {{
@@ -229,12 +230,8 @@ Responde ÚNICAMENTE JSON válido:
   "numero_factura": "número de factura"
 }}"""
 
-    msg = client.messages.create(
-        model="claude-sonnet-4-5",
-        max_tokens=3000,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    text = msg.content[0].text.strip()
+    response = model.generate_content(prompt)
+    text = response.text.strip()
     # Extraer bloque JSON robusto: buscar desde el primer { hasta el último }
     start = text.find('{')
     end = text.rfind('}')
@@ -258,9 +255,8 @@ def debug_invoice():
     invoice_bytes = request.files["invoice"].read()
     extracted_text = extract_invoice_pdf_text(invoice_bytes)
     try:
-        result = extract_products_with_ai(invoice_bytes if False else invoice_bytes)
         # Llamar con el texto ya extraído
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        gemini_model = genai.GenerativeModel("gemini-2.0-flash")
         prompt = f"""Eres un experto en facturas de importación colombianas de ALUMAR S.A.S.
 Analiza este texto de factura y extrae los productos con su referencia del PROVEEDOR EXTERNO.
 
@@ -273,7 +269,7 @@ REGLAS CRÍTICAS para identificar la referencia del proveedor:
 - IGNORAR códigos internos de Alumar: comienzan con números (01..., 02...) o son palabras sueltas (UZFEL, FLETE)
 - IGNORAR líneas de flete, descuento, impuesto — no son productos
 
-Responde ÚNICAMENTE JSON válido:
+Responde ÚNICAMENTE JSON válido (sin bloques de código, sin texto adicional):
 {{
   "productos": [
     {{
@@ -283,9 +279,8 @@ Responde ÚNICAMENTE JSON válido:
   ],
   "numero_factura": "número de factura"
 }}"""
-        msg = client.messages.create(model="claude-sonnet-4-5", max_tokens=3000,
-                                      messages=[{"role": "user", "content": prompt}])
-        ai_raw = msg.content[0].text.strip()
+        response = gemini_model.generate_content(prompt)
+        ai_raw = response.text.strip()
         start = ai_raw.find('{')
         end = ai_raw.rfind('}')
         ai_json = json.loads(ai_raw[start:end+1]) if start != -1 else {}
