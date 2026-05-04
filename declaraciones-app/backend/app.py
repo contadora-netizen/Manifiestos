@@ -14,7 +14,7 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import pdfplumber
 from pypdf import PdfReader, PdfWriter
-import google.generativeai as genai
+from groq import Groq
 from google.oauth2 import service_account
 import google.auth.transport.requests
 import urllib.request, urllib.parse, ssl
@@ -25,8 +25,8 @@ CORS(app)
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 MANIFIESTOS_FOLDER_ID = "1REBnSu-CJbOqrbhyKi6wfNSl2PPAaPhL"
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-genai.configure(api_key=GEMINI_API_KEY)
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+groq_client = Groq(api_key=GROQ_API_KEY)
 
 # ── Service Account — autenticación automática con Google Drive ───────────────
 _sa_credentials = None
@@ -200,9 +200,7 @@ def build_search_variants(reference):
 
 
 def extract_products_with_ai(invoice_text):
-    """Usa Gemini para extraer referencias de producto desde la factura de ALUMAR."""
-    model = genai.GenerativeModel("gemini-2.0-flash")
-
+    """Usa Groq (Llama) para extraer referencias de producto desde la factura de ALUMAR."""
     prompt = f"""Eres un experto en facturas de ALUMAR S.A.S., empresa colombiana importadora de productos para el hogar.
 
 TEXTO DE FACTURA (columnas separadas por espacios/tabulaciones):
@@ -229,8 +227,13 @@ Responde ÚNICAMENTE JSON válido (sin bloques de código, sin texto adicional):
   "numero_factura": "número de factura"
 }}"""
 
-    response = model.generate_content(prompt)
-    text = response.text.strip()
+    response = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1,
+        max_tokens=4096,
+    )
+    text = response.choices[0].message.content.strip()
     start = text.find('{')
     end = text.rfind('}')
     if start != -1 and end != -1 and end > start:
@@ -258,7 +261,7 @@ def health():
         "ok": True,
         "ts": datetime.datetime.now().isoformat(),
         "drive": {"connected": drive_ok, "folders": folder_count, "error": drive_error},
-        "gemini": {"configured": bool(GEMINI_API_KEY)}
+        "groq": {"configured": bool(GROQ_API_KEY)}
     })
 
 
