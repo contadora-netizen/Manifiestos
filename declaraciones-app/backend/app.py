@@ -36,7 +36,11 @@ def get_drive_token():
     """
     global _sa_credentials
 
-    sa_json_str = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+    sa_json_str = (
+        os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+        or os.environ.get("JSON_DE_CUENTA_DE_SERVICIO_DE_GOOGLE")
+        or ""
+    )
     if not sa_json_str:
         raise Exception(
             "Variable GOOGLE_SERVICE_ACCOUNT_JSON no configurada. "
