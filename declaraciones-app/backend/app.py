@@ -8,6 +8,8 @@ Lógica:
   5. Devuelve PDF con las páginas que coinciden
 """
 import os, re, json, datetime, io
+from dotenv import load_dotenv
+load_dotenv()  # Carga variables desde backend/.env automáticamente
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import pdfplumber
