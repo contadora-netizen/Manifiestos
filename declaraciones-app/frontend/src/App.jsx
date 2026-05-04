@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5050";
+const API = import.meta.env.VITE_API_URL || "https://refreshing-gentleness-production-7a26.up.railway.app";
 
 const C = {
   bg: "#f0f4f8",
