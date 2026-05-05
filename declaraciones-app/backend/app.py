@@ -332,6 +332,17 @@ def process_invoice():
     except Exception as e:
         return jsonify({"error": f"Error accediendo a Drive: {str(e)}"}), 500
 
+    # Usar caché del frontend para priorizar carpetas conocidas
+    cache_hints_raw = request.form.get("cache_hints", "{}")
+    try:
+        cache_hints = json.loads(cache_hints_raw)
+    except Exception:
+        cache_hints = {}
+    cached_folder_ids = {v.get("folder_id") for v in cache_hints.values() if isinstance(v, dict) and v.get("folder_id")}
+    if cached_folder_ids:
+        supplier_folders.sort(key=lambda f: 0 if f["id"] in cached_folder_ids else 1)
+        print(f"Caché activo: priorizando {len(cached_folder_ids)} carpetas conocidas")
+
     # 5. Buscar en paralelo
     matched_declarations = []
     search_log = []
@@ -376,6 +387,7 @@ def process_invoice():
                     "pdf_bytes": pdf_bytes,
                     "matched_terms": newly_matched,
                     "date": pdf_meta.get("modifiedTime", ""),
+                    "file_id": pdf_meta["id"],
                 })
                 consecutive_misses = 0
                 found_any = True
@@ -386,6 +398,7 @@ def process_invoice():
             return None
         return {
             "proveedor": folder_name,
+            "folder_id": folder_id,
             "pdfs": folder_pdfs_results,
             "log": {"proveedor": folder_name, "archivos": [r["archivo"] for r in folder_pdfs_results], "estado": "✓ match"}
         }
@@ -410,7 +423,7 @@ def process_invoice():
     all_pdf_results = []
     for decl in matched_declarations:
         for pdf_result in decl["pdfs"]:
-            all_pdf_results.append({"proveedor": decl["proveedor"], **pdf_result})
+            all_pdf_results.append({"proveedor": decl["proveedor"], "folder_id": decl.get("folder_id", ""), **pdf_result})
     all_pdf_results.sort(key=lambda x: x.get("date", ""), reverse=True)
 
     global_matched = set()
@@ -428,8 +441,11 @@ def process_invoice():
         pages_added = 0
         for idx in pdf_result["paginas_match"]:
             if idx < len(reader.pages):
-                writer.add_page(reader.pages[idx])
-                pages_added += 1
+                page = reader.pages[idx]
+                page_text = (page.extract_text() or "").strip()
+                if len(page_text) >= 20:  # Omitir páginas en blanco
+                    writer.add_page(page)
+                    pages_added += 1
         print(f"  INCLUIDO: {pdf_result['archivo']} ({pages_added} págs) — {new_terms}")
         resumen.append({
             "proveedor": pdf_result["proveedor"],
@@ -443,6 +459,25 @@ def process_invoice():
         variants = build_search_variants(ref)
         if not any(v in global_matched for v in variants):
             not_found.append(ref)
+
+    # Construir mapa de caché: referencia → carpeta/archivo donde se encontró
+    term_a_ref = {}
+    for p in productos:
+        if p.get("referencia"):
+            ref = p["referencia"].upper().strip()
+            term_a_ref[ref] = ref
+            for v in build_search_variants(p["referencia"]):
+                term_a_ref[v] = ref
+    cache_update = {}
+    for pdf_result in all_pdf_results:
+        for term in pdf_result.get("matched_terms", set()):
+            orig_ref = term_a_ref.get(term, term)
+            cache_update[orig_ref] = {
+                "folder_id": pdf_result.get("folder_id", ""),
+                "folder_name": pdf_result.get("proveedor", ""),
+                "file_id": pdf_result.get("file_id", ""),
+                "file_name": pdf_result.get("archivo", ""),
+            }
 
     output = io.BytesIO()
     writer.write(output)
@@ -460,6 +495,7 @@ def process_invoice():
     response.headers["X-Resumen"] = json.dumps(resumen)
     response.headers["X-No-Encontrados"] = json.dumps(not_found)
     response.headers["X-Productos-Buscados"] = json.dumps(list(search_terms)[:20])
+    response.headers["X-Cache-Update"] = json.dumps(cache_update)
     return response
 
 

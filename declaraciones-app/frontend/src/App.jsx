@@ -29,6 +29,16 @@ const fmtDate = (iso) =>
     hour: "2-digit", minute: "2-digit"
   });
 
+const todayStr = () => new Date().toDateString();
+
+const getProductCache = () => { try { return JSON.parse(localStorage.getItem("alumar_product_cache") || "{}"); } catch { return {}; } };
+const saveProductCache = (update) => {
+  try {
+    const current = getProductCache();
+    localStorage.setItem("alumar_product_cache", JSON.stringify({ ...current, ...update }));
+  } catch {}
+};
+
 function saveHistory(entry) {
   const prev = JSON.parse(localStorage.getItem("alumar_hist") || "[]");
   const updated = [entry, ...prev].slice(0, 50);
@@ -147,6 +157,13 @@ function InvoiceRow({ item, onRemove, onPreview }) {
             style={{ fontSize: 11, background: C.green, color: "white", borderRadius: 5, padding: "4px 10px", textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center" }}>
             ⬇
           </a>
+          {item.reportUrl && (
+            <a href={item.reportUrl} download={`no-match_${item.file.name.replace(".pdf","")}.txt`}
+              title="Descargar reporte de referencias sin declaración"
+              style={{ fontSize: 11, background: C.accent, color: "white", borderRadius: 5, padding: "4px 10px", textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center" }}>
+              📋
+            </a>
+          )}
         </div>
       )}
       {item.status === "pending" && (
@@ -218,6 +235,7 @@ export default function App() {
   const [activeLog, setActiveLog] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [pdfModal, setPdfModal] = useState(null);
+  const [histFilter, setHistFilter] = useState("today");
   const fileRef = useRef();
   const logRef = useRef();
 
@@ -232,7 +250,7 @@ export default function App() {
     if (!pdfs.length) return;
     setQueue(prev => [
       ...prev,
-      ...pdfs.map(f => ({ id: crypto.randomUUID(), file: f, status: "pending", resultUrl: null, resultFilename: null, notFound: [] }))
+      ...pdfs.map(f => ({ id: crypto.randomUUID(), file: f, status: "pending", resultUrl: null, resultFilename: null, notFound: [], reportUrl: null, date: todayStr() }))
     ]);
   }, []);
 
@@ -258,6 +276,7 @@ export default function App() {
 
       const fd = new FormData();
       fd.append("invoice", item.file);
+      fd.append("cache_hints", JSON.stringify(getProductCache()));
 
       try {
         const res = await fetch(`${API}/api/process`, { method: "POST", body: fd });
@@ -273,19 +292,40 @@ export default function App() {
 
         const resumenRaw = res.headers.get("X-Resumen");
         const noEncontradosRaw = res.headers.get("X-No-Encontrados");
+        const cacheUpdateRaw = res.headers.get("X-Cache-Update");
         const resumen = resumenRaw ? JSON.parse(resumenRaw) : [];
         const notFound = noEncontradosRaw ? JSON.parse(noEncontradosRaw) : [];
+        if (cacheUpdateRaw) { try { saveProductCache(JSON.parse(cacheUpdateRaw)); } catch {} }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const filename = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1]
           || `declaraciones_${item.file.name}`;
+
+        // Generar reporte de no-match
+        let reportUrl = null;
+        if (notFound.length > 0) {
+          const lines = [
+            "REFERENCIAS SIN DECLARACIÓN DE IMPORTACIÓN",
+            "=".repeat(50),
+            `Factura: ${item.file.name}`,
+            `Fecha:   ${new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" })}`,
+            "",
+            `Total referencias no encontradas: ${notFound.length}`,
+            "",
+            ...notFound.map(r => `  • ${r}`),
+            "",
+            "Nota: Estas referencias no aparecen en ninguna declaración",
+            "de importación disponible en la carpeta MANIFIESTOS de Drive.",
+          ];
+          reportUrl = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" }));
+        }
 
         resumen.forEach(r => addLog(`✓ ${r.proveedor}: ${r.archivo} (${r.paginas_incluidas} págs.)`));
         if (notFound.length > 0) addLog(`⚠ Sin declaración: ${notFound.join(", ")}`);
         addLog(`✓ PDF listo — ${resumen.reduce((a, r) => a + r.paginas_incluidas, 0)} páginas totales`);
 
         setQueue(prev => prev.map(i =>
-          i.id === item.id ? { ...i, status: "done", resultUrl: url, resultFilename: filename, notFound } : i
+          i.id === item.id ? { ...i, status: "done", resultUrl: url, resultFilename: filename, notFound, reportUrl, date: todayStr() } : i
         ));
 
         const newHist = saveHistory({
@@ -527,26 +567,47 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Historial de procesamiento</div>
-                <div style={{ fontSize: 12, color: C.textMuted }}>{history.length} factura{history.length !== 1 ? "s" : ""} procesada{history.length !== 1 ? "s" : ""}</div>
+                <div style={{ fontSize: 12, color: C.textMuted }}>{history.length} factura{history.length !== 1 ? "s" : ""} en total</div>
               </div>
-              {history.length > 0 && (
-                <button onClick={() => { localStorage.removeItem("alumar_hist"); setHistory([]); }}
-                  style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7, padding: "6px 14px", cursor: "pointer", fontSize: 11, color: C.textMuted }}>
-                  🗑 Limpiar historial
-                </button>
-              )}
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {[["today", "📅 Hoy"], ["all", "📋 Todo"]].map(([val, lbl]) => (
+                  <button key={val} onClick={() => setHistFilter(val)} style={{
+                    background: histFilter === val ? C.blue : "transparent",
+                    color: histFilter === val ? "white" : C.textMuted,
+                    border: `1px solid ${histFilter === val ? C.blue : C.border}`,
+                    borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 11, fontWeight: histFilter === val ? 700 : 400
+                  }}>{lbl}</button>
+                ))}
+                {history.length > 0 && (
+                  <button onClick={() => { localStorage.removeItem("alumar_hist"); setHistory([]); }}
+                    style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 11, color: C.textMuted }}>
+                    🗑 Limpiar
+                  </button>
+                )}
+              </div>
             </div>
-            {history.length === 0 ? (
+            {(() => {
+              const filtered = histFilter === "today"
+                ? history.filter(e => new Date(e.date).toDateString() === todayStr())
+                : history;
+              return filtered.length === 0 ? (
               <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "4rem 2rem", textAlign: "center", boxShadow: C.shadow }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.textMuted, marginBottom: 6 }}>Sin historial todavía</div>
-                <div style={{ fontSize: 12, color: C.textDim }}>Las facturas procesadas aparecerán aquí.</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.textMuted, marginBottom: 6 }}>
+                  {histFilter === "today" ? "Sin facturas procesadas hoy" : "Sin historial todavía"}
+                </div>
+                <div style={{ fontSize: 12, color: C.textDim }}>
+                  {histFilter === "today"
+                    ? <span>¿Buscas días anteriores? <button onClick={() => setHistFilter("all")} style={{ background: "none", border: "none", color: C.blue, cursor: "pointer", fontSize: 12, textDecoration: "underline" }}>Ver todo el historial</button></span>
+                    : "Las facturas procesadas aparecerán aquí."}
+                </div>
               </div>
             ) : (
               <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "1.25rem", boxShadow: C.shadow }}>
-                {history.map(entry => <HistoryRow key={entry.id} entry={entry} />)}
+                {filtered.map(entry => <HistoryRow key={entry.id} entry={entry} />)}
               </div>
-            )}
+            );
+            })()}
           </div>
         )}
       </div>
