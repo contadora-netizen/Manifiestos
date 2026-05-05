@@ -445,12 +445,17 @@ def process_invoice():
                 if idx < len(reader.pages):
                     has_content = False
                     if idx < len(plumber_pdf.pages):
-                        words = plumber_pdf.pages[idx].extract_words()
-                        has_content = len(words) > 0
-                    if not has_content:
-                        # Fallback: texto crudo con umbral alto
-                        raw = (reader.pages[idx].extract_text() or "").strip()
-                        has_content = sum(1 for c in raw if c.isalnum()) >= 80
+                        plumber_page = plumber_pdf.pages[idx]
+                        words = plumber_page.extract_words()
+                        # Mínimo 10 palabras: filtra páginas en blanco y páginas
+                        # con solo número de página / encabezado (0-3 palabras)
+                        if len(words) >= 10:
+                            has_content = True
+                        elif words:
+                            # Pocos palabras: verificar con chars para detectar
+                            # páginas con contenido mixto (tablas, campos cortos)
+                            chars = plumber_page.chars
+                            has_content = len(chars) >= 100
                     if has_content:
                         writer.add_page(reader.pages[idx])
                         pages_added += 1
