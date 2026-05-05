@@ -439,15 +439,21 @@ def process_invoice():
         global_matched.update(new_terms)
         reader = PdfReader(io.BytesIO(pdf_result["pdf_bytes"]))
         pages_added = 0
-        for idx in pdf_result["paginas_match"]:
-            if idx < len(reader.pages):
-                page = reader.pages[idx]
-                page_text = page.extract_text() or ""
-                # Contar solo caracteres alfanuméricos reales (ignora espacios, saltos, metadatos)
-                alpha_count = sum(1 for c in page_text if c.isalnum())
-                if alpha_count >= 50:  # Página con contenido real
-                    writer.add_page(page)
-                    pages_added += 1
+        # pdfplumber detecta palabras reales — más confiable que extract_text() de pypdf
+        with pdfplumber.open(io.BytesIO(pdf_result["pdf_bytes"])) as plumber_pdf:
+            for idx in pdf_result["paginas_match"]:
+                if idx < len(reader.pages):
+                    has_content = False
+                    if idx < len(plumber_pdf.pages):
+                        words = plumber_pdf.pages[idx].extract_words()
+                        has_content = len(words) > 0
+                    if not has_content:
+                        # Fallback: texto crudo con umbral alto
+                        raw = (reader.pages[idx].extract_text() or "").strip()
+                        has_content = sum(1 for c in raw if c.isalnum()) >= 80
+                    if has_content:
+                        writer.add_page(reader.pages[idx])
+                        pages_added += 1
         print(f"  INCLUIDO: {pdf_result['archivo']} ({pages_added} págs) — {new_terms}")
         resumen.append({
             "proveedor": pdf_result["proveedor"],
