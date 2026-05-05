@@ -442,8 +442,10 @@ def process_invoice():
         for idx in pdf_result["paginas_match"]:
             if idx < len(reader.pages):
                 page = reader.pages[idx]
-                page_text = (page.extract_text() or "").strip()
-                if len(page_text) >= 20:  # Omitir páginas en blanco
+                page_text = page.extract_text() or ""
+                # Contar solo caracteres alfanuméricos reales (ignora espacios, saltos, metadatos)
+                alpha_count = sum(1 for c in page_text if c.isalnum())
+                if alpha_count >= 50:  # Página con contenido real
                     writer.add_page(page)
                     pages_added += 1
         print(f"  INCLUIDO: {pdf_result['archivo']} ({pages_added} págs) — {new_terms}")
