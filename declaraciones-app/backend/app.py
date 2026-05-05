@@ -21,7 +21,7 @@ import urllib.request, urllib.parse, ssl
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, expose_headers=["X-Resumen", "X-No-Encontrados", "X-Productos-Buscados", "X-Cache-Update", "Content-Disposition"])
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 MANIFIESTOS_FOLDER_ID = "1REBnSu-CJbOqrbhyKi6wfNSl2PPAaPhL"

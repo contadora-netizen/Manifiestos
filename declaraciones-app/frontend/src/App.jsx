@@ -39,6 +39,21 @@ const saveProductCache = (update) => {
   } catch {}
 };
 
+const blobToBase64 = (blob) => new Promise((resolve, reject) => {
+  const fr = new FileReader(); fr.onloadend = () => resolve(fr.result); fr.onerror = reject; fr.readAsDataURL(blob);
+});
+const savePdfToStorage = async (id, blob) => {
+  try {
+    const b64 = await blobToBase64(blob);
+    // Limpiar PDFs viejos (guardar máximo 8)
+    const hist = JSON.parse(localStorage.getItem("alumar_hist") || "[]");
+    const keepIds = new Set(hist.slice(0, 8).map(e => e.id));
+    Object.keys(localStorage).filter(k => k.startsWith("alumar_pdf_") && !keepIds.has(k.slice(11))).forEach(k => localStorage.removeItem(k));
+    localStorage.setItem(`alumar_pdf_${id}`, b64);
+  } catch {}
+};
+const getPdfFromStorage = (id) => localStorage.getItem(`alumar_pdf_${id}`) || null;
+
 function saveHistory(entry) {
   const prev = JSON.parse(localStorage.getItem("alumar_hist") || "[]");
   const updated = [entry, ...prev].slice(0, 50);
@@ -177,6 +192,15 @@ function InvoiceRow({ item, onRemove, onPreview }) {
 // ── Historial ─────────────────────────────────────────────────────────────────
 function HistoryRow({ entry }) {
   const [open, setOpen] = useState(false);
+  const hasPdf = !!getPdfFromStorage(entry.id);
+  const downloadPdf = () => {
+    const data = getPdfFromStorage(entry.id);
+    if (!data) return;
+    const a = document.createElement("a");
+    a.href = data;
+    a.download = entry.pdfFilename || `declaraciones_${entry.invoiceName}`;
+    a.click();
+  };
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
       <div onClick={() => setOpen(o => !o)} style={{
@@ -195,6 +219,16 @@ function HistoryRow({ entry }) {
           ? <Badge color={C.green}>{entry.matches.length} proveedor{entry.matches.length !== 1 ? "es" : ""}</Badge>
           : <Badge color={C.red}>Sin match</Badge>}
         {entry.notFound?.length > 0 && <Badge color={C.red}>{entry.notFound.length} sin declaración</Badge>}
+        {hasPdf && (
+          <button
+            onClick={e => { e.stopPropagation(); downloadPdf(); }}
+            title="Descargar PDF generado"
+            style={{
+              background: C.green, color: "white", border: "none",
+              borderRadius: 5, padding: "3px 10px", cursor: "pointer",
+              fontSize: 11, fontWeight: 700, flexShrink: 0
+            }}>⬇ PDF</button>
+        )}
         <span style={{ color: C.textDim, fontSize: 12 }}>{open ? "▲" : "▼"}</span>
       </div>
       {open && (
@@ -320,6 +354,8 @@ export default function App() {
           reportUrl = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" }));
         }
 
+        await savePdfToStorage(item.id, blob);
+
         resumen.forEach(r => addLog(`✓ ${r.proveedor}: ${r.archivo} (${r.paginas_incluidas} págs.)`));
         if (notFound.length > 0) addLog(`⚠ Sin declaración: ${notFound.join(", ")}`);
         addLog(`✓ PDF listo — ${resumen.reduce((a, r) => a + r.paginas_incluidas, 0)} páginas totales`);
@@ -330,7 +366,8 @@ export default function App() {
 
         const newHist = saveHistory({
           id: item.id, date: new Date().toISOString(),
-          invoiceName: item.file.name, matches: resumen, notFound
+          invoiceName: item.file.name, matches: resumen, notFound,
+          pdfFilename: filename
         });
         setHistory(newHist);
         setPdfModal({ url, filename });
