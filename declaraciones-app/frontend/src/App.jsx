@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import RUTAS_HISTORICAS from "./rutasHistoricas.json";
+import CONDUCTORES_INFO from "./conductoresInfo.json";
 
 const API = import.meta.env.VITE_API_URL || "https://refreshing-gentleness-production-7a26.up.railway.app";
 const GS = "https://script.google.com/macros/s/AKfycbyZmzq0Wi2QlfDHIgjpH0NTHSAJV4q1JCN42zf2Z0-IAonSf7w54JNgmx4SPYAV5cS7/exec";
@@ -723,9 +724,35 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     if (total > 0) setForm(f => ({ ...f, valor_total: total }));
   }, [form.valor_contrato, form.valor_pelete, form.valor_palencia]);
 
+  const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState("");
   const conductoresHistoricos = Object.keys(RUTAS_HISTORICAS).sort();
   const rutasDelConductor = conductorHistorico ? RUTAS_HISTORICAS[conductorHistorico] || [] : [];
   const rutaSeleccionada = rutasDelConductor.find(r => r.ruta === rutaHistorica);
+  const infoconductor = conductorHistorico ? CONDUCTORES_INFO[conductorHistorico] : null;
+  const vehiculosDelConductor = infoconductor?.vehiculos || [];
+
+  const aplicarConductor = (nombreConductor, vehiculo) => {
+    const info = CONDUCTORES_INFO[nombreConductor];
+    if (!info) return;
+    setForm(f => ({
+      ...f,
+      conductor_nombre: f.conductor_nombre || nombreConductor,
+      contratista_nombre: f.contratista_nombre || nombreConductor,
+      contratista_cc: f.contratista_cc || info.cc || "",
+      eps: info.eps || f.eps || "",
+      arl: info.arl || f.arl || "",
+      licencia_categoria: info.licencia_categoria || f.licencia_categoria || "",
+      ...(vehiculo ? {
+        vehiculo_placas: vehiculo.placas || f.vehiculo_placas || "",
+        vehiculo_marca: vehiculo.tipo || f.vehiculo_marca || "",
+        vehiculo_soat: vehiculo.soat || f.vehiculo_soat || "",
+        tecnicomecanica: vehiculo.tecnicomecanica || f.tecnicomecanica || "",
+        vehiculo_propietario: vehiculo.propietario || f.vehiculo_propietario || "",
+        capacidad: vehiculo.capacidad || f.capacidad || "",
+        medidas: vehiculo.medidas || f.medidas || "",
+      } : {}),
+    }));
+  };
 
   const lbl = { fontSize: 10, color: C.textMuted, fontWeight: 600, marginBottom: 3, display: "block" };
   const inp = { width: "100%", border: `1px solid ${C.border}`, borderRadius: 5, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none", background: C.white };
@@ -759,32 +786,56 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
             <div style={{ fontSize:10, fontWeight:700, color:C.textDim, letterSpacing:"0.1em", marginBottom:10 }}>
               ⚡ AUTOCOMPLETAR DESDE HISTORIAL DE FLETES
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
+              {/* Conductor */}
               <div>
                 <label style={lbl}>Conductor (historial 2024-2026)</label>
-                <select value={conductorHistorico} onChange={e => { setConductorHistorico(e.target.value); setRutaHistorica(""); }}
-                  style={{ ...inp, cursor:"pointer" }}>
+                <select value={conductorHistorico} onChange={e => {
+                    const nombre = e.target.value;
+                    setConductorHistorico(nombre);
+                    setRutaHistorica("");
+                    setVehiculoSeleccionado("");
+                    if (nombre) aplicarConductor(nombre, null);
+                  }} style={{ ...inp, cursor:"pointer" }}>
                   <option value="">— Seleccionar conductor —</option>
                   {conductoresHistoricos.map(c => (
                     <option key={c} value={c}>{c} ({RUTAS_HISTORICAS[c].length} rutas)</option>
                   ))}
                 </select>
               </div>
+
+              {/* Vehículo */}
               <div>
-                <label style={lbl}>Ruta histórica{rutaSeleccionada ? ` · ${rutaSeleccionada.viajes} viaje${rutaSeleccionada.viajes!==1?"s":""} · Prom: $${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")} · Último: ${rutaSeleccionada.ultima_fecha ? new Date(rutaSeleccionada.ultima_fecha).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"}) : "—"}` : ""}</label>
+                <label style={lbl}>Vehículo{infoconductor && vehiculosDelConductor.length === 0 ? " (sin registro)" : ""}</label>
+                <select value={vehiculoSeleccionado}
+                  onChange={e => {
+                    setVehiculoSeleccionado(e.target.value);
+                    const veh = vehiculosDelConductor.find(v => v.placas === e.target.value);
+                    if (veh) aplicarConductor(conductorHistorico, veh);
+                  }}
+                  disabled={!conductorHistorico || vehiculosDelConductor.length === 0}
+                  style={{ ...inp, cursor: conductorHistorico && vehiculosDelConductor.length > 0 ? "pointer" : "not-allowed", opacity: conductorHistorico ? 1 : 0.5 }}>
+                  <option value="">— Seleccionar vehículo —</option>
+                  {vehiculosDelConductor.map((v,i) => (
+                    <option key={i} value={v.placas}>
+                      {v.placas} · {v.tipo}{v.capacidad ? ` · ${v.capacidad}` : ""}{v.soat ? ` · SOAT: ${new Date(v.soat).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"})}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Ruta */}
+              <div>
+                <label style={lbl}>Ruta{rutaSeleccionada ? ` · ${rutaSeleccionada.viajes}x · Prom $${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")}` : ""}</label>
                 <select value={rutaHistorica}
                   onChange={e => {
                     setRutaHistorica(e.target.value);
                     const ruta = rutasDelConductor.find(r => r.ruta === e.target.value);
-                    if (ruta) {
-                      setForm(f => ({
-                        ...f,
-                        destino: f.destino || ruta.ruta,
-                        conductor_nombre: f.conductor_nombre || conductorHistorico,
-                        contratista_nombre: f.contratista_nombre || conductorHistorico,
-                        valor_contrato: f.valor_contrato || ruta.valor_promedio,
-                      }));
-                    }
+                    if (ruta) setForm(f => ({
+                      ...f,
+                      destino: ruta.ruta,
+                      valor_contrato: ruta.valor_promedio,
+                    }));
                   }}
                   disabled={!conductorHistorico}
                   style={{ ...inp, cursor: conductorHistorico ? "pointer" : "not-allowed", opacity: conductorHistorico ? 1 : 0.5 }}>
@@ -797,9 +848,13 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                 </select>
               </div>
             </div>
-            {rutaSeleccionada && (
+            {(conductorHistorico || rutaSeleccionada) && (
               <div style={{ marginTop:8, fontSize:11, color:C.green, fontWeight:600 }}>
-                ✓ Autocompletado: destino, conductor y valor flete sugerido (${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")}). Puedes ajustarlos abajo.
+                ✓ {[
+                  conductorHistorico && "nombre y cédula",
+                  vehiculoSeleccionado && "placa, SOAT y tecno-mecánica",
+                  rutaSeleccionada && `destino y valor sugerido $${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")}`,
+                ].filter(Boolean).join(" · ")} autocompletados. Puedes ajustar los campos abajo.
               </div>
             )}
           </div>

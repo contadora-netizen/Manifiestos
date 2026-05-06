@@ -1,0 +1,266 @@
+{
+  "JUAN CARLOS PINTO": {
+    "cc": "80132486",
+    "licencia_categoria": "Publica",
+    "licencia_vencimiento": "2026-08-28",
+    "eps": "Sanitas",
+    "arl": "Positiva",
+    "vehiculos": [
+      {
+        "placas": "SDU651",
+        "tipo": "Camion",
+        "medidas": "2.50x2.20x5.40",
+        "capacidad": "34 m3",
+        "soat": "2026-11-18",
+        "tecnicomecanica": "2026-11-24",
+        "propietario": "JOEL DARIO VEGA CRUZ"
+      },
+      {
+        "placas": "MYW986",
+        "tipo": "Camion",
+        "medidas": "",
+        "capacidad": "48 m3",
+        "soat": "2026-10-07",
+        "tecnicomecanica": "",
+        "propietario": "JOEL DARIO VEGA CRUZ"
+      }
+    ]
+  },
+  "MILLER GALLO": {
+    "cc": "88234772",
+    "licencia_categoria": "Publica",
+    "licencia_vencimiento": "2026-08-03",
+    "eps": "Coosalud",
+    "arl": "Positiva",
+    "vehiculos": [
+      {
+        "placas": "WPQ693",
+        "tipo": "Turbo",
+        "medidas": "2.60x2.40x4.0",
+        "capacidad": "26 m3",
+        "soat": "2026-06-03",
+        "tecnicomecanica": "2026-06-05",
+        "propietario": "MILLER GALLO DELGADO"
+      },
+      {
+        "placas": "KUK728",
+        "tipo": "Camion",
+        "medidas": "5.50x2.23x2.54",
+        "capacidad": "31 m3",
+        "soat": "2026-04-26",
+        "tecnicomecanica": "2026-04-26",
+        "propietario": "WILLIAM CAMILO BARRETO GONZALEZ"
+      },
+      {
+        "placas": "VCZ611",
+        "tipo": "Camion",
+        "medidas": "2.60x2.30x5.20",
+        "capacidad": "32 m3",
+        "soat": "2026-11-12",
+        "tecnicomecanica": "2025-10-16",
+        "propietario": "BANCO DAVIVIENDA"
+      },
+      {
+        "placas": "CUV035",
+        "tipo": "Camion",
+        "medidas": "",
+        "capacidad": "",
+        "soat": "2026-12-17",
+        "tecnicomecanica": "2026-07-14",
+        "propietario": "ANGEL RAMIRO CARVAJAL BAUTISTA"
+      }
+    ]
+  },
+  "MARIO ALBERTO MOJICA": {
+    "cc": "13924592",
+    "licencia_categoria": "Publica",
+    "licencia_vencimiento": "2025-11-16",
+    "eps": "Salud Total",
+    "arl": "Positiva",
+    "vehiculos": [
+      {
+        "placas": "LPK427",
+        "tipo": "Camion",
+        "medidas": "5.60x2.40x2.60",
+        "capacidad": "28 m3",
+        "soat": "2026-02-16",
+        "tecnicomecanica": "2025-11-27",
+        "propietario": "PEDRO JOSE CORREDOR VESGA"
+      }
+    ]
+  },
+  "DAVID MENDEZ ORDUZ": {
+    "cc": "88289199",
+    "licencia_categoria": "Publica",
+    "licencia_vencimiento": "2025-01-06",
+    "eps": "Nueva EPS",
+    "arl": "Sura",
+    "vehiculos": [
+      {
+        "placas": "EZK106",
+        "tipo": "Camioneta",
+        "medidas": "3.70x2.10x2.20",
+        "capacidad": "26 m3",
+        "soat": "2026-07-21",
+        "tecnicomecanica": "2025-10-23",
+        "propietario": "DAVID MENDEZ ORDUZ"
+      },
+      {
+        "placas": "WOL266",
+        "tipo": "Camion",
+        "medidas": "6x2x2.70",
+        "capacidad": "32 m3",
+        "soat": "",
+        "tecnicomecanica": "",
+        "propietario": "DAVID MENDEZ ORDUZ"
+      }
+    ]
+  },
+  "PABLO ANTONIO GARZA": {
+    "cc": "",
+    "licencia_categoria": "Publica",
+    "licencia_vencimiento": "",
+    "eps": "",
+    "arl": "",
+    "vehiculos": [
+      {
+        "placas": "JEW741",
+        "tipo": "",
+        "medidas": "",
+        "capacidad": "",
+        "soat": "",
+        "tecnicomecanica": "",
+        "propietario": "PABLO ANTONIO GARZA SEPULVEDA"
+      }
+    ]
+  },
+  "LUIS MIGUEL DUARTE": {
+    "cc": "1092355965",
+    "licencia_categoria": "Publica",
+    "licencia_vencimiento": "2028-03-21",
+    "eps": "Nueva EPS",
+    "arl": "Positiva",
+    "vehiculos": []
+  },
+  "FREDDY QUINTERO SANCHEZ": {
+    "cc": "88217953",
+    "licencia_categoria": "Publica",
+    "licencia_vencimiento": "2024-12-16",
+    "eps": "",
+    "arl": "",
+    "vehiculos": []
+  },
+  "ISIDRO ANAYA HERNANDEZ": {
+    "cc": "13173581",
+    "licencia_categoria": "Publica",
+    "licencia_vencimiento": "2027-04-15",
+    "eps": "",
+    "arl": "",
+    "vehiculos": []
+  },
+  "JOSE ALEJANDRO CARDOZO": {
+    "cc": "1090409438",
+    "licencia_categoria": "Publica",
+    "licencia_vencimiento": "2026-06-05",
+    "eps": "",
+    "arl": "",
+    "vehiculos": []
+  },
+  "GRUPO FRAMMI": {
+    "cc": "1090174682",
+    "licencia_categoria": "Publica",
+    "licencia_vencimiento": "2028-04-29",
+    "eps": "Nueva EPS",
+    "arl": "Sura",
+    "vehiculos": [
+      {
+        "placas": "ESQ909",
+        "tipo": "",
+        "medidas": "",
+        "capacidad": "",
+        "soat": "2026-09-05",
+        "tecnicomecanica": "2026-08-18",
+        "propietario": ""
+      }
+    ]
+  },
+  "MILLER SEBASTIAN GALLO QUINTANA": {
+    "cc": "",
+    "licencia_categoria": "",
+    "licencia_vencimiento": "",
+    "eps": "",
+    "arl": "",
+    "vehiculos": []
+  },
+  "WILLIAN CELY RINCON": {
+    "cc": "7225193",
+    "licencia_categoria": "",
+    "licencia_vencimiento": "",
+    "eps": "",
+    "arl": "",
+    "vehiculos": [
+      {
+        "placas": "SMK114",
+        "tipo": "Turbo",
+        "medidas": "",
+        "capacidad": "",
+        "soat": "",
+        "tecnicomecanica": "",
+        "propietario": "WILLIAM MANUEL CELY"
+      }
+    ]
+  },
+  "ISMAEL GUSTAVO DUARTE": {
+    "cc": "5492102",
+    "licencia_categoria": "Publica",
+    "licencia_vencimiento": "2025-11-01",
+    "eps": "",
+    "arl": "",
+    "vehiculos": [
+      {
+        "placas": "GQV533",
+        "tipo": "Camion",
+        "medidas": "6x2.30x2.40",
+        "capacidad": "36 m3",
+        "soat": "2025-11-25",
+        "tecnicomecanica": "2025-11-12",
+        "propietario": "ISMAEL GUSTAVO DUARTE LIZCANO"
+      }
+    ]
+  },
+  "ROBERSON MONSALVE": {
+    "cc": "",
+    "licencia_categoria": "",
+    "licencia_vencimiento": "",
+    "eps": "",
+    "arl": "",
+    "vehiculos": [
+      {
+        "placas": "BUW945",
+        "tipo": "Camioneta",
+        "medidas": "",
+        "capacidad": "",
+        "soat": "",
+        "tecnicomecanica": "",
+        "propietario": "ROBERSON MONSALVE IBANEZ"
+      },
+      {
+        "placas": "THR081",
+        "tipo": "Turbo",
+        "medidas": "",
+        "capacidad": "",
+        "soat": "",
+        "tecnicomecanica": "",
+        "propietario": "LUIS ALEXIS SANDOVAL GARCIA"
+      }
+    ]
+  },
+  "CARLOS ALBERTO ALVIS": {
+    "cc": "1093759105",
+    "licencia_categoria": "Publica",
+    "licencia_vencimiento": "2024-11-03",
+    "eps": "",
+    "arl": "",
+    "vehiculos": []
+  }
+}
