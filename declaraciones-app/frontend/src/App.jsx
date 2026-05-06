@@ -771,7 +771,7 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                 </select>
               </div>
               <div>
-                <label style={lbl}>Ruta histórica{rutaSeleccionada ? ` · ${rutaSeleccionada.viajes} viaje${rutaSeleccionada.viajes!==1?"s":""} · Prom: $${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")}` : ""}</label>
+                <label style={lbl}>Ruta histórica{rutaSeleccionada ? ` · ${rutaSeleccionada.viajes} viaje${rutaSeleccionada.viajes!==1?"s":""} · Prom: $${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")} · Último: ${rutaSeleccionada.ultima_fecha ? new Date(rutaSeleccionada.ultima_fecha).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"}) : "—"}` : ""}</label>
                 <select value={rutaHistorica}
                   onChange={e => {
                     setRutaHistorica(e.target.value);
@@ -789,9 +789,9 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                   disabled={!conductorHistorico}
                   style={{ ...inp, cursor: conductorHistorico ? "pointer" : "not-allowed", opacity: conductorHistorico ? 1 : 0.5 }}>
                   <option value="">— Seleccionar ruta —</option>
-                  {rutasDelConductor.sort((a,b) => b.viajes - a.viajes).map((r,i) => (
+                  {rutasDelConductor.map((r,i) => (
                     <option key={i} value={r.ruta}>
-                      {r.viajes}x · ${r.valor_promedio.toLocaleString("es-CO")} · {r.ruta}
+                      {r.ultima_fecha ? new Date(r.ultima_fecha).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"}) : "Sin fecha"} · {r.viajes}x · ${r.valor_promedio.toLocaleString("es-CO")} · {r.ruta}
                     </option>
                   ))}
                 </select>
