@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import RUTAS_HISTORICAS from "./rutasHistoricas.json";
 
 const API = import.meta.env.VITE_API_URL || "https://refreshing-gentleness-production-7a26.up.railway.app";
 
@@ -692,12 +693,18 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     observaciones: "",
   };
   const [form, setForm] = useState(initial || empty);
+  const [conductorHistorico, setConductorHistorico] = useState("");
+  const [rutaHistorica, setRutaHistorica] = useState("");
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   useEffect(() => {
     const total = (Number(form.valor_contrato)||0) + (Number(form.valor_pelete)||0) + (Number(form.valor_palencia)||0);
     if (total > 0) setForm(f => ({ ...f, valor_total: total }));
   }, [form.valor_contrato, form.valor_pelete, form.valor_palencia]);
+
+  const conductoresHistoricos = Object.keys(RUTAS_HISTORICAS).sort();
+  const rutasDelConductor = conductorHistorico ? RUTAS_HISTORICAS[conductorHistorico] || [] : [];
+  const rutaSeleccionada = rutasDelConductor.find(r => r.ruta === rutaHistorica);
 
   const lbl = { fontSize: 10, color: C.textMuted, fontWeight: 600, marginBottom: 3, display: "block" };
   const inp = { width: "100%", border: `1px solid ${C.border}`, borderRadius: 5, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none", background: C.white };
@@ -725,6 +732,57 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
         </div>
 
         <div style={{ padding:"1.5rem" }}>
+
+          {/* ── Selector rápido historial ────────────────────────────── */}
+          <div style={{ background:"#f0f4f8", border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px", marginBottom:20 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:C.textDim, letterSpacing:"0.1em", marginBottom:10 }}>
+              ⚡ AUTOCOMPLETAR DESDE HISTORIAL DE FLETES
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+              <div>
+                <label style={lbl}>Conductor (historial 2024-2026)</label>
+                <select value={conductorHistorico} onChange={e => { setConductorHistorico(e.target.value); setRutaHistorica(""); }}
+                  style={{ ...inp, cursor:"pointer" }}>
+                  <option value="">— Seleccionar conductor —</option>
+                  {conductoresHistoricos.map(c => (
+                    <option key={c} value={c}>{c} ({RUTAS_HISTORICAS[c].length} rutas)</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Ruta histórica{rutaSeleccionada ? ` · ${rutaSeleccionada.viajes} viaje${rutaSeleccionada.viajes!==1?"s":""} · Prom: $${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")}` : ""}</label>
+                <select value={rutaHistorica}
+                  onChange={e => {
+                    setRutaHistorica(e.target.value);
+                    const ruta = rutasDelConductor.find(r => r.ruta === e.target.value);
+                    if (ruta) {
+                      setForm(f => ({
+                        ...f,
+                        destino: f.destino || ruta.ruta,
+                        conductor_nombre: f.conductor_nombre || conductorHistorico,
+                        contratista_nombre: f.contratista_nombre || conductorHistorico,
+                        valor_contrato: f.valor_contrato || ruta.valor_promedio,
+                      }));
+                    }
+                  }}
+                  disabled={!conductorHistorico}
+                  style={{ ...inp, cursor: conductorHistorico ? "pointer" : "not-allowed", opacity: conductorHistorico ? 1 : 0.5 }}>
+                  <option value="">— Seleccionar ruta —</option>
+                  {rutasDelConductor.sort((a,b) => b.viajes - a.viajes).map((r,i) => (
+                    <option key={i} value={r.ruta}>
+                      {r.viajes}x · ${r.valor_promedio.toLocaleString("es-CO")} · {r.ruta}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {rutaSeleccionada && (
+              <div style={{ marginTop:8, fontSize:11, color:C.green, fontWeight:600 }}>
+                ✓ Autocompletado: destino, conductor y valor flete sugerido (${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")}). Puedes ajustarlos abajo.
+              </div>
+            )}
+          </div>
+
           <Sec t="INFORMACIÓN GENERAL" />
           <div style={g(4)}>
             <F label="N° Contrato" k="numero" />

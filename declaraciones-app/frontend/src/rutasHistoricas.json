@@ -1,0 +1,2032 @@
+{
+  "ARTURO DUARTE": [
+    {
+      "ruta": "5 CLIENTES: 5 SUCURSALES DE SUCCES PARTERS",
+      "valor_promedio": 200000,
+      "viajes": 1
+    }
+  ],
+  "CARLOS ALBERTO ALVIS": [
+    {
+      "ruta": "AGUACHICA-EL BANCO-COROZAL-SAHAGUN-SINCELEJO-MONTERIA-MEDELLIN----CV035",
+      "valor_promedio": 2857250,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-PUERTO BERRIO-PUERTO BOYACA-NEIVA-PITALITO",
+      "valor_promedio": 2500000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-CIENAGA-VALLEDUPAR",
+      "valor_promedio": 2944000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DE ZONA INDUSTRIAL A LOS PATIOS",
+      "valor_promedio": 150000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MEDELLIN-SINCELEJO",
+      "valor_promedio": 2700000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR- SANTA MARTA-BARRANQUILLA-CARTAGENA (SAN ANDRES)",
+      "valor_promedio": 2800000,
+      "viajes": 1
+    }
+  ],
+  "CARLOS ARTURO DUARTE": [
+    {
+      "ruta": "CUCUTA: JENNY ELIZABETH MORENO",
+      "valor_promedio": 50000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DE ZONA INDUSTRIAL A LOS PATIOS",
+      "valor_promedio": 80000,
+      "viajes": 3
+    }
+  ],
+  "DAVID MENDEZ ORDUZ": [
+    {
+      "ruta": "5 clientes: Fernando Martinez HVC Roselia Vera Hector Guarin Dubo",
+      "valor_promedio": 210000,
+      "viajes": 1
+    },
+    {
+      "ruta": "6 clientes: sabucu- GOMEZ RAMIREZ LUZ- GUECHA ROSALBINA- HECTOR GUARIN- CASA HOGAR RAMIREZ",
+      "valor_promedio": 210000,
+      "viajes": 1
+    },
+    {
+      "ruta": "ABEL DAVID PEDROZO",
+      "valor_promedio": 52000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CASA HOGAR RAMIREZ-ALBA Y CIA-ROSALBINA GUECHA-HENRY ALVAREZ- HECTOR HERNANDO GUARIN",
+      "valor_promedio": 260000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA 2 CLIENTES : DUBO- ADEL PEDROZO Y PATIOS: MAJOLIM",
+      "valor_promedio": 155000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA 2 CLIENTES: GRUPO DUBO- JENNY MILLEDYS FLOREZ QUIENTERO",
+      "valor_promedio": 130000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA 2 CLIENTES: HVC- CASA Y HOGAR RAMIREZ",
+      "valor_promedio": 130000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA 3 CLIENTES -GALAXIA - JUAN JOSE ARENAS- LUZ MARINA GOMEZ",
+      "valor_promedio": 170000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: 2 CLIENTES- JENNY ELIZABETH Y LUZ MARINA GOMEZ",
+      "valor_promedio": 80000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: 3 CLIENTES: DUBO- CASA HOGAR RAMIREZ-FLOREZ QUINTERO JENNIE",
+      "valor_promedio": 120000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA: 3 CLIENTES: PLASTICOS GALAXIA-ALBA Y CIA -HECTOR HERNANDO GUARIN",
+      "valor_promedio": 120000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: 4 -majolim- LUZ MARINA GOMEZ RAMIREZ-FABIAN ANDRES DUQUE-SABUCO",
+      "valor_promedio": 120000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: 4 CLIENTES - Majolim-CASA HOGAR RAMIREZ- ALBA Y CIA- YENNY FLOREZ QUINTERO-  Y 1 V",
+      "valor_promedio": 180000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: 4 CLIENTES: ALBA Y CIA- ALVARO AMOROCHO- GRUPO CARRILLO TORRADO- DUBO",
+      "valor_promedio": 160000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: 5 CLIENTES- CASA HOGAR RAMIREZ- GRUPO CARRILLO TORRADO-MAJOLIM-ERIKA YURLEY VERA+ ",
+      "valor_promedio": 150000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: 6-ALBA Y CIA-FABIAN ANDRES DUQUE-HENRY ANDRES ALVAREZ-JENNY ELIZABETH MORENO-GUECH",
+      "valor_promedio": 210000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: 7 CLIENTES: DUBO- GOMEZ RAMIREZ LUZ- LA MEJOR-ALVARO AMOROCHO-HECTOR HERNANDO GUAR",
+      "valor_promedio": 220000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: 7 CLIENTES: HVC- GRUPO CARRILLO TORRADO- HENRY ANDRES ALVAREZ-GUECHA ROSALBINA-ERI",
+      "valor_promedio": 210000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA: ABEL PEDROZO",
+      "valor_promedio": 60000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: ALBA Y CIA-JENNY MORENO- ERIKA VERA",
+      "valor_promedio": 120000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: CASA HOGAR RAMIREZ",
+      "valor_promedio": 53333,
+      "viajes": 3
+    },
+    {
+      "ruta": "CUCUTA: CASA Y HOGAR RAMIREZ",
+      "valor_promedio": 50000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: DE KASA -ADEL DAVID- HECTOR GUARIN-LUZ MARINA GOMEZ",
+      "valor_promedio": 178000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: DUBO",
+      "valor_promedio": 60000,
+      "viajes": 3
+    },
+    {
+      "ruta": "CUCUTA: DUBO Y LUZ MARINA GOMEZ",
+      "valor_promedio": 70000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: GOMEZ RAMIREZ LUZ MARINA",
+      "valor_promedio": 45000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA: GROUP DUBO",
+      "valor_promedio": 50000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA: GROUP DUBO Y JENNY MORENO",
+      "valor_promedio": 90000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: GRUPO DUBO",
+      "valor_promedio": 50000,
+      "viajes": 3
+    },
+    {
+      "ruta": "CUCUTA: GRUPO EMPRESARIAL GALAXIA",
+      "valor_promedio": 70000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA: GRUPO EMPRESARIAL GALAXIA-DUBO-FLOREZ QUINTERO JENNY-CASA HOGAR RAMIREZ-HVC-JENNY ",
+      "valor_promedio": 200000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: GUECHA MARCO ANTONIO Y CASA HOGAR RAMIREZ",
+      "valor_promedio": 80000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: HERCTOR GUARIN- CASA HOGAR RAMIREZ",
+      "valor_promedio": 80000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: HVC",
+      "valor_promedio": 50000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: JENNY ELIZABETH MORENO",
+      "valor_promedio": 50000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: JENNY ELIZABETH MORENO Y CASA Y HOGAR RAMIREZ",
+      "valor_promedio": 70000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: JENNY ELIZABETH MORENO Y ERIKA YURLEY VERA",
+      "valor_promedio": 65000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: LUZ MARINA GOMEZ",
+      "valor_promedio": 50000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: MARCOS ANTONIO GUECHA- CASA Y HOGAR RAMIREZ",
+      "valor_promedio": 84160,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA: PLASTICOS GALAXIA",
+      "valor_promedio": 60000,
+      "viajes": 5
+    },
+    {
+      "ruta": "CUCUTA: PLASTICOS GALAXIA Y CASA HOGAR RAMIREZ",
+      "valor_promedio": 110000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: PLASTICOS GALAXIA Y TIENDAS PUNTO ROJO",
+      "valor_promedio": 110000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: PLATICOS GALAXIA",
+      "valor_promedio": 60000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: Plasticos Galaxia",
+      "valor_promedio": 60000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA:DUBO",
+      "valor_promedio": 50000,
+      "viajes": 3
+    },
+    {
+      "ruta": "CUCUTA:PLASTICOS GALAXIA",
+      "valor_promedio": 60000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA:PLASTICOS GALAXIA-HECTOR HERNANDO GUARIN- LUZ MARINA GOMEZ",
+      "valor_promedio": 110000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DE LOS PATIOS A ZONA INDUSTRIAL",
+      "valor_promedio": 215000,
+      "viajes": 2
+    },
+    {
+      "ruta": "DE ZONA INDUSTRIAL A LOS PATIOS",
+      "valor_promedio": 140002,
+      "viajes": 31
+    },
+    {
+      "ruta": "DE ZONA INDUSTRIAL A LOS PATIOS-SE DESCARGA EL DIA SIGUIENTE O SEA EL 20",
+      "valor_promedio": 80000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DUBO GALAXIA CASA Y HOGAR RAMIREZ",
+      "valor_promedio": 136000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Dubo Aluminios y Ferrepuestos Junior",
+      "valor_promedio": 94000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Dubo, Majolim , Alba y Cia",
+      "valor_promedio": 119000,
+      "viajes": 1
+    },
+    {
+      "ruta": "GRUPO DUBO- CASA Y HOGAR RAMIREZ",
+      "valor_promedio": 94000,
+      "viajes": 1
+    },
+    {
+      "ruta": "GRUPO DUBO- VERA ROSELIA",
+      "valor_promedio": 95000,
+      "viajes": 1
+    },
+    {
+      "ruta": "HVC-GALAXIA-VERA ROSELIA-ALBA Y CIA-DANIEL BONETT",
+      "valor_promedio": 200000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Hector Hernando Guarin La Galaxia del plástico Naviplas",
+      "valor_promedio": 136000,
+      "viajes": 1
+    },
+    {
+      "ruta": "JENNY ELIZABET MORENO -",
+      "valor_promedio": 90000,
+      "viajes": 1
+    },
+    {
+      "ruta": "JENNY MORENO, SABUCO ,Hector Hernando Guarin, Roselia Vera",
+      "valor_promedio": 160000,
+      "viajes": 1
+    },
+    {
+      "ruta": "JENNY MORENO- FRA 52232",
+      "valor_promedio": 40000,
+      "viajes": 1
+    },
+    {
+      "ruta": "ROSALBINA GUECHA ALVARO AMOROCHO ALBA Y CIA TRAPEROS EL MEJOR GALAXIA JUAN JOSE ARENAS",
+      "valor_promedio": 240000,
+      "viajes": 1
+    },
+    {
+      "ruta": "ROSALBINA GUECHA-HECTOR GUARIN-ROSALIA VERA-MAJOLIM-MERKADESCUENTOS-GOMEZ RAMIREZ LUZ-ALUM",
+      "valor_promedio": 290000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Sabuco,Pasturizadora La Mejor, Jenny Moreno, Alvaro Amorocho, Alba y Cia, Succes Partner (",
+      "valor_promedio": 370000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Sabucu Florez Quinteo Jennie",
+      "valor_promedio": 94000,
+      "viajes": 1
+    },
+    {
+      "ruta": "ZONA INDUSTRIAL A ALUMAR PATIOS",
+      "valor_promedio": 129746,
+      "viajes": 3
+    }
+  ],
+  "EDGAR ENRIQUE ORTIZ": [
+    {
+      "ruta": "MONTELIBANO- EL BANCO-MONTERIA-MEDELLIN",
+      "valor_promedio": 2950000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MONTERIA-LA CEJA-SINCELEJO-COROZAL-RIONEGRO-CERETE- MEDELLIN-(ITAGUI)",
+      "valor_promedio": 2907250,
+      "viajes": 1
+    }
+  ],
+  "FREDDY QUINTERO SANCHEZ": [
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-CURUMANI-VALLEDUPAR-",
+      "valor_promedio": 2894000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DE ZONA INDUSTRIAL A LOS PATIOS",
+      "valor_promedio": 210000,
+      "viajes": 1
+    },
+    {
+      "ruta": "SOGAMOSO-TUNJA-BOGOTA-NEIVA-GARZON-PITALITO",
+      "valor_promedio": 2723301,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-BOSCONIA-FUNDACION-SANTA MARTA-SOLEDAD-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2550000,
+      "viajes": 1
+    }
+  ],
+  "GRUPO FRAMMI": [
+    {
+      "ruta": "BARRANQUILLA-SANTA MARTA-CIENAGA-FUNDACION-RIOHACHA-MAICAO-VALLEDUPAR-SAN ALBERTO-OCAÑA",
+      "valor_promedio": 3778000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BOGOTA-NEIVA-GARZON-PITALITO",
+      "valor_promedio": 3250000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI- ALMACENES LA 13 Y OTROS CLIENTES",
+      "valor_promedio": 3100000,
+      "viajes": 1
+    },
+    {
+      "ruta": "SOLEDAD-BARRANQUILLA-SANTA MARTA-CARTAGENA",
+      "valor_promedio": 4050000,
+      "viajes": 1
+    }
+  ],
+  "ISIDRO ANAYA HERNANDEZ": [
+    {
+      "ruta": "AGUACHICA-VALLEDUPAR-BOSCONIA-SANTA MARTA-BARRANQUILLA-CARTAGENA (SAN ANDRES)",
+      "valor_promedio": 2893000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BOGOTA-NEIVA-GARZON-PITALITO",
+      "valor_promedio": 2843000,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-AGUACHICA-VALLEDUPAR-SANTA MARTA-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2500000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR--BOSCONIA-FUNDACION-CIENAGA-SANTA MARTA-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2550000,
+      "viajes": 1
+    }
+  ],
+  "ISMAEL GUSTAVO DUARTE": [
+    {
+      "ruta": "BARRANCABERMEJA-6 CLIENTES",
+      "valor_promedio": 450000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-VALLEDUPAR",
+      "valor_promedio": 3500000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MEDELLIN- MONTERIA-CERETE-LORICA-SINCELEJO-MAGANGUE-AGUACHICA-SAN ALBERTO-BUCARAMANGA",
+      "valor_promedio": 3400000,
+      "viajes": 1
+    }
+  ],
+  "JARVIN ALEXANDER LEON": [
+    {
+      "ruta": "MEDELLIN-SINCELEJO-AGUACHICA-OCAÑA+RIONEGRO+MONTERIA",
+      "valor_promedio": 2807250,
+      "viajes": 1
+    },
+    {
+      "ruta": "PITALITO-GARZON-NEIVA-IBAGUE-PUERTO BOYACA-PUERTO PARRA-BARRANCABERMEJA-BUCARAMANGA",
+      "valor_promedio": 2650000,
+      "viajes": 1
+    }
+  ],
+  "JONATHAM NIÑO SOTELO": [
+    {
+      "ruta": "CARTAGENA (NAVIERA)",
+      "valor_promedio": 2239366,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-AGUACHICA-VALLEDUPAR-CURUMANI-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2500000,
+      "viajes": 1
+    }
+  ],
+  "JORGE DELGADO FIGUEROA": [
+    {
+      "ruta": "DE ZONA INDUSTRIAL A LOS PATIOS",
+      "valor_promedio": 210000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DE ZONA INDUSTRIAL A LOS PATIOS-",
+      "valor_promedio": 220920,
+      "viajes": 1
+    }
+  ],
+  "JOSE ALEJANDRO CARDOZO": [
+    {
+      "ruta": "BUCARAMANGA-CHIA-BOGOTA-NEIVA-GARZON-PITALITO",
+      "valor_promedio": 2820000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CURUMANI- BOSCONIA-CIENAGA-SANTA MARTA-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2944000,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-AGUACHICA-VALLEDUPAR-CURUMANI-SANTA MARTA-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2800000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-CIENAGA- SANTA MARTA-BARRANQUILLA-CARTAGENA (2 CLIENTES PARA SAN ANDRES)",
+      "valor_promedio": 2650000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-FUNDACION-CURUMANI-SANTA MARTA-BARRANQUILLA-CARTAGENA-BOSCONIA",
+      "valor_promedio": 3250000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-MAICAO-SANTAMARTA-BARRANQUILLA-CARTAGENA-OCAÑA",
+      "valor_promedio": 3500000,
+      "viajes": 1
+    }
+  ],
+  "JOSE ORLANDO CUBEROS": [
+    {
+      "ruta": "BOGOTA-NEIVA-GARZON-PITALITO",
+      "valor_promedio": 3250000,
+      "viajes": 1
+    }
+  ],
+  "JOSMAR JOSE ROMERO ROPERO": [
+    {
+      "ruta": "MEDELLIN",
+      "valor_promedio": 1400000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MEDELLIN-SINCELEJO-LORICA-MONTERIA -SAHAGUN",
+      "valor_promedio": 3100000,
+      "viajes": 1
+    }
+  ],
+  "JUAN CARLOS PINTO": [
+    {
+      "ruta": "AGUAZUL- YOPAL- BOGOTA-VILLAVICENCIO",
+      "valor_promedio": 3313000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BOGOTA-PAZ DE ARIPORO-YOPAL-VILLAVICENCIO- ACACIAS",
+      "valor_promedio": 3400000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BOGOTA-VILLAVICENCIO",
+      "valor_promedio": 2518895,
+      "viajes": 4
+    },
+    {
+      "ruta": "BOGOTA-VILLAVICENCIO-",
+      "valor_promedio": 2560936,
+      "viajes": 2
+    },
+    {
+      "ruta": "BUCARAMANGA- EL SOCORRO- DUITAMA-TUNJA-BOGOTA-VILLAVICENCIO-YOPAL",
+      "valor_promedio": 3350234,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BOGOTA-NEIVA-GARZON-PITALITO--ZIPAQUIRA-CAJICA",
+      "valor_promedio": 3214400,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BOGOTA-YOPAL-VILLAVICENCIO",
+      "valor_promedio": 3313800,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-GIRON-SAN GIL-SOGAMOSO-BOGOTA-FUSAGASUGA-PITALITO",
+      "valor_promedio": 3314400,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-PIEDECUESTA-BOGOTA-NEIVA",
+      "valor_promedio": 2250000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-PIEDECUESTA-EL SOCORRO- TUNJA-AGUAZUL-CHIA-SOACHA-BOGOTA-VILLAVICENCIO",
+      "valor_promedio": 3100000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-TUNJA-BOGOTA-VILLAVICENCIO-YOPAL",
+      "valor_promedio": 3250000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-YOPAL-BOGOTA",
+      "valor_promedio": 2808658,
+      "viajes": 2
+    },
+    {
+      "ruta": "BUCARAMANGA-YOPAL-VILLAVICENCIO-BOGOTA",
+      "valor_promedio": 3150234,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-ZIPAQUIRA-CAJICA-TABIO-CHIA-BOGOTA-VILLAVICENCIO",
+      "valor_promedio": 2994000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CAJICA-CHIA-BOGOTA-VILLAVICENCIO-YOPAL",
+      "valor_promedio": 3250234,
+      "viajes": 1
+    },
+    {
+      "ruta": "CHIA-BOGOTA-NEIVA-PITALITO",
+      "valor_promedio": 3000000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DE ZONA INDUSTRIAL A LOS PATIOS",
+      "valor_promedio": 150000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DUITAMA-CHIA-BOGOTA-VILLAVICENCIO",
+      "valor_promedio": 2793000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DUITAMA-CHIA-BOGOTA-YOPAL-VILLAVICENCIO",
+      "valor_promedio": 3363800,
+      "viajes": 1
+    },
+    {
+      "ruta": "DUITAMA-SOGAMOSO-BOGOTA-SOACHA-VILLAVICENCIO",
+      "valor_promedio": 2710936,
+      "viajes": 1
+    },
+    {
+      "ruta": "DUITAMA-SOGAMOSO-TUNJA-BOGOTA-VILLAVICENCIO- YOPAL",
+      "valor_promedio": 3463000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DUITAMA-SOGAMOSO-TUNJA-TOCANCIPA-SOPO-BOGOTA-VILLAVICENCIO-YOPAL",
+      "valor_promedio": 3563000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DUITAMA-TUNJA-ZIPAQUIRA-CHIA-BOGOTA-YOPAL",
+      "valor_promedio": 2958650,
+      "viajes": 1
+    },
+    {
+      "ruta": "NEIVA-BOGOTA- CHIA-UBATE-YOPAL-DUITAMA",
+      "valor_promedio": 3495000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Neiva Garzon Villavicencio Bogota Chia Zipaquira Sopo Tunja Yopal Soacha",
+      "valor_promedio": 4282803,
+      "viajes": 1
+    },
+    {
+      "ruta": "PAZ DE  ARIPORO-YOPAL-ZIPAQUIRA-CAJICA-CHIA-BOGOTA-SOACHA-VILLAVICENCIO",
+      "valor_promedio": 3513000,
+      "viajes": 1
+    },
+    {
+      "ruta": "SAN GIL- CHIA - BOGOTA - SOACHA - NEIVA - PITALITO",
+      "valor_promedio": 3331000,
+      "viajes": 1
+    },
+    {
+      "ruta": "SAN GIL- DUITAMA-TUNJA-BOGOTA-VILLAVICENCIO-PAZ DE ARIPORO-YOPAL",
+      "valor_promedio": 3350234,
+      "viajes": 1
+    },
+    {
+      "ruta": "SOGAMOSO- TUNJA- PORE- PAZ DE ARIPORO - YOPAL - BOGOTA- VILLAVICENCIO",
+      "valor_promedio": 3513000,
+      "viajes": 1
+    },
+    {
+      "ruta": "SOGAMOSO-BOGOTA-YOPAL-VILLAVICENCIO",
+      "valor_promedio": 3313800,
+      "viajes": 1
+    },
+    {
+      "ruta": "SOGAMOSO-DUITAMA-TUNJA-YOPAL-BOGOTA-VILLAVICENCIO",
+      "valor_promedio": 3350234,
+      "viajes": 1
+    },
+    {
+      "ruta": "TABIO-TOCANCIPA-SOPO-TUNJA-duitama-BOGOTA-SOACHA-VILLAVICENCIO",
+      "valor_promedio": 3094104,
+      "viajes": 1
+    },
+    {
+      "ruta": "TOCANCIPA-SOPO-BOGOTA-VILLAVICENCIO-PAZ DE ARIPORO-YOPAL",
+      "valor_promedio": 3250234,
+      "viajes": 1
+    },
+    {
+      "ruta": "TUNJA-DUITAMA-CHIA-YOPAL-BOGOTA-SOACHA-VILLAVICENCIO",
+      "valor_promedio": 3513000,
+      "viajes": 1
+    },
+    {
+      "ruta": "TUNJA-SOACHA-BOGOTA-VILLAVICENCIO-PAZ DE ARIPORO-YOPAL",
+      "valor_promedio": 3500000,
+      "viajes": 1
+    },
+    {
+      "ruta": "UBATE-ZIPAQUIRA-BOGOTA-VILLAVICENCIO",
+      "valor_promedio": 2560936,
+      "viajes": 1
+    },
+    {
+      "ruta": "VILLAVICENCIO- NEIVA-BOGOTA-TUNJA-SAN GIL-EL SOCORRO-PIEDECUESTA-BUCARAMANGA",
+      "valor_promedio": 3645000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VILLAVICENCIO- YOPAL- FUSAGASUGA-SOACHA-BOGOTA-CHIA",
+      "valor_promedio": 3463000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VILLAVICENCIO-BOGOTA-CAJICA-SOGAMOSO-DUITAMA-YOPAL-PAZ DE ARIPORO-TUNJA",
+      "valor_promedio": 3782803,
+      "viajes": 1
+    },
+    {
+      "ruta": "VILLAVICENCIO-BOGOTA-CHIA-TABIO-CAJICA-ZIPAQUIRA-UBATE",
+      "valor_promedio": 2943000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VILLAVICENCIO-BOGOTA-EL SOCORRO-SAN GIL-TUNJA-DUITAMA-SOGAMOSO",
+      "valor_promedio": 2860709,
+      "viajes": 1
+    },
+    {
+      "ruta": "VILLAVICENCIO-BOGOTA-SOPO-TUNJA",
+      "valor_promedio": 2987993,
+      "viajes": 1
+    },
+    {
+      "ruta": "VILLAVICENCIO-BOGOTA-SOPO-YOPAL-BUCARAMANGA",
+      "valor_promedio": 3532803,
+      "viajes": 1
+    },
+    {
+      "ruta": "VILLAVICENCIO-BOGOTA-TUNJA-DUITAMA-SOGAMOSO",
+      "valor_promedio": 2760936,
+      "viajes": 1
+    },
+    {
+      "ruta": "VILLAVICENCIO-BOGOTA-TUNJA-SOGAMOSO-DUITAMA-YOPAL",
+      "valor_promedio": 3463000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Villavicencio Bogota Chia Cajica Pacho Yopal",
+      "valor_promedio": 3800000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Villavicencio Bogota Chia Cajica Tabio Zipaquira Sopo Yopal Tunja",
+      "valor_promedio": 3782000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Villavicencio Bogota Yopal",
+      "valor_promedio": 3432803,
+      "viajes": 1
+    },
+    {
+      "ruta": "Villavicencio Soacha Neiva Pitalito Bogota Tunja Yopal Sogamoso Paz de Ariporo",
+      "valor_promedio": 4282803,
+      "viajes": 1
+    },
+    {
+      "ruta": "Villavicencio Yopal Bogotá Bucaramanga",
+      "valor_promedio": 3482000,
+      "viajes": 1
+    },
+    {
+      "ruta": "YOPAL-BOGOTA-SAN GIL- BUCARAMANGA+EL SOCORRO+DUITAMA-SOGAMOSO",
+      "valor_promedio": 2958650,
+      "viajes": 1
+    },
+    {
+      "ruta": "YOPAL-BOGOTA-TUNJA-SOGAMOSO",
+      "valor_promedio": 2858650,
+      "viajes": 1
+    },
+    {
+      "ruta": "YOPAL-BOGOTA-VILLAVICENCIO",
+      "valor_promedio": 3263800,
+      "viajes": 1
+    },
+    {
+      "ruta": "YOPAL-BOGOTA-VILLAVICENCIO-TOCANCIPA-SOPO",
+      "valor_promedio": 3250234,
+      "viajes": 1
+    },
+    {
+      "ruta": "YOPAL-VILLAVICENCIO-BOGOTA-BUCARAMANGA",
+      "valor_promedio": 3482803,
+      "viajes": 1
+    },
+    {
+      "ruta": "YOPAL-VILLAVICENCIO-BOGOTA-SOGAMOSO",
+      "valor_promedio": 3313800,
+      "viajes": 1
+    },
+    {
+      "ruta": "YOPAL-VILLAVICENCIO-BOGOTA-UBATE-TUNJA",
+      "valor_promedio": 3300234,
+      "viajes": 1
+    },
+    {
+      "ruta": "YOPAL-VILLAVICENCIO-FUSAGASUGA-BOGOTA-TUNJA-DUITAMA",
+      "valor_promedio": 3450234,
+      "viajes": 1
+    },
+    {
+      "ruta": "Yopal Villavicencio Bogota Chia Bucaramanga Pitalito Garzon Neiva",
+      "valor_promedio": 4132803,
+      "viajes": 1
+    },
+    {
+      "ruta": "Yopal Villavicencio Soacha Bogota",
+      "valor_promedio": 3482000,
+      "viajes": 1
+    },
+    {
+      "ruta": "ZIPAQUIRA-CHIA-BOGOTA-VILLAVICENCIO",
+      "valor_promedio": 2793000,
+      "viajes": 1
+    }
+  ],
+  "LUIS ERNESTO PARADA": [
+    {
+      "ruta": "RECOGIDA HVC Y CASA HOGAR RAMIREZ",
+      "valor_promedio": 15000,
+      "viajes": 1
+    },
+    {
+      "ruta": "RECOGIDA MCIA AVERIADA de grupo dubo(1 cava con maija suelta-1 termo con manija dañada y G",
+      "valor_promedio": 15000,
+      "viajes": 1
+    }
+  ],
+  "LUIS MIGUEL DUARTE": [
+    {
+      "ruta": "CARTAGENA-BARANOA-BARRANQUILLA-SANTA MARTA-VALLEDUPAR",
+      "valor_promedio": 2843000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-FUNDACION- BOSCONIA-VALLEDUPAR",
+      "valor_promedio": 2893000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-VALLEDUPAR",
+      "valor_promedio": 2793000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cartagena Barranquilla Santa Marta Bosconia Valledupar Aguachica",
+      "valor_promedio": 3350000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cartagena Barranquilla Santa Marta Cienaga Valledupar",
+      "valor_promedio": 3300000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cartagena Barranquilla Soledad Valledupar",
+      "valor_promedio": 3250000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cartagena, Barranquilla, Valledupar",
+      "valor_promedio": 3200000,
+      "viajes": 1
+    }
+  ],
+  "MARGARITA BOTERO": [
+    {
+      "ruta": "CUCUTA: FABIAN DUQUE",
+      "valor_promedio": 12000,
+      "viajes": 2
+    },
+    {
+      "ruta": "FABIAN DUQUE",
+      "valor_promedio": 72000,
+      "viajes": 1
+    },
+    {
+      "ruta": "GRUPO MAJOLIM",
+      "valor_promedio": 18000,
+      "viajes": 2
+    },
+    {
+      "ruta": "LOS APTIOS: MAJOLIM",
+      "valor_promedio": 8000,
+      "viajes": 1
+    },
+    {
+      "ruta": "LOS PATIOS- MAJOLIM",
+      "valor_promedio": 24000,
+      "viajes": 1
+    },
+    {
+      "ruta": "LOS PATIOS-MAJOLIM",
+      "valor_promedio": 8000,
+      "viajes": 1
+    },
+    {
+      "ruta": "LOS PATIOS: GRUPO MAJOLIM",
+      "valor_promedio": 12000,
+      "viajes": 1
+    },
+    {
+      "ruta": "LOS PATIOS: MAJOLIM",
+      "valor_promedio": 10000,
+      "viajes": 10
+    },
+    {
+      "ruta": "LOS PATIOS:MAJOLIM",
+      "valor_promedio": 8000,
+      "viajes": 2
+    },
+    {
+      "ruta": "MAJOLIM",
+      "valor_promedio": 22875,
+      "viajes": 8
+    },
+    {
+      "ruta": "MAJOLIM-LOS PATIOS",
+      "valor_promedio": 10000,
+      "viajes": 6
+    }
+  ],
+  "MARIO ALBERTO MOJICA": [
+    {
+      "ruta": "BARRANCABERMEJA-BUCARAMANGA-CIMITARRA-PUERTO PARRA-PUERTO BOYACA-IBAGUE-PEREIRA-CALI-ARMEN",
+      "valor_promedio": 2457312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BARRANCABERMEJA-PUERTO BOYACA-LA DORADA-PEREIRA-MANIZALES-CALI",
+      "valor_promedio": 2307312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCA-LA DORADA-IBAGUE-CALI",
+      "valor_promedio": 2307312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-CIMITARRA-LA DORADA-PEREIRA-ARMENIA-CARTAGO-CALI",
+      "valor_promedio": 2557312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-CIMITARRA-PUERTO BERRIO-PUERTO BOYACA-IBAGUE-PEREIRA-TULUA-CAR",
+      "valor_promedio": 2557312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-CIMITARRA-PUERTO BERRIO-PUERTO BOYACA-MANIZALES-PEREIRA-ARMENI",
+      "valor_promedio": 2507312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-CIMITARRA-PUERTO BOYACA- MANIZALES-ARMENIA-PEREIRA-CALI",
+      "valor_promedio": 2407312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-IBAGUE-SANTA ROSA DE CABAL-CALI",
+      "valor_promedio": 2377292,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-LA DORADA- SANTA ROSA DE CABAL- PEREIRA- CALI",
+      "valor_promedio": 2718000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-LA DORADA-ARMENIA-PEREIRA-CALI-SANTA ROSA DE CABAL",
+      "valor_promedio": 2357312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-LA DORADA-MANIZALES-CALI",
+      "valor_promedio": 2207312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-LA DORADA-MANIZALES-PEREIRA-ARMENIA-CALI",
+      "valor_promedio": 2307312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-PUERTO BERRIO-PUERTO BOYACA-MANIZALES-PEREIRA-CALI",
+      "valor_promedio": 2357312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-PUERTO BOYACA -PEREIRA-CALI",
+      "valor_promedio": 2207312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-PUERTO BOYACA-MANIZALES-PEREIRA-ARMENIA-CARTAGO-TULUA-CALI+PIE",
+      "valor_promedio": 2457312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-PUERTO BOYACA-PUERTO BERRIO-IBAGUE-ARMENIA-PEREIRA-CALI",
+      "valor_promedio": 2407312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-PUERTO BOYACA-SANTA ROSA DE CABAL-PEREIRA-ARMENIA-CALI",
+      "valor_promedio": 2307312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-PUERTO PARRA-CIMITARRA-LA DORADA-PUERTO BOYACA-MANIZALES-PEREI",
+      "valor_promedio": 2757312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-VDA LA CEIBA EN BARRANCA-PUERTO BOYACA-MANIZALES-ARMENIA-PEREI",
+      "valor_promedio": 2357312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-GIRON-BARRANCABERMEJA-PUERTO BERRIO- PUERTO BOYACA-MANIZALES-TULUA-CALI",
+      "valor_promedio": 2868000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-PIEDECUESTA-BARRANCABERMEJA-CIMITARRA-PUERTO BERRIO- SANTA ROSA DE CABAL- ARME",
+      "valor_promedio": 2637312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-PIEDECUESTA-BARRANCABERMEJA-CIMITARRA-PUERTO BERRIO-LA DORADA-PEREIRA-CALI-POP",
+      "valor_promedio": 2667558,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-PIEDECUESTA-BARRANCABERMEJA-CIMITARRA-PUERTO BERRIO-MANIZALES-PEREIRA-SANTA RO",
+      "valor_promedio": 2557312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-PIEDECUESTA-BARRANCABERMEJA-MARIQUITA-PUERTO BOYACA-IBAGUE- ARMENIA-SANTA ROSA",
+      "valor_promedio": 2577292,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-PIEDECUESTA-BARRANCABERMEJA-PUERTO BOYACA- IBAGUE- ARMENIA- PEREIRA- CALI+ CIM",
+      "valor_promedio": 2818000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-PIEDECUESTA-LA DORADA-IBAGUE-ARMENIA- CARTAGO-CALI",
+      "valor_promedio": 2307312,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-PUERTO BOYACA-PUERTO BERRIO-MANIZALES-ARMENIA-PEREIRA-TULUA-CALI",
+      "valor_promedio": 2407312,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI- YUMBO- PALMIRA-LA UNION- ARMENIA-PEREIRA-MANIZALES- VILLA MARIA-LA DORADA-CIMITARRA-",
+      "valor_promedio": 3196418,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI-ARMENIA-MANIZALES-BARRANCABERMEJA+BUCARAMANGA",
+      "valor_promedio": 2696418,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI-ARMENIA-MANIZALES-PUERTO BERRIO- BARRANCABERMEJA-BUCARAMANGA",
+      "valor_promedio": 2427292,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI-ARMENIA-PEREIRA-SANTA ROSA DE CABAL-MANIZALES-PUERTO BOYACA-BARRANCABERMEJA-BUCARAMAN",
+      "valor_promedio": 2357312,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI-ARMENIA-SANTA ROSA DE CABAL-PUERTO BERRIO- PUERTO BOYACA-LA DORADA-PUERTO PARRA-BUCAR",
+      "valor_promedio": 2868000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI-CARTAGO-PEREIRA-MANIZALES-CIMITARRA-BARRANCABERMEJA-BUCARAMANGA",
+      "valor_promedio": 2818000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI-LA UNION-PEREIRA-IBAGUE-BARRANCA (VEREDA LA CEIBA)-PIEDECUESTA-PUERTO BOYACA- BUCARAM",
+      "valor_promedio": 2868000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI-PEREIRA-ARMENIA-MANIZALES-CIMITARRA-BARRANCABERMEJA-BUCARAMANGA",
+      "valor_promedio": 2357312,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI-PEREIRA-MANIZALES-LA DORADA-PUERTO BOYACA-BARRANCABERMEJA-BUCARAMANGA-PIEDECUESTA",
+      "valor_promedio": 2846418,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI-PEREIRA-MANIZALES-LA DORADA-PUERTO BOYACA-CIMITARRA-BARRANCABERMEJA-PIEDECUESTA-BUCAR",
+      "valor_promedio": 2457312,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI-TULUA - ARMENIA-IBAGUE-BARRANCABERMEJA-GIRON- PIEDECUESTA-BUCARAMANGA",
+      "valor_promedio": 2868000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CALI-TULUA-ARMENIA-PEREIRA-LA DORADA-PUERTO BOYACA-BARRANCABERMEJA-BUCARAMANGA",
+      "valor_promedio": 2846418,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cali  Cartago Armenia Pereira Ibague Barrancabermeja Bucaramanga",
+      "valor_promedio": 2796416,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cali Pereira Ibague Bucaramanga Armenia Buga Tulua",
+      "valor_promedio": 2796416,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cali Puerto Boyaca Barranca Bucaramanga",
+      "valor_promedio": 2646418,
+      "viajes": 1
+    },
+    {
+      "ruta": "DE ZONA INDUSTRIAL A LOS PATIOS-",
+      "valor_promedio": 229784,
+      "viajes": 10
+    },
+    {
+      "ruta": "MANIZALES-ARMENIA- PEREIRA-CALI-POPAYAN",
+      "valor_promedio": 2367558,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-AGUACHICA-SAN MARTIN-BUCARAMANGA-PIEDECUESTA-BARRANCABERMEJA-LA DORADA-PUERTO BERRIO",
+      "valor_promedio": 2957312,
+      "viajes": 1
+    },
+    {
+      "ruta": "PIEDECUESTA-BUCARAMANGA(GRISELDO FERNANDEZ)",
+      "valor_promedio": 1022708,
+      "viajes": 1
+    },
+    {
+      "ruta": "Popayan Cali Pereira Santa Rosa de Cabal Armenia Ibagué Cimitarra Barrancabermeja Bucarama",
+      "valor_promedio": 3100000,
+      "viajes": 1
+    }
+  ],
+  "MIGUEL ANGEL CARRERO BURGOS": [
+    {
+      "ruta": "BARRANQUILLA-SANTA MARTA-CIENAGA-FUNDACION-RIOHACHA-MAICAO-VALLEDUPAR-SAN ALBERTO-OCAÑA",
+      "valor_promedio": 3778000,
+      "viajes": 1
+    }
+  ],
+  "MIGUEL ANGEL PINTO LOPEZ": [
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SOLEDAD-SANTA MARTA-VALLEDUPAR",
+      "valor_promedio": 3184160,
+      "viajes": 1
+    }
+  ],
+  "MILLER GALLO": [
+    {
+      "ruta": "AGUACHICA-CERETE-SINCELEJO-LORICA-MONTERIA-RIONEGRO-MEDELLIN",
+      "valor_promedio": 2857250,
+      "viajes": 1
+    },
+    {
+      "ruta": "AGUACHICA-COROZAL-MAGANGUE-LORICA-MONTERIA-SINCELEJO-MEDELLIN",
+      "valor_promedio": 3100000,
+      "viajes": 1
+    },
+    {
+      "ruta": "AGUACHICA-COROZAL-MONTERIA-SINCELEJO-RIONEGRO-MEDELLIN",
+      "valor_promedio": 2900000,
+      "viajes": 1
+    },
+    {
+      "ruta": "AGUACHICA-EL BANCO-COROZAL-SAHAGUN-SINCELEJO-MONTERIA-MEDELLIN----CV035",
+      "valor_promedio": 2857250,
+      "viajes": 1
+    },
+    {
+      "ruta": "AGUACHICA-EL CARMEN DE BOLIVAR-CERETE-MONTERIA-LORICA-MEDELLIN",
+      "valor_promedio": 3250000,
+      "viajes": 1
+    },
+    {
+      "ruta": "AGUACHICA-MAGANGUE- MONTERIA- SINCELEJO-MEDELLIN- LA CEJA--OCAÑA",
+      "valor_promedio": 3300000,
+      "viajes": 1
+    },
+    {
+      "ruta": "AGUACHICA-MAGANGUE-LORICA-RIONEGRO-MEDELLIN",
+      "valor_promedio": 2757250,
+      "viajes": 1
+    },
+    {
+      "ruta": "AGUACHICA-SAHAGUN-MONTERIA-MAGANGUE- SINCELEJO-RIONEGRO-MEDELLIN-EL CARMEN DE BOLIVAR-OCAÑ",
+      "valor_promedio": 3200000,
+      "viajes": 1
+    },
+    {
+      "ruta": "AGUACHICA-VALLEDUPAR-BOSCONIA-SANTA MARTA-BARRANQUILLA-CARTAGENA (SAN ANDRES)",
+      "valor_promedio": 2893000,
+      "viajes": 1
+    },
+    {
+      "ruta": "AGUACHICA-VALLEDUPAR-CIENAGA-SANTA MARTA-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2600000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BOGOTA-NEIVA-GARZON-PITALITO",
+      "valor_promedio": 2843000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-BARRANCABERMEJA-LA DORADA-MANIZALES-MEDELLIN",
+      "valor_promedio": 2550000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-CHIA-BOGOTA-NEIVA-GARZON-PITALITO",
+      "valor_promedio": 2820000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-IBAGUE- NEIVA-GARZON- FUSAGASUGA",
+      "valor_promedio": 2500000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-PUERTO BERRIO-PUERTO BOYACA-NEIVA-PITALITO",
+      "valor_promedio": 2500000,
+      "viajes": 1
+    },
+    {
+      "ruta": "BUCARAMANGA-VALLEDUPAR-BOSCONIA-SANTA MARTA-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2700000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA (NAVIERA)",
+      "valor_promedio": 2239366,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARANOA-BARRANQUILLA-SANTA MARTA-VALLEDUPAR",
+      "valor_promedio": 2843000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-CURUMANI-VALLEDUPAR-",
+      "valor_promedio": 2894000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-CIENAGA-VALLEDUPAR",
+      "valor_promedio": 2944000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-CURUMANI-VALLEDUPAR",
+      "valor_promedio": 2944000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-FUNDACION- BOSCONIA-VALLEDUPAR",
+      "valor_promedio": 2893000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-FUNDACION-VALLEDUPAR-AGUACHICA",
+      "valor_promedio": 2893000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-MAICAO-VALLEDUPAR",
+      "valor_promedio": 3750000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-SOLEDAD-RIOHACHA-MAICAO-VALLEDUPAR",
+      "valor_promedio": 4250000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-VALLEDUPAR",
+      "valor_promedio": 2793000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-VALLEDUPAR-AGUACHICA",
+      "valor_promedio": 2900000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-VALLEDUPAR-AGUACHICA-OCAÑA",
+      "valor_promedio": 2500000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-VALLEDUPAR-AGUACHICA",
+      "valor_promedio": 2950000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CERETE-LORICA-SINCELEJO-MONTERIA-MEDELLIN",
+      "valor_promedio": 2757250,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: DUBO Y CASA Y HOGAR RAMIREZ",
+      "valor_promedio": 80000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CURUMANI- BOSCONIA-CIENAGA-SANTA MARTA-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2944000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cartagena (San Andres) Barranquilla Santa Marta Maicao Valledupar Soledad",
+      "valor_promedio": 4000000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cartagena Barranquilla Santa Marta Bosconia Valledupar Aguachica",
+      "valor_promedio": 3350000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cartagena Barranquilla Santa Marta Cienaga Fundacion Valledupar",
+      "valor_promedio": 3400000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cartagena Barranquilla Santa Marta Cienaga Valledupar",
+      "valor_promedio": 3300000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cartagena Barranquilla Soledad Valledupar",
+      "valor_promedio": 3250000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cartagena, Barranquilla, Valledupar",
+      "valor_promedio": 3200000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cartagena-Barranquilla-Santa Marta-Cienaga- Fundación- Bosconia- Valledupar",
+      "valor_promedio": 3050000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DE ZONA INDUSTRIAL A LOS PATIOS",
+      "valor_promedio": 161300,
+      "viajes": 6
+    },
+    {
+      "ruta": "MAGANGUE-COROZAL-SINCELEJO-MONTERIA-MEDELLIN",
+      "valor_promedio": 2850000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MEDELLIN",
+      "valor_promedio": 1400000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MEDELLIN-MONTELIBANO-SINCELEJO-MONTERIA-COROZAL",
+      "valor_promedio": 2757250,
+      "viajes": 1
+    },
+    {
+      "ruta": "MEDELLIN-RIONEGRO -MONTERIA-SINCELEJO-CERETE-OCAÑA",
+      "valor_promedio": 3050000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MEDELLIN-SAHAGUN-MONTERIA-SINCELEJO-MAGANGUE-AGUACHICA",
+      "valor_promedio": 3150000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MEDELLIN-SINCELEJO",
+      "valor_promedio": 2700000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MEDELLIN-SINCELEJO-LORICA-MONTERIA -SAHAGUN",
+      "valor_promedio": 3100000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MEDELLIN-SINCELEJO-MONTERIA-AGUACHICA",
+      "valor_promedio": 2707250,
+      "viajes": 1
+    },
+    {
+      "ruta": "MONTELIBANO- EL BANCO-MONTERIA-MEDELLIN",
+      "valor_promedio": 2950000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MONTERIA-COROZAL",
+      "valor_promedio": 1100000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MONTERIA-LA CEJA-SINCELEJO-COROZAL-RIONEGRO-CERETE- MEDELLIN-(ITAGUI)",
+      "valor_promedio": 2907250,
+      "viajes": 1
+    },
+    {
+      "ruta": "Medellin Rionegro Corozal Sincelejo Aguachica Rionegro",
+      "valor_promedio": 3153000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Medellin Sincelejo Aguachica Ocaña",
+      "valor_promedio": 3100000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Medellin- Sincelejo-Monteria-Aguachica-Ocaña",
+      "valor_promedio": 3100000,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-AGUACHICA-CERETE-MONTELIBANO-MONTERIA-SINCELEJO-LA CEJA-MEDELLIN",
+      "valor_promedio": 3150000,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-AGUACHICA-MAGANGUE-SINCELEJO-MEDELLIN",
+      "valor_promedio": 2757250,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-AGUACHICA-VALLEDUPAR-CURUMANI-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2500000,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-AGUACHICA-VALLEDUPAR-CURUMANI-SANTA MARTA-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2800000,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-AGUACHICA-VALLEDUPAR-SANTA MARTA-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2500000,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-LA CEJA-RIONEGRO-MEDELLIN",
+      "valor_promedio": 2757250,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-SAN MARTIN- AGUACHICA-BOSCONIA-VALLEDUPAR-FUNDACION-CIENAGA-SANTA MARTA-BARRANQUILLA",
+      "valor_promedio": 2780000,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-VALLEDUPAR-AGUACHICA-MAICAO-BARRANQUILLA-CARTAGENA (SAN ANDRES)-",
+      "valor_promedio": 3600000,
+      "viajes": 1
+    },
+    {
+      "ruta": "PELAYA-COROZAL-MONTELIBANO-SINCELEJO- SAHAGUN- MONTERIA-MEDELLIN",
+      "valor_promedio": 3100000,
+      "viajes": 1
+    },
+    {
+      "ruta": "PITALITO- GARZON-NEIVA-BOGOTA-SAN GIL",
+      "valor_promedio": 2893000,
+      "viajes": 1
+    },
+    {
+      "ruta": "SAHAGUN- COROZAL-AGUACHICA-SINCELEJO- MONTELIBANO-MEDELLIN",
+      "valor_promedio": 3050000,
+      "viajes": 1
+    },
+    {
+      "ruta": "SINCELEJO-MONTERIA-RIONEGRO-LA CEJA-MEDELLIN",
+      "valor_promedio": 3357984,
+      "viajes": 1
+    },
+    {
+      "ruta": "SOACHA-UBATE-BOGOTA-NEIVA-GARZON",
+      "valor_promedio": 2850000,
+      "viajes": 1
+    },
+    {
+      "ruta": "SOGAMOSO-TUNJA-BOGOTA-NEIVA-GARZON-PITALITO",
+      "valor_promedio": 2723301,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR- AGUACHICA-CURUMANI-CIENAGA-SANTA MARTA- BARRANQUILLA- CARTAGENA",
+      "valor_promedio": 2943000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR- SANTA MARTA-BARRANQUILLA-CARTAGENA (SAN ANDRES)",
+      "valor_promedio": 2800000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR--BOSCONIA-FUNDACION-CIENAGA-SANTA MARTA-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2550000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-BOSCONIA-FUNDACION-SANTA MARTA-SOLEDAD-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2550000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-BOSCONIA-SANTA MARTA-SOLEDAD-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 3240160,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-CIENAGA- SANTA MARTA-BARRANQUILLA-CARTAGENA (2 CLIENTES PARA SAN ANDRES)",
+      "valor_promedio": 2650000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-FUNDACION-CURUMANI-SANTA MARTA-BARRANQUILLA-CARTAGENA-BOSCONIA",
+      "valor_promedio": 3250000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-FUNDACION-SOLEDAD-BARRANQUILLA-CARTAGENA-BOSCONIA-",
+      "valor_promedio": 2600000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-MAICAO-SANTA MARTA-AGUACHICA",
+      "valor_promedio": 2618080,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-MAICAO-SANTAMARTA-BARRANQUILLA-CARTAGENA-OCAÑA",
+      "valor_promedio": 3500000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-PELAYA-SANTA MARTA-BARRANQUILLA-CARTAGENA (SAN ANDRES)",
+      "valor_promedio": 2944000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-SANTA MARTA-BARRANQUILLA-CARTAGENA (SAN ANDRES)",
+      "valor_promedio": 3100000,
+      "viajes": 1
+    },
+    {
+      "ruta": "VALLEDUPAR-SANTA MARTA-BARRANQUILLA-SABANALARGA-CARTAGENA",
+      "valor_promedio": 2900000,
+      "viajes": 1
+    }
+  ],
+  "MILLER SEBASTIAN GALLO QUINTANA": [
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-CURUMANI-VALLEDUPAR-",
+      "valor_promedio": 3050000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Cartagena-Barranquilla-Santa Marta-Cienaga- Fundación- Bosconia- Valledupar",
+      "valor_promedio": 3050000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Medellin Monteria Aguachica Cerete",
+      "valor_promedio": 3050000,
+      "viajes": 1
+    },
+    {
+      "ruta": "Medellin Sincelejo Aguachica Ocaña",
+      "valor_promedio": 3100000,
+      "viajes": 1
+    },
+    {
+      "ruta": "RIOHACHA-SANTA MARTA-BARRANQUILLA-CARTAGENA + aguachica",
+      "valor_promedio": 3450000,
+      "viajes": 1
+    },
+    {
+      "ruta": "SINCELEJO-MONTERIA-RIONEGRO-LA CEJA-MEDELLIN",
+      "valor_promedio": 3357984,
+      "viajes": 1
+    },
+    {
+      "ruta": "SOACHA-UBATE-BOGOTA-NEIVA-GARZON",
+      "valor_promedio": 2850000,
+      "viajes": 1
+    }
+  ],
+  "PABLO ANTONIO GARZA": [
+    {
+      "ruta": "CUCUTA- HECTOR GUARIN",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA-ALBA Y CIA",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: ALACENA DEL CHEFF",
+      "valor_promedio": 10000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: ALBA Y CIA",
+      "valor_promedio": 20000,
+      "viajes": 5
+    },
+    {
+      "ruta": "CUCUTA: ALVARO AMOROCHO",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: ALVARO AMOROCHO-ALBA Y CIA-GUECHA RIVERA",
+      "valor_promedio": 60000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: CASA HOGAR RAMIREZ",
+      "valor_promedio": 20000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA: CASA HOGAR RAMIREZ Y JENNIY MORENO",
+      "valor_promedio": 60000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: CASA Y HOGAR RAMIREZ",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: COD 160",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: CRISTALERIA A Y G",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: CRISTALERIA AY G",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: DKASA",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: DUBO",
+      "valor_promedio": 20000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA: ERIKA VERA",
+      "valor_promedio": 20000,
+      "viajes": 4
+    },
+    {
+      "ruta": "CUCUTA: ERIKA VERA-ALVARO AMOROCHO-FLOREZ QUINTERO JENNYE",
+      "valor_promedio": 80000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: ERIKA YURLEY VERA Y GOMEZ RAMIREZ LUZ MARINA",
+      "valor_promedio": 40000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: FLOREZ QUINTERO JENNIY",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: GRUPO CARRILLO-ALVAREZ CORREDOR HENRY",
+      "valor_promedio": 32000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: GRUPO DUBO Y ALBA Y CIA",
+      "valor_promedio": 40000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: GUECHA  MARCO ANTONIO Y HENRY ALVAREZ",
+      "valor_promedio": 40000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: GUECHA MARCO ANTONIO",
+      "valor_promedio": 10000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: GUECHA RIVERA ROSALBINA",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: HECTOR EDUARDO GUARIN",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: HECTOR GUARIN",
+      "valor_promedio": 20000,
+      "viajes": 4
+    },
+    {
+      "ruta": "CUCUTA: HECTOR GUARIN Y HENRY GOMEZ",
+      "valor_promedio": 32000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: HECTOR HERNANDO GUARIN",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: HECTOR HERNANDO GUARIN ALVAREZ",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: HECTOR HERNANDO GUARIN Y MARTHA ROJAS",
+      "valor_promedio": 32000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: HECTOR HERNANDO GUARIN-ALVAREZ CORREDOR HENRY-CASA HOGAR RAMIREZ",
+      "valor_promedio": 55000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: HENRY ANDRES ALVAREZ",
+      "valor_promedio": 20000,
+      "viajes": 4
+    },
+    {
+      "ruta": "CUCUTA: HENRY ANDRES ALVAREZ Y HECTOR GUARIN",
+      "valor_promedio": 32000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: HVC",
+      "valor_promedio": 25000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA: HVC Y ALBA Y CIA",
+      "valor_promedio": 32000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: INVERSIONES SABUCO- ALACENA DEL CHEFF",
+      "valor_promedio": 35000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: JENNIE MORENO-ROSALBA GUECHA-LUZ MARINA GOMEZ",
+      "valor_promedio": 55000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: JENNY ELIZABETH MORENO",
+      "valor_promedio": 20000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA: JUAN JOSE ARENAS",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: MARCO ANTONIO GUECHA",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: MARCO ANTONIO GUECHA MEDINA",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: PLASTICOS GALAXIA",
+      "valor_promedio": 25000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA: ROSALBINA GUECHA",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: TRAPEROS EL MEJOR",
+      "valor_promedio": 25000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA:CASA Y HOGAR RAMIREZ",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA:DUBO",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA:ERIKA VERA",
+      "valor_promedio": 20000,
+      "viajes": 1
+    },
+    {
+      "ruta": "DE ZONA INDUSTRIAL A LOS PATIOS",
+      "valor_promedio": 35000,
+      "viajes": 2
+    },
+    {
+      "ruta": "LLEVAR MCIA DE DISTRIBUCIONES CALDAS AL AEROPUERTO",
+      "valor_promedio": 30000,
+      "viajes": 2
+    },
+    {
+      "ruta": "MAJOLIM-LOS PATIOS",
+      "valor_promedio": 10000,
+      "viajes": 2
+    },
+    {
+      "ruta": "VILLA DEL ROSARIO- RECOR",
+      "valor_promedio": 28000,
+      "viajes": 1
+    }
+  ],
+  "ROBERSON MONSALVE": [
+    {
+      "ruta": "CUCUTA: ALBA Y CIA",
+      "valor_promedio": 65000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: CASA Y HOGAR RAMIREZ",
+      "valor_promedio": 50000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: ERIKA YURLEY VERA",
+      "valor_promedio": 65000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: JENNY ELIZABETH MORENO Y ERIKA YURLEY VERA",
+      "valor_promedio": 80000,
+      "viajes": 1
+    },
+    {
+      "ruta": "CUCUTA: PLASTICOS GALAXIA",
+      "valor_promedio": 60000,
+      "viajes": 2
+    },
+    {
+      "ruta": "CUCUTA:KBOD",
+      "valor_promedio": 65000,
+      "viajes": 1
+    }
+  ],
+  "SANTIESTEBAN": [
+    {
+      "ruta": "BOGOTA- BUCARAMANGA-TOCANCIPA",
+      "valor_promedio": 1300000,
+      "viajes": 1
+    }
+  ],
+  "WILLIAN CELY RINCON": [
+    {
+      "ruta": "BOGOTA-VILLAVICENCIO-AGUAZUL-YOPAL",
+      "valor_promedio": 2841280,
+      "viajes": 1
+    },
+    {
+      "ruta": "BOGOTA-YOPAL",
+      "valor_promedio": 2343811,
+      "viajes": 1
+    },
+    {
+      "ruta": "CHIA-BOGOTA-SOACHA-VILLAVICENCIO",
+      "valor_promedio": 2297062,
+      "viajes": 1
+    },
+    {
+      "ruta": "SOGAMOSO-BOGOTA-VILLAVICENCIO- SM114",
+      "valor_promedio": 2247062,
+      "viajes": 1
+    },
+    {
+      "ruta": "SOGAMOSO-TUNJA-DUITAMA-CHIA-SOACHA-BOGOTA-VILLAVICENCIO-YOPAL",
+      "valor_promedio": 3091280,
+      "viajes": 1
+    },
+    {
+      "ruta": "UBATE-BOGOTA-VILLAVICENCIO",
+      "valor_promedio": 2247062,
+      "viajes": 1
+    }
+  ],
+  "WILLIAN CUADROS ORTIZ": [
+    {
+      "ruta": "SOLEDAD-BARRANQUILLA-SANTA MARTA-CARTAGENA",
+      "valor_promedio": 4050000,
+      "viajes": 1
+    }
+  ],
+  "WISTON RAFAEL AGAMEZ": [
+    {
+      "ruta": "CARTAGENA-BARRANQUILLA-SANTA MARTA-SAN ALBERTO",
+      "valor_promedio": 2430000,
+      "viajes": 1
+    },
+    {
+      "ruta": "MAGANGUE- COROZAL-SINCELEJO- MONTERIA-MEDELLIN- LA CEJA",
+      "valor_promedio": 2857250,
+      "viajes": 1
+    },
+    {
+      "ruta": "MEDELLIN-SINCELEJO-AGUACHICA-OCAÑA+RIONEGRO+MONTERIA",
+      "valor_promedio": 2807250,
+      "viajes": 1
+    },
+    {
+      "ruta": "MONTERIA-SINCELEJO-COROZAL-CERETE-LORICA-MEDELLIN",
+      "valor_promedio": 2807250,
+      "viajes": 1
+    },
+    {
+      "ruta": "OCAÑA-VALLEDUPAR-SANTAMARTA-SOLEDAD-BARRANQUILLA-CARTAGENA",
+      "valor_promedio": 2500000,
+      "viajes": 1
+    },
+    {
+      "ruta": "PITALITO-GARZON-NEIVA-IBAGUE-PUERTO BOYACA-PUERTO PARRA-BARRANCABERMEJA-BUCARAMANGA",
+      "valor_promedio": 2650000,
+      "viajes": 1
+    }
+  ]
+}
