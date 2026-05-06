@@ -2,6 +2,27 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import RUTAS_HISTORICAS from "./rutasHistoricas.json";
 
 const API = import.meta.env.VITE_API_URL || "https://refreshing-gentleness-production-7a26.up.railway.app";
+const GS = "https://script.google.com/macros/s/AKfycbyZmzq0Wi2QlfDHIgjpH0NTHSAJV4q1JCN42zf2Z0-IAonSf7w54JNgmx4SPYAV5cS7/exec";
+
+// ── Google Sheets API ─────────────────────────────────────────────────────────
+const gsGet = async (action, params = {}) => {
+  const url = new URL(GS);
+  url.searchParams.set("action", action);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString());
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Error Google Sheets");
+  return json.data;
+};
+const gsPost = async (action, body = {}) => {
+  const res = await fetch(GS, {
+    method: "POST",
+    body: JSON.stringify({ action, ...body }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Error Google Sheets");
+  return json.data;
+};
 
 const C = {
   bg: "#f0f4f8",
@@ -954,19 +975,42 @@ export default function App() {
   const [processing, setProcessing] = useState(false);
   const [pdfModal, setPdfModal] = useState(null);
   const [histFilter, setHistFilter] = useState("today");
-  const [contratos, setContratos] = useState(() => JSON.parse(localStorage.getItem("alumar_contratos") || "[]"));
+  const [contratos, setContratos] = useState([]);
   const [showContratoForm, setShowContratoForm] = useState(false);
   const [editingContrato, setEditingContrato] = useState(null);
-  const [conductores, setConductores] = useState(() => JSON.parse(localStorage.getItem("alumar_conductores") || "[]"));
+  const [conductores, setConductores] = useState([]);
   const [showConductorForm, setShowConductorForm] = useState(false);
   const [editingConductor, setEditingConductor] = useState(null);
   const [conductorSearch, setConductorSearch] = useState("");
+  const [gsLoading, setGsLoading] = useState(true);
+  const [gsError, setGsError] = useState(null);
   const fileRef = useRef();
   const logRef = useRef();
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [activeLog]);
+
+  // Cargar conductores y contratos desde Google Sheets al iniciar
+  useEffect(() => {
+    const cargar = async () => {
+      setGsLoading(true);
+      setGsError(null);
+      try {
+        const [conds, conts] = await Promise.all([
+          gsGet("getConductores"),
+          gsGet("getContratos"),
+        ]);
+        setConductores(Array.isArray(conds) ? conds : []);
+        setContratos(Array.isArray(conts) ? conts : []);
+      } catch (e) {
+        setGsError("No se pudo conectar con Google Sheets: " + e.message);
+      } finally {
+        setGsLoading(false);
+      }
+    };
+    cargar();
+  }, []);
 
   const addLog = (msg) => setActiveLog(prev => [...prev, { ts: new Date().toLocaleTimeString(), msg }]);
 
@@ -1079,28 +1123,44 @@ export default function App() {
 
   const openPreview = (item) => setPdfModal({ url: item.resultUrl, filename: item.resultFilename });
   const closeModal = () => setPdfModal(null);
-  const saveContrato = (contrato) => {
-    const prev = JSON.parse(localStorage.getItem("alumar_contratos") || "[]");
-    const idx = prev.findIndex(c => c.id === contrato.id);
-    const updated = idx >= 0 ? prev.map(c => c.id === contrato.id ? contrato : c) : [contrato, ...prev];
-    localStorage.setItem("alumar_contratos", JSON.stringify(updated));
-    setContratos(updated);
-    setShowContratoForm(false);
-    setEditingContrato(null);
+
+  const saveContrato = async (contrato) => {
+    try {
+      const conFecha = { ...contrato, fecha_creacion: contrato.fecha_creacion || new Date().toISOString() };
+      await gsPost("saveContrato", { data: conFecha });
+      setContratos(prev => {
+        const idx = prev.findIndex(c => c.id === conFecha.id);
+        return idx >= 0 ? prev.map(c => c.id === conFecha.id ? conFecha : c) : [conFecha, ...prev];
+      });
+      setShowContratoForm(false);
+      setEditingContrato(null);
+    } catch (e) {
+      alert("Error guardando contrato: " + e.message);
+    }
   };
-  const saveConductor = (conductor) => {
-    const prev = JSON.parse(localStorage.getItem("alumar_conductores") || "[]");
-    const idx = prev.findIndex(c => c.id === conductor.id);
-    const updated = idx >= 0 ? prev.map(c => c.id === conductor.id ? conductor : c) : [conductor, ...prev];
-    localStorage.setItem("alumar_conductores", JSON.stringify(updated));
-    setConductores(updated);
-    setShowConductorForm(false);
-    setEditingConductor(null);
+
+  const saveConductor = async (conductor) => {
+    try {
+      const conFecha = { ...conductor, fecha_creacion: conductor.fecha_creacion || new Date().toISOString() };
+      await gsPost("saveConductor", { data: conFecha });
+      setConductores(prev => {
+        const idx = prev.findIndex(c => c.id === conFecha.id);
+        return idx >= 0 ? prev.map(c => c.id === conFecha.id ? conFecha : c) : [conFecha, ...prev];
+      });
+      setShowConductorForm(false);
+      setEditingConductor(null);
+    } catch (e) {
+      alert("Error guardando conductor: " + e.message);
+    }
   };
-  const deleteConductor = (id) => {
-    const updated = conductores.filter(c => c.id !== id);
-    localStorage.setItem("alumar_conductores", JSON.stringify(updated));
-    setConductores(updated);
+
+  const deleteConductor = async (id) => {
+    try {
+      await gsPost("deleteConductor", { id });
+      setConductores(prev => prev.filter(c => c.id !== id));
+    } catch (e) {
+      alert("Error eliminando conductor: " + e.message);
+    }
   };
 
   const nextNumero = () => {
@@ -1147,7 +1207,14 @@ export default function App() {
           </div>
         </div>
         <div style={{ fontSize: 10, color: "#6a8fb0", textAlign: "right" }}>
-          <div>Google Drive · MANIFIESTOS</div>
+          <div style={{ display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
+            {gsLoading
+              ? <><Spinner size={10}/><span style={{ color:"#8faec8" }}>Conectando Google Sheets...</span></>
+              : gsError
+              ? <span style={{ color:"#ff8a80" }}>⚠ Sin conexión GS</span>
+              : <span style={{ color:"#69f0ae" }}>● Google Sheets</span>
+            }
+          </div>
           <div style={{ color: "#8faec8" }}>{new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</div>
         </div>
       </div>
