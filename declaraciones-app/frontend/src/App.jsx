@@ -481,9 +481,21 @@ function ConductorForm({ onSave, onCancel, initial }) {
   );
 }
 
+// ── Conductor: helpers documentos ─────────────────────────────────────────────
+const TIPOS_DOC = ["Licencia", "SOAT", "Técnico-mecánica", "Cédula", "EPS", "ARL", "Tarjeta propiedad", "Seguro", "Otro"];
+const getDocsConductor = (id) => { try { return JSON.parse(localStorage.getItem(`alumar_docs_${id}`) || "[]"); } catch { return []; } };
+const saveDocsConductor = (id, docs) => { try { localStorage.setItem(`alumar_docs_${id}`, JSON.stringify(docs)); } catch { alert("Almacenamiento lleno. Elimina documentos antiguos."); } };
+
 // ── Conductor: fila ───────────────────────────────────────────────────────────
 function ConductorRow({ conductor: c, onEdit }) {
   const [open, setOpen] = useState(false);
+  const [docs, setDocs] = useState(() => getDocsConductor(c.id));
+  const [uploading, setUploading] = useState(false);
+  const [nuevoTipo, setNuevoTipo] = useState("Licencia");
+  const [nuevoNombre, setNuevoNombre] = useState("");
+  const [docTab, setDocTab] = useState("info"); // "info" | "docs"
+  const fileRef = useRef();
+
   const venceColor = (dateStr) => {
     if (!dateStr) return C.textDim;
     const diff = (new Date(dateStr) - new Date()) / (1000*60*60*24);
@@ -497,8 +509,62 @@ function ConductorRow({ conductor: c, onEdit }) {
     </span>
   ) : null;
 
+  const tipoIcon = (t) => ({ Licencia:"🪪", SOAT:"🛡", "Técnico-mecánica":"🔧", Cédula:"🪪", EPS:"🏥", ARL:"⛑", "Tarjeta propiedad":"📋", Seguro:"📄", Otro:"📎" }[t] || "📄");
+
+  const subirArchivo = async (file) => {
+    if (file.size > 3 * 1024 * 1024) { alert("El archivo supera 3 MB. Comprime el PDF o imagen antes de subir."); return; }
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const nuevo = {
+        id: crypto.randomUUID(),
+        tipo: nuevoTipo,
+        nombre: nuevoNombre.trim() || `${nuevoTipo} — ${file.name}`,
+        archivo: file.name,
+        mimetype: file.type,
+        data: reader.result,
+        size: file.size,
+        fecha: new Date().toISOString(),
+      };
+      const updated = [nuevo, ...docs];
+      saveDocsConductor(c.id, updated);
+      setDocs(updated);
+      setNuevoNombre("");
+      setUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const verDoc = (doc) => {
+    const w = window.open("", "_blank");
+    if (doc.mimetype?.startsWith("image/")) {
+      w.document.write(`<html><body style="margin:0;background:#222;display:flex;align-items:center;justify-content:center;min-height:100vh">
+        <img src="${doc.data}" style="max-width:100%;max-height:100vh;object-fit:contain" /></body></html>`);
+    } else {
+      w.document.write(`<html><body style="margin:0;height:100vh">
+        <iframe src="${doc.data}" style="width:100%;height:100%;border:none"></iframe></body></html>`);
+    }
+    w.document.close();
+  };
+
+  const descargarDoc = (doc) => {
+    const a = document.createElement("a");
+    a.href = doc.data;
+    a.download = doc.archivo || doc.nombre;
+    a.click();
+  };
+
+  const eliminarDoc = (id) => {
+    const updated = docs.filter(d => d.id !== id);
+    saveDocsConductor(c.id, updated);
+    setDocs(updated);
+  };
+
+  const inp = { border:`1px solid ${C.border}`, borderRadius:5, padding:"5px 8px", fontSize:11, color:C.text, outline:"none", background:C.white };
+
   return (
     <div style={{ border:`1px solid ${C.border}`, borderRadius:8, marginBottom:8, overflow:"hidden" }}>
+      {/* Cabecera */}
       <div onClick={() => setOpen(o => !o)} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", cursor:"pointer", background: open ? "#f0f4f8" : C.white, transition:"background 0.15s" }}>
         <div style={{ width:36, height:36, borderRadius:"50%", background:`linear-gradient(135deg,${C.blue},${C.navyMid})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>👤</div>
         <div style={{ flex:1, minWidth:0 }}>
@@ -506,29 +572,105 @@ function ConductorRow({ conductor: c, onEdit }) {
           <div style={{ fontSize:10, color:C.textMuted }}>{c.cc ? `C.C. ${c.cc}` : ""}{c.ciudad ? ` · ${c.ciudad}` : ""}{c.celular ? ` · ${c.celular}` : ""}</div>
         </div>
         {c.vehiculo_placas && <Badge color={C.navy}>{c.vehiculo_placas}</Badge>}
+        {docs.length > 0 && <Badge color={C.blue}>📎 {docs.length} doc{docs.length!==1?"s":""}</Badge>}
         <FechaTag label="Lic." val={c.licencia_vencimiento} />
         <FechaTag label="SOAT" val={c.soat} />
         <button onClick={e => { e.stopPropagation(); onEdit(c); }}
           style={{ fontSize:11, background:C.accent, color:"white", border:"none", borderRadius:5, padding:"4px 12px", cursor:"pointer", fontWeight:700, flexShrink:0 }}>✏ Editar</button>
         <span style={{ color:C.textDim, fontSize:12 }}>{open ? "▲" : "▼"}</span>
       </div>
+
+      {/* Panel expandido */}
       {open && (
-        <div style={{ padding:"12px 14px", borderTop:`1px solid ${C.border}`, background:"#f8fafc" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px 16px", fontSize:11 }}>
-            {c.licencia_numero && <div><span style={{ color:C.textDim }}>Licencia N°: </span><strong>{c.licencia_numero}</strong>{c.licencia_categoria ? ` (${c.licencia_categoria})` : ""}</div>}
-            {c.vehiculo_marca && <div><span style={{ color:C.textDim }}>Vehículo: </span><strong>{c.vehiculo_marca} {c.vehiculo_placas}</strong></div>}
-            {c.aseguradora && <div><span style={{ color:C.textDim }}>Aseguradora: </span><strong>{c.aseguradora}</strong></div>}
-            {c.eps && <div><span style={{ color:C.textDim }}>EPS: </span><strong>{c.eps}</strong></div>}
-            {c.arl && <div><span style={{ color:C.textDim }}>ARL: </span><strong>{c.arl}</strong></div>}
-            {c.vehiculo_propietario && <div><span style={{ color:C.textDim }}>Propietario: </span><strong>{c.vehiculo_propietario}</strong></div>}
-            {c.contacto_emergencia_nombre && <div style={{ gridColumn:"span 2" }}><span style={{ color:C.textDim }}>Emergencias: </span><strong>{c.contacto_emergencia_nombre}</strong>{c.contacto_emergencia_telefono ? ` · ${c.contacto_emergencia_telefono}` : ""}</div>}
-            {c.observaciones && <div style={{ gridColumn:"span 3", color:C.textMuted, fontStyle:"italic" }}>{c.observaciones}</div>}
+        <div style={{ borderTop:`1px solid ${C.border}`, background:"#f8fafc" }}>
+          {/* Sub-tabs */}
+          <div style={{ display:"flex", borderBottom:`1px solid ${C.border}`, background:C.white }}>
+            {[["info","📋 Información"],["docs",`📎 Documentos (${docs.length})`]].map(([k,lbl]) => (
+              <button key={k} onClick={() => setDocTab(k)} style={{
+                background:"transparent", border:"none",
+                borderBottom: docTab===k ? `2px solid ${C.blue}` : "2px solid transparent",
+                color: docTab===k ? C.blue : C.textMuted,
+                padding:"8px 16px", cursor:"pointer", fontSize:11,
+                fontWeight: docTab===k ? 700 : 400, marginBottom:-1
+              }}>{lbl}</button>
+            ))}
           </div>
-          <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap" }}>
-            <FechaTag label="Lic. vence" val={c.licencia_vencimiento} />
-            <FechaTag label="SOAT vence" val={c.soat} />
-            <FechaTag label="Técnomecánica vence" val={c.tecnicomecanica} />
-          </div>
+
+          {/* TAB INFO */}
+          {docTab === "info" && (
+            <div style={{ padding:"12px 14px" }}>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px 16px", fontSize:11 }}>
+                {c.licencia_numero && <div><span style={{ color:C.textDim }}>Licencia N°: </span><strong>{c.licencia_numero}</strong>{c.licencia_categoria ? ` (${c.licencia_categoria})` : ""}</div>}
+                {c.vehiculo_marca && <div><span style={{ color:C.textDim }}>Vehículo: </span><strong>{c.vehiculo_marca} {c.vehiculo_placas}</strong></div>}
+                {c.aseguradora && <div><span style={{ color:C.textDim }}>Aseguradora: </span><strong>{c.aseguradora}</strong></div>}
+                {c.eps && <div><span style={{ color:C.textDim }}>EPS: </span><strong>{c.eps}</strong></div>}
+                {c.arl && <div><span style={{ color:C.textDim }}>ARL: </span><strong>{c.arl}</strong></div>}
+                {c.vehiculo_propietario && <div><span style={{ color:C.textDim }}>Propietario: </span><strong>{c.vehiculo_propietario}</strong></div>}
+                {c.contacto_emergencia_nombre && <div style={{ gridColumn:"span 2" }}><span style={{ color:C.textDim }}>Emergencias: </span><strong>{c.contacto_emergencia_nombre}</strong>{c.contacto_emergencia_telefono ? ` · ${c.contacto_emergencia_telefono}` : ""}</div>}
+                {c.observaciones && <div style={{ gridColumn:"span 3", color:C.textMuted, fontStyle:"italic" }}>{c.observaciones}</div>}
+              </div>
+              <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap" }}>
+                <FechaTag label="Lic. vence" val={c.licencia_vencimiento} />
+                <FechaTag label="SOAT vence" val={c.soat} />
+                <FechaTag label="Técnomecánica vence" val={c.tecnicomecanica} />
+              </div>
+            </div>
+          )}
+
+          {/* TAB DOCUMENTOS */}
+          {docTab === "docs" && (
+            <div style={{ padding:"12px 14px" }}>
+              {/* Subir nuevo documento */}
+              <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px", marginBottom:12 }}>
+                <div style={{ fontSize:10, fontWeight:700, color:C.textDim, letterSpacing:"0.08em", marginBottom:8 }}>SUBIR DOCUMENTO ESCANEADO</div>
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+                  <select value={nuevoTipo} onChange={e => setNuevoTipo(e.target.value)}
+                    style={{ ...inp, minWidth:140 }}>
+                    {TIPOS_DOC.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <input value={nuevoNombre} onChange={e => setNuevoNombre(e.target.value)}
+                    placeholder="Nombre descriptivo (opcional)" style={{ ...inp, flex:1, minWidth:160 }} />
+                  <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                    style={{ background:C.blue, color:"white", border:"none", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontWeight:700, fontSize:11, flexShrink:0 }}>
+                    {uploading ? "Subiendo..." : "📎 Seleccionar archivo"}
+                  </button>
+                  <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    style={{ display:"none" }}
+                    onChange={e => { if (e.target.files[0]) subirArchivo(e.target.files[0]); e.target.value=""; }} />
+                </div>
+                <div style={{ fontSize:10, color:C.textDim, marginTop:6 }}>Acepta PDF, JPG, PNG · Máximo 3 MB por archivo</div>
+              </div>
+
+              {/* Lista de documentos */}
+              {docs.length === 0 ? (
+                <div style={{ textAlign:"center", padding:"1.5rem", color:C.textDim, fontSize:12 }}>
+                  📂 No hay documentos subidos aún. Sube el escáner de la licencia, SOAT u otros.
+                </div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {docs.map(doc => (
+                    <div key={doc.id} style={{ display:"flex", alignItems:"center", gap:10, background:C.white, border:`1px solid ${C.border}`, borderRadius:7, padding:"8px 12px" }}>
+                      <div style={{ fontSize:20, flexShrink:0 }}>{tipoIcon(doc.tipo)}</div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{doc.nombre}</div>
+                        <div style={{ fontSize:10, color:C.textMuted }}>
+                          <Badge color={C.blue}>{doc.tipo}</Badge>
+                          {" · "}{(doc.size/1024).toFixed(0)} KB
+                          {" · "}{new Date(doc.fecha).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"})}
+                        </div>
+                      </div>
+                      <button onClick={() => verDoc(doc)}
+                        style={{ fontSize:11, background:C.blue, color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>👁 Ver</button>
+                      <button onClick={() => descargarDoc(doc)}
+                        style={{ fontSize:11, background:C.green, color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>⬇</button>
+                      <button onClick={() => { if(confirm("¿Eliminar este documento?")) eliminarDoc(doc.id); }}
+                        style={{ fontSize:11, background:"transparent", border:`1px solid ${C.border}`, color:C.red, borderRadius:5, padding:"4px 8px", cursor:"pointer", fontWeight:700 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
