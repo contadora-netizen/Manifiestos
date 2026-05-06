@@ -382,8 +382,161 @@ function HistoryRow({ entry }) {
   );
 }
 
+// ── Conductor: formulario ─────────────────────────────────────────────────────
+function ConductorForm({ onSave, onCancel, initial }) {
+  const empty = {
+    id: crypto.randomUUID(),
+    nombre: "", cc: "", celular: "", telefono: "",
+    direccion: "", ciudad: "",
+    licencia_numero: "", licencia_categoria: "", licencia_vencimiento: "",
+    soat: "", tecnicomecanica: "",
+    vehiculo_marca: "", vehiculo_placas: "", vehiculo_propietario: "", vehiculo_licencia: "", aseguradora: "", capacidad: "", medidas: "",
+    eps: "", arl: "",
+    contacto_emergencia_nombre: "", contacto_emergencia_telefono: "",
+    observaciones: "",
+  };
+  const [form, setForm] = useState(initial || empty);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const lbl = { fontSize: 10, color: C.textMuted, fontWeight: 600, marginBottom: 3, display: "block" };
+  const inp = { width: "100%", border: `1px solid ${C.border}`, borderRadius: 5, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none", background: C.white };
+  const Sec = ({ t }) => <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", margin: "16px 0 8px", paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>{t}</div>;
+  const F = ({ label, k, type="text", span=1, placeholder="" }) => (
+    <div style={{ gridColumn: `span ${span}` }}>
+      <label style={lbl}>{label}</label>
+      <input type={type} value={form[k]||""} onChange={e => set(k, e.target.value)} placeholder={placeholder} style={inp} />
+    </div>
+  );
+  const g = (cols) => ({ display: "grid", gridTemplateColumns: `repeat(${cols},1fr)`, gap: 10 });
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:2000, background:"rgba(5,15,30,0.88)", overflow:"auto", padding:"1.5rem" }}>
+      <div style={{ maxWidth:860, margin:"0 auto", background:C.white, borderRadius:14, overflow:"hidden", boxShadow:"0 8px 48px rgba(0,0,0,0.5)" }}>
+        <div style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, borderBottom:"3px solid #d4780a", padding:"0.875rem 1.5rem", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <div style={{ background:"#fff", border:"2px solid #2a2a2a", borderRadius:3, padding:"3px 8px", lineHeight:1 }}>
+              <div style={{ fontFamily:"'Arial Black',Arial,sans-serif", fontWeight:900, fontSize:18, color:"#cc1111" }}>alumar</div>
+            </div>
+            <div style={{ color:"#fff", fontWeight:700, fontSize:14 }}>👤 {initial ? "Editar Conductor" : "Nuevo Conductor"}</div>
+          </div>
+          <button onClick={onCancel} style={{ background:"transparent", border:"1px solid #ffffff33", color:"#8faec8", borderRadius:7, padding:"6px 14px", cursor:"pointer", fontSize:12 }}>✕ Cerrar</button>
+        </div>
+
+        <div style={{ padding:"1.5rem" }}>
+          <Sec t="DATOS PERSONALES" />
+          <div style={g(4)}>
+            <F label="Nombre completo" k="nombre" span={2} placeholder="Ej: Juan Carlos Pérez López" />
+            <F label="Cédula (C.C.)" k="cc" placeholder="Ej: 13 456 789" />
+            <F label="Celular" k="celular" placeholder="Ej: 300 123 4567" />
+            <F label="Teléfono fijo" k="telefono" placeholder="Opcional" />
+            <F label="Dirección" k="direccion" span={2} placeholder="Ej: Cra 5 # 12-34" />
+            <F label="Ciudad" k="ciudad" placeholder="Ej: Cúcuta" />
+          </div>
+
+          <Sec t="LICENCIA DE CONDUCCIÓN" />
+          <div style={g(4)}>
+            <F label="N° Licencia" k="licencia_numero" span={2} />
+            <F label="Categoría" k="licencia_categoria" placeholder="C1 / C2 / C3" />
+            <F label="Vencimiento licencia" k="licencia_vencimiento" type="date" />
+          </div>
+
+          <Sec t="VEHÍCULO HABITUAL" />
+          <div style={g(4)}>
+            <F label="Marca" k="vehiculo_marca" placeholder="Ej: Kenworth" />
+            <F label="Placas" k="vehiculo_placas" placeholder="Ej: UPD 123" />
+            <F label="N° Licencia de tránsito" k="vehiculo_licencia" />
+            <F label="Propietario tarjeta" k="vehiculo_propietario" span={2} />
+            <F label="Capacidad" k="capacidad" placeholder="Ej: 10.000 kg" />
+            <F label="Medidas" k="medidas" placeholder="Ej: 12x2.4x2.6 m" />
+            <F label="SOAT vence" k="soat" type="date" />
+            <F label="Técnico-mecánica vence" k="tecnicomecanica" type="date" />
+            <F label="Compañía aseguradora" k="aseguradora" span={2} />
+          </div>
+
+          <Sec t="SEGURIDAD SOCIAL" />
+          <div style={g(4)}>
+            <F label="EPS" k="eps" span={2} placeholder="Ej: Sura, Sanitas, Nueva EPS..." />
+            <F label="ARL" k="arl" span={2} placeholder="Ej: Positiva, Sura..." />
+          </div>
+
+          <Sec t="CONTACTO DE EMERGENCIA" />
+          <div style={g(4)}>
+            <F label="Nombre contacto" k="contacto_emergencia_nombre" span={2} />
+            <F label="Teléfono contacto" k="contacto_emergencia_telefono" span={2} />
+          </div>
+
+          <div style={{ marginTop:16 }}>
+            <label style={lbl}>Observaciones</label>
+            <textarea value={form.observaciones||""} onChange={e => set("observaciones", e.target.value)}
+              rows={2} style={{ ...inp, resize:"vertical" }} placeholder="Notas adicionales sobre el conductor..." />
+          </div>
+
+          <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:20, paddingTop:16, borderTop:`1px solid ${C.border}` }}>
+            <button onClick={onCancel} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:7, padding:"9px 20px", cursor:"pointer", color:C.textMuted, fontSize:12 }}>Cancelar</button>
+            <button onClick={() => onSave(form)} style={{ background:`linear-gradient(135deg,${C.accent},${C.gold})`, color:"white", border:"none", borderRadius:7, padding:"9px 24px", cursor:"pointer", fontWeight:700, fontSize:13 }}>💾 Guardar conductor</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Conductor: fila ───────────────────────────────────────────────────────────
+function ConductorRow({ conductor: c, onEdit }) {
+  const [open, setOpen] = useState(false);
+  const venceColor = (dateStr) => {
+    if (!dateStr) return C.textDim;
+    const diff = (new Date(dateStr) - new Date()) / (1000*60*60*24);
+    if (diff < 0) return C.red;
+    if (diff < 30) return C.accent;
+    return C.green;
+  };
+  const FechaTag = ({ label, val }) => val ? (
+    <span style={{ fontSize:10, background: venceColor(val)+"18", color: venceColor(val), border:`1px solid ${venceColor(val)}40`, borderRadius:4, padding:"2px 7px", fontWeight:600 }}>
+      {label}: {new Date(val).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"})}
+    </span>
+  ) : null;
+
+  return (
+    <div style={{ border:`1px solid ${C.border}`, borderRadius:8, marginBottom:8, overflow:"hidden" }}>
+      <div onClick={() => setOpen(o => !o)} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", cursor:"pointer", background: open ? "#f0f4f8" : C.white, transition:"background 0.15s" }}>
+        <div style={{ width:36, height:36, borderRadius:"50%", background:`linear-gradient(135deg,${C.blue},${C.navyMid})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>👤</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{c.nombre || "Sin nombre"}</div>
+          <div style={{ fontSize:10, color:C.textMuted }}>{c.cc ? `C.C. ${c.cc}` : ""}{c.ciudad ? ` · ${c.ciudad}` : ""}{c.celular ? ` · ${c.celular}` : ""}</div>
+        </div>
+        {c.vehiculo_placas && <Badge color={C.navy}>{c.vehiculo_placas}</Badge>}
+        <FechaTag label="Lic." val={c.licencia_vencimiento} />
+        <FechaTag label="SOAT" val={c.soat} />
+        <button onClick={e => { e.stopPropagation(); onEdit(c); }}
+          style={{ fontSize:11, background:C.accent, color:"white", border:"none", borderRadius:5, padding:"4px 12px", cursor:"pointer", fontWeight:700, flexShrink:0 }}>✏ Editar</button>
+        <span style={{ color:C.textDim, fontSize:12 }}>{open ? "▲" : "▼"}</span>
+      </div>
+      {open && (
+        <div style={{ padding:"12px 14px", borderTop:`1px solid ${C.border}`, background:"#f8fafc" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px 16px", fontSize:11 }}>
+            {c.licencia_numero && <div><span style={{ color:C.textDim }}>Licencia N°: </span><strong>{c.licencia_numero}</strong>{c.licencia_categoria ? ` (${c.licencia_categoria})` : ""}</div>}
+            {c.vehiculo_marca && <div><span style={{ color:C.textDim }}>Vehículo: </span><strong>{c.vehiculo_marca} {c.vehiculo_placas}</strong></div>}
+            {c.aseguradora && <div><span style={{ color:C.textDim }}>Aseguradora: </span><strong>{c.aseguradora}</strong></div>}
+            {c.eps && <div><span style={{ color:C.textDim }}>EPS: </span><strong>{c.eps}</strong></div>}
+            {c.arl && <div><span style={{ color:C.textDim }}>ARL: </span><strong>{c.arl}</strong></div>}
+            {c.vehiculo_propietario && <div><span style={{ color:C.textDim }}>Propietario: </span><strong>{c.vehiculo_propietario}</strong></div>}
+            {c.contacto_emergencia_nombre && <div style={{ gridColumn:"span 2" }}><span style={{ color:C.textDim }}>Emergencias: </span><strong>{c.contacto_emergencia_nombre}</strong>{c.contacto_emergencia_telefono ? ` · ${c.contacto_emergencia_telefono}` : ""}</div>}
+            {c.observaciones && <div style={{ gridColumn:"span 3", color:C.textMuted, fontStyle:"italic" }}>{c.observaciones}</div>}
+          </div>
+          <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap" }}>
+            <FechaTag label="Lic. vence" val={c.licencia_vencimiento} />
+            <FechaTag label="SOAT vence" val={c.soat} />
+            <FechaTag label="Técnomecánica vence" val={c.tecnicomecanica} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Contrato: formulario ──────────────────────────────────────────────────────
-function ContratoForm({ onSave, onCancel, initial, nextNumero }) {
+function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList = [] }) {
   const empty = {
     id: crypto.randomUUID(), numero: nextNumero,
     fecha_cargue: new Date().toISOString().slice(0,10),
@@ -447,6 +600,39 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero }) {
           </div>
 
           <Sec t="CONDUCTOR" />
+          {conductoresList.length > 0 && (
+            <div style={{ marginBottom:10 }}>
+              <label style={lbl}>Seleccionar conductor guardado (opcional)</label>
+              <select onChange={e => {
+                const c = conductoresList.find(x => x.id === e.target.value);
+                if (!c) return;
+                setForm(f => ({
+                  ...f,
+                  conductor_nombre: c.nombre || f.conductor_nombre,
+                  conductor_celular: c.celular || f.conductor_celular,
+                  contratista_nombre: c.nombre || f.contratista_nombre,
+                  contratista_cc: c.cc || f.contratista_cc,
+                  contratista_telefono: c.celular || f.contratista_telefono,
+                  contratista_domicilio: c.direccion || f.contratista_domicilio,
+                  contratista_ciudad: c.ciudad || f.contratista_ciudad,
+                  vehiculo_marca: c.vehiculo_marca || f.vehiculo_marca,
+                  vehiculo_placas: c.vehiculo_placas || f.vehiculo_placas,
+                  vehiculo_licencia: c.vehiculo_licencia || f.vehiculo_licencia,
+                  vehiculo_soat: c.soat || f.vehiculo_soat,
+                  tecnicomecanica: c.tecnicomecanica || f.tecnicomecanica,
+                  vehiculo_propietario: c.vehiculo_propietario || f.vehiculo_propietario,
+                  aseguradora: c.aseguradora || f.aseguradora,
+                  capacidad: c.capacidad || f.capacidad,
+                  medidas: c.medidas || f.medidas,
+                }));
+              }} defaultValue="" style={{ ...inp, cursor:"pointer" }}>
+                <option value="">— Elegir conductor —</option>
+                {conductoresList.map(c => (
+                  <option key={c.id} value={c.id}>{c.nombre}{c.vehiculo_placas ? ` · ${c.vehiculo_placas}` : ""}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div style={g(4)}>
             <F label="Nombre conductor" k="conductor_nombre" span={2} />
             <F label="Celular" k="conductor_celular" />
@@ -571,6 +757,10 @@ export default function App() {
   const [contratos, setContratos] = useState(() => JSON.parse(localStorage.getItem("alumar_contratos") || "[]"));
   const [showContratoForm, setShowContratoForm] = useState(false);
   const [editingContrato, setEditingContrato] = useState(null);
+  const [conductores, setConductores] = useState(() => JSON.parse(localStorage.getItem("alumar_conductores") || "[]"));
+  const [showConductorForm, setShowConductorForm] = useState(false);
+  const [editingConductor, setEditingConductor] = useState(null);
+  const [conductorSearch, setConductorSearch] = useState("");
   const fileRef = useRef();
   const logRef = useRef();
 
@@ -698,6 +888,21 @@ export default function App() {
     setShowContratoForm(false);
     setEditingContrato(null);
   };
+  const saveConductor = (conductor) => {
+    const prev = JSON.parse(localStorage.getItem("alumar_conductores") || "[]");
+    const idx = prev.findIndex(c => c.id === conductor.id);
+    const updated = idx >= 0 ? prev.map(c => c.id === conductor.id ? conductor : c) : [conductor, ...prev];
+    localStorage.setItem("alumar_conductores", JSON.stringify(updated));
+    setConductores(updated);
+    setShowConductorForm(false);
+    setEditingConductor(null);
+  };
+  const deleteConductor = (id) => {
+    const updated = conductores.filter(c => c.id !== id);
+    localStorage.setItem("alumar_conductores", JSON.stringify(updated));
+    setConductores(updated);
+  };
+
   const nextNumero = () => {
     const nums = contratos.map(c => parseInt(c.numero)).filter(n => !isNaN(n));
     return nums.length ? String(Math.max(...nums) + 1) : "";
@@ -749,7 +954,7 @@ export default function App() {
 
       {/* TABS */}
       <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "0 2rem", display: "flex" }}>
-        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["contratos", `🚛 Contratos (${contratos.length})`]].map(([key, label]) => (
+        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["contratos", `🚛 Contratos (${contratos.length})`], ["conductores", `👤 Conductores (${conductores.length})`]].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
             background: "transparent", border: "none",
             borderBottom: tab === key ? `3px solid ${C.blue}` : "3px solid transparent",
@@ -992,7 +1197,103 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB: CONDUCTORES */}
+        {tab === "conductores" && (
+          <div style={{ maxWidth:860 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+              <div>
+                <div style={{ fontSize:16, fontWeight:700, color:C.text }}>Conductores</div>
+                <div style={{ fontSize:12, color:C.textMuted }}>{conductores.length} conductor{conductores.length !== 1 ? "es" : ""} registrado{conductores.length !== 1 ? "s" : ""}</div>
+              </div>
+              <button onClick={() => { setEditingConductor(null); setShowConductorForm(true); }}
+                style={{ background:`linear-gradient(135deg,${C.blue},${C.blueLight})`, color:"white", border:"none", borderRadius:8, padding:"10px 20px", cursor:"pointer", fontWeight:700, fontSize:13, boxShadow:"0 4px 14px rgba(18,85,164,0.30)" }}>
+                + Nuevo conductor
+              </button>
+            </div>
+
+            {conductores.length > 0 && (
+              <div style={{ marginBottom:14 }}>
+                <input
+                  value={conductorSearch}
+                  onChange={e => setConductorSearch(e.target.value)}
+                  placeholder="🔍  Buscar por nombre, cédula, placa o ciudad..."
+                  style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:8, padding:"9px 14px", fontSize:13, color:C.text, outline:"none", background:C.white }}
+                />
+              </div>
+            )}
+
+            {(() => {
+              const busq = conductorSearch.toLowerCase();
+              const filtrados = conductores.filter(c =>
+                !busq ||
+                c.nombre?.toLowerCase().includes(busq) ||
+                c.cc?.toLowerCase().includes(busq) ||
+                c.vehiculo_placas?.toLowerCase().includes(busq) ||
+                c.ciudad?.toLowerCase().includes(busq)
+              );
+              return filtrados.length === 0 ? (
+                <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"4rem 2rem", textAlign:"center", boxShadow:C.shadow }}>
+                  <div style={{ fontSize:40, marginBottom:12 }}>👤</div>
+                  <div style={{ fontSize:14, fontWeight:600, color:C.textMuted, marginBottom:6 }}>
+                    {conductorSearch ? "Sin resultados" : "Sin conductores registrados"}
+                  </div>
+                  <div style={{ fontSize:12, color:C.textDim }}>
+                    {conductorSearch ? "Intenta con otro nombre, cédula o placa." : <>Haz clic en <strong>+ Nuevo conductor</strong> para agregar el primero.</>}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"1.25rem", boxShadow:C.shadow }}>
+                  {filtrados.map(c => (
+                    <ConductorRow key={c.id} conductor={c} onEdit={(ct) => { setEditingConductor(ct); setShowConductorForm(true); }} />
+                  ))}
+                </div>
+              );
+            })()}
+
+            {conductores.length > 0 && (() => {
+              const hoy = new Date();
+              const proxVencer = conductores.filter(c => {
+                const fechas = [c.licencia_vencimiento, c.soat, c.tecnicomecanica].filter(Boolean);
+                return fechas.some(f => {
+                  const diff = (new Date(f) - hoy) / (1000*60*60*24);
+                  return diff >= 0 && diff <= 30;
+                });
+              });
+              const vencidos = conductores.filter(c => {
+                const fechas = [c.licencia_vencimiento, c.soat, c.tecnicomecanica].filter(Boolean);
+                return fechas.some(f => new Date(f) < hoy);
+              });
+              if (!proxVencer.length && !vencidos.length) return null;
+              return (
+                <div style={{ marginTop:16, display:"flex", flexDirection:"column", gap:8 }}>
+                  {vencidos.length > 0 && (
+                    <div style={{ background:"#fdecea", border:`1px solid ${C.red}40`, borderRadius:10, padding:"10px 16px", fontSize:12 }}>
+                      <strong style={{ color:C.red }}>⚠ Documentos vencidos:</strong>{" "}
+                      {vencidos.map(c => c.nombre).join(", ")}
+                    </div>
+                  )}
+                  {proxVencer.length > 0 && (
+                    <div style={{ background:"#fff8e1", border:`1px solid ${C.gold}40`, borderRadius:10, padding:"10px 16px", fontSize:12 }}>
+                      <strong style={{ color:C.accent }}>⏰ Próximos a vencer (30 días):</strong>{" "}
+                      {proxVencer.map(c => c.nombre).join(", ")}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
       </div>
+
+      {/* Modal formulario conductor */}
+      {showConductorForm && (
+        <ConductorForm
+          initial={editingConductor}
+          onSave={saveConductor}
+          onCancel={() => { setShowConductorForm(false); setEditingConductor(null); }}
+        />
+      )}
 
       {/* Modal formulario contrato */}
       {showContratoForm && (
@@ -1001,6 +1302,7 @@ export default function App() {
           nextNumero={nextNumero()}
           onSave={saveContrato}
           onCancel={() => { setShowContratoForm(false); setEditingContrato(null); }}
+          conductoresList={conductores}
         />
       )}
     </div>
