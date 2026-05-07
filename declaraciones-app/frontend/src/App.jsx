@@ -4,7 +4,7 @@ import CONDUCTORES_INFO from "./conductoresInfo.json";
 import DashboardContratos from "./DashboardContratos";
 
 const API = import.meta.env.VITE_API_URL || "https://refreshing-gentleness-production-7a26.up.railway.app";
-const GS = "https://script.google.com/macros/s/AKfycbyZmzq0Wi2QlfDHIgjpH0NTHSAJV4q1JCN42zf2Z0-IAonSf7w54JNgmx4SPYAV5cS7/exec";
+const GS = "https://script.google.com/macros/s/AKfycbzT419j_RKVp1RmtDMJ62T2bERbnu1yfZrFBrO2QdzR3jCeViFtXieMqRFOomUhCKrQ/exec";
 
 // ── Google Sheets API ─────────────────────────────────────────────────────────
 const gsGet = async (action, params = {}) => {
