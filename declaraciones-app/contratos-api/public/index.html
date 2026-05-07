@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contrato de Transporte — ALUMAR</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Arial', 'Helvetica Neue', sans-serif;
+      font-size: 11px;
+      color: #1a2535;
+      background: #f0f4f8;
+    }
+
+    /* ── Toolbar (oculta al imprimir) ── */
+    #toolbar {
+      background: #0a1f3c;
+      color: white;
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    #toolbar .logo { font-weight: 700; font-size: 15px; letter-spacing: 0.05em; color: #e8920c; }
+    #toolbar select, #toolbar input {
+      padding: 6px 10px;
+      border: 1px solid #2a4a7a;
+      border-radius: 6px;
+      background: #122a50;
+      color: white;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    #toolbar select option { background: #0a1f3c; }
+    #toolbar button {
+      padding: 7px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s;
+    }
+    #toolbar button:hover { opacity: 0.85; }
+    #btn-cargar { background: #e8920c; color: white; }
+    #btn-print  { background: #1255a4; color: white; }
+    #btn-nuevo  { background: transparent; color: #8faec8; border: 1px solid #2a4a7a !important; }
+    #toolbar .sep { color: #2a4a7a; font-size: 18px; }
+    #toolbar .status-msg { font-size: 11px; color: #8faec8; margin-left: auto; }
+    #toolbar .status-msg.error { color: #ff8a80; }
+    #toolbar .status-msg.ok    { color: #69f0ae; }
+
+    /* ── Página del contrato ── */
+    #page-wrap {
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .contrato-hoja {
+      background: white;
+      width: 216mm;
+      min-height: 280mm;
+      padding: 14mm 14mm 16mm 14mm;
+      box-shadow: 0 4px 24px rgba(10,31,60,0.15);
+      border-radius: 4px;
+      position: relative;
+    }
+
+    /* ── Encabezado ── */
+    .enc {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 3px solid #0a1f3c;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+    .enc-left .nombre-empresa { font-size: 17px; font-weight: 900; color: #0a1f3c; letter-spacing: 0.04em; }
+    .enc-left .sub-empresa    { font-size: 9.5px; color: #4a6380; margin-top: 2px; }
+    .enc-right                { text-align: right; }
+    .enc-right .titulo-doc    { font-size: 13px; font-weight: 700; color: #0a1f3c; text-transform: uppercase; }
+    .enc-right .num-ctt       { font-size: 19px; font-weight: 900; color: #e8920c; margin: 2px 0; }
+    .enc-right .fecha-doc     { font-size: 10px; color: #4a6380; }
+
+    /* ── Secciones ── */
+    .seccion {
+      border: 1px solid #dde3ec;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .sec-titulo {
+      background: #0a1f3c;
+      color: #8faec8;
+      font-size: 8.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding: 4px 10px;
+    }
+    .sec-body {
+      padding: 8px 10px;
+    }
+
+    /* ── Grid de campos ── */
+    .campo-grid {
+      display: grid;
+      gap: 6px 12px;
+    }
+    .campo-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+    .campo-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .campo-grid.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    .campo-grid.cols-1-2 { grid-template-columns: 1fr 2fr; }
+
+    .campo label {
+      display: block;
+      font-size: 8px;
+      font-weight: 700;
+      color: #8fa3bc;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 2px;
+    }
+    .campo .valor {
+      font-size: 11px;
+      color: #1a2535;
+      font-weight: 600;
+      min-height: 16px;
+      border-bottom: 1px solid #e8edf4;
+      padding-bottom: 2px;
+    }
+    .campo .valor.editable {
+      border-bottom: 1px dashed #b0c4de;
+      outline: none;
+      cursor: text;
+    }
+    .campo .valor.editable:focus {
+      border-bottom-color: #1255a4;
+      background: #f0f7ff;
+    }
+    .campo .valor.editable:empty::before {
+      content: attr(data-placeholder);
+      color: #b0c4de;
+      font-weight: 400;
+    }
+
+    /* ── Tabla facturas ── */
+    .tabla-facturas {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9.5px;
+    }
+    .tabla-facturas th {
+      background: #122a50;
+      color: #8faec8;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 5px 7px;
+      text-align: left;
+    }
+    .tabla-facturas th.right, .tabla-facturas td.right { text-align: right; }
+    .tabla-facturas td {
+      padding: 4px 7px;
+      border-bottom: 1px solid #f0f4f8;
+      color: #1a2535;
+    }
+    .tabla-facturas tr:nth-child(even) td { background: #f8fafc; }
+    .tabla-facturas .total-row td {
+      background: #f0f4f8;
+      font-weight: 700;
+      border-top: 2px solid #dde3ec;
+    }
+
+    /* ── Valor resumen (mercancía / flete) ── */
+    .resumen-valores {
+      display: flex;
+      gap: 12px;
+      margin-top: 6px;
+    }
+    .rv-item {
+      flex: 1;
+      background: #f0f4f8;
+      border-radius: 6px;
+      padding: 6px 10px;
+    }
+    .rv-item .rv-label { font-size: 8px; color: #8fa3bc; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .rv-item .rv-val   { font-size: 14px; font-weight: 900; color: #0a1f3c; margin-top: 1px; }
+    .rv-item.flete .rv-val { color: #d4780a; }
+
+    /* ── Condiciones ── */
+    .condiciones {
+      font-size: 8px;
+      color: #6a80a0;
+      line-height: 1.5;
+      margin-top: 4px;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border-radius: 4px;
+      border: 1px solid #dde3ec;
+    }
+    .condiciones strong { color: #4a6380; }
+
+    /* ── Firmas ── */
+    .firmas {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 10px;
+    }
+    .firma-bloque {
+      border-top: 2px solid #0a1f3c;
+      padding-top: 8px;
+    }
+    .firma-bloque .firma-nombre { font-size: 10px; font-weight: 700; color: #0a1f3c; }
+    .firma-bloque .firma-sub    { font-size: 8.5px; color: #4a6380; margin-top: 2px; }
+    .firma-bloque .firma-linea  {
+      height: 36px;
+      border-bottom: 1px solid #dde3ec;
+      margin: 8px 0 4px;
+    }
+
+    /* ── Estado badge ── */
+    .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 9px; font-weight: 700; }
+    .badge-ok  { background: #e8f5e9; color: #1e7e34; }
+    .badge-pend{ background: #fff3e0; color: #e65100; }
+
+    /* ── Pantalla de inicio ── */
+    #pantalla-inicio {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      color: #8fa3bc;
+      gap: 10px;
+    }
+    #pantalla-inicio .icono { font-size: 48px; }
+    #pantalla-inicio p { font-size: 13px; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid #dde3ec;
+      border-top-color: #1255a4;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Print ── */
+    @media print {
+      body { background: white; }
+      #toolbar { display: none !important; }
+      #page-wrap { padding: 0; }
+      .contrato-hoja {
+        box-shadow: none;
+        border-radius: 0;
+        width: 100%;
+        padding: 10mm 12mm;
+      }
+      .campo .valor.editable { border-bottom: none; cursor: default; }
+      .campo .valor.editable:empty::before { content: ''; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── TOOLBAR ── -->
+<div id="toolbar">
+  <span class="logo">ALUMAR</span>
+  <span class="sep">|</span>
+  <select id="sel-guia" title="Seleccionar guía">
+    <option value="">— Seleccionar guía —</option>
+  </select>
+  <button id="btn-cargar">Cargar</button>
+  <button id="btn-nuevo">Nueva búsqueda</button>
+  <span class="sep">|</span>
+  <button id="btn-print">⎙ Imprimir / PDF</button>
+  <span id="status-msg" class="status-msg"></span>
+</div>
+
+<!-- ── CONTENIDO ── -->
+<div id="page-wrap">
+  <div class="contrato-hoja" id="contrato-hoja">
+    <div id="pantalla-inicio">
+      <div class="icono">📄</div>
+      <p>Selecciona una guía en la barra superior para cargar el contrato</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = '';  // mismo origen: contratos-api sirve el HTML y la API
+
+  // ── Utilidades ──────────────────────────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+  const setStatus = (msg, type = '') => {
+    const el = $('status-msg');
+    el.textContent = msg;
+    el.className = 'status-msg' + (type ? ' ' + type : '');
+  };
+
+  const fmtFecha = iso => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const fmtDinero = n => {
+    const num = parseFloat(n) || 0;
+    return '$ ' + num.toLocaleString('es-CO', { minimumFractionDigits: 0 });
+  };
+
+  const fmtPeso = n => {
+    const num = parseFloat(n) || 0;
+    return num.toLocaleString('es-CO') + ' kg';
+  };
+
+  // ── Cargar lista de guías ──────────────────────────────────────────────────
+  async function cargarListaGuias() {
+    try {
+      setStatus('Cargando guías…');
+      const resp = await fetch(API + '/api/guias');
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const guias = await resp.json();
+
+      const sel = $('sel-guia');
+      sel.innerHTML = '<option value="">— Seleccionar guía —</option>';
+      guias.forEach(g => {
+        const num  = (g.guia_numero || '').replace(/^0+/, '');
+        const tran = [g.transportista_nombre, g.transportista_apellido].filter(Boolean).join(' ');
+        const opt  = document.createElement('option');
+        opt.value  = num;
+        opt.textContent = `CTT-${num.padStart(5,'0')}  •  ${fmtFecha(g.fecha)}  •  ${tran}  •  ${g.placa || ''}`;
+        sel.appendChild(opt);
+      });
+      setStatus(`${guias.length} guías disponibles`, 'ok');
+    } catch (e) {
+      setStatus('Error cargando guías: ' + e.message, 'error');
+    }
+  }
+
+  // ── Cargar contrato ─────────────────────────────────────────────────────────
+  async function cargarContrato(num) {
+    if (!num) return;
+    const hoja = $('contrato-hoja');
+    hoja.innerHTML = '<div style="padding:40px;text-align:center;color:#8fa3bc"><span class="spinner"></span> Cargando datos desde MySQL…</div>';
+    setStatus('Consultando BD…');
+    try {
+      const resp = await fetch(API + '/api/contrato/' + num);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const d = await resp.json();
+      if (d.error) throw new Error(d.error);
+      renderContrato(d, hoja);
+      setStatus('Contrato CTT-' + String(num).padStart(5,'0') + ' cargado', 'ok');
+    } catch (e) {
+      hoja.innerHTML = `<div style="padding:40px;text-align:center;color:#ff8a80">⚠ ${e.message}</div>`;
+      setStatus('Error: ' + e.message, 'error');
+    }
+  }
+
+  // ── Renderizar contrato ─────────────────────────────────────────────────────
+  function renderContrato(d, hoja) {
+    const c  = d.contrato      || {};
+    const t  = d.transportista || {};
+    const cd = d.conductor     || {};
+    const v  = d.vehiculo      || {};
+    const cg = d.carga         || {};
+    const fs = d.facturas_detalle || [];
+
+    const numStr = String(c.numero || '').padStart(5, '0');
+
+    const totNeto   = fs.reduce((s, f) => s + (parseFloat(f.neto)  || 0), 0);
+    const totBultos = fs.reduce((s, f) => s + (parseFloat(f.bultos) || 0), 0);
+    const totPeso   = fs.reduce((s, f) => s + (parseFloat(f.peso)  || 0), 0);
+
+    hoja.innerHTML = `
+      <!-- ENCABEZADO -->
+      <div class="enc">
+        <div class="enc-left">
+          <div class="nombre-empresa">ALUMAR S.A.S.</div>
+          <div class="sub-empresa">Importación y distribución — Línea mesa y cocina</div>
+          <div class="sub-empresa" style="margin-top:2px">Cali, Colombia</div>
+        </div>
+        <div class="enc-right">
+          <div class="titulo-doc">Contrato de Transporte de Mercancía</div>
+          <div class="num-ctt">CTT-${numStr}</div>
+          <div class="fecha-doc">Fecha cargue: ${fmtFecha(c.fecha_cargue)}</div>
+          ${c.estado ? `<div style="margin-top:4px"><span class="badge ${c.estado === 'ACTIVO' ? 'badge-ok' : 'badge-pend'}">${c.estado}</span></div>` : ''}
+        </div>
+      </div>
+
+      <!-- TRANSPORTISTA -->
+      <div class="seccion">
+        <div class="sec-titulo">Datos del Transportista</div>
+        <div class="sec-body">
+          <div class="campo-grid cols-2">
+            <div class="campo" style="grid-column: span 2">
+              <label>Nombre completo</label>
+              <div class="valor">${t.nombre || '—'}</div>
+            </div>
+            <div class="campo">
+              <label>Cédula de ciudadanía</label>
+              <div class="valor">${t.cc || '—'}</div>
+            </div>
+            <div class="campo">
+              <label>Teléfono fijo</label>
+              <div class="valor">${t.telefono || '—'}</div>
+            </div>
+            <div class="campo">
+              <label>Celular</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="Ingresar celular">${t.celular || ''}</div>
+            </div>
+            <div class="campo">
+              <label>Ciudad</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="Ingresar ciudad">${t.ciudad || ''}</div>
+            </div>
+            <div class="campo" style="grid-column: span 2">
+              <label>Dirección</label>
+              <div class="valor">${t.direccion || '—'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONDUCTOR -->
+      <div class="seccion">
+        <div class="sec-titulo">Conductor del Vehículo</div>
+        <div class="sec-body">
+          <div class="campo-grid cols-2">
+            <div class="campo">
+              <label>Nombre completo del conductor</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="Nombre y apellido">${cd.nombre || ''}</div>
+            </div>
+            <div class="campo">
+              <label>Cédula de ciudadanía</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="Número CC">${cd.cc || ''}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VEHÍCULO -->
+      <div class="seccion">
+        <div class="sec-titulo">Datos del Vehículo</div>
+        <div class="sec-body">
+          <div class="campo-grid cols-4">
+            <div class="campo">
+              <label>Placa</label>
+              <div class="valor">${v.placas || '—'}</div>
+            </div>
+            <div class="campo">
+              <label>Marca</label>
+              <div class="valor">${v.marca || '—'}</div>
+            </div>
+            <div class="campo">
+              <label>Modelo</label>
+              <div class="valor">${v.modelo || '—'}</div>
+            </div>
+            <div class="campo">
+              <label>Capacidad</label>
+              <div class="valor">${v.capacidad || '—'}</div>
+            </div>
+          </div>
+          <div class="campo-grid cols-3" style="margin-top:6px">
+            <div class="campo">
+              <label>Licencia de tránsito</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="N° licencia">${v.licencia || ''}</div>
+            </div>
+            <div class="campo">
+              <label>Tarjeta de propiedad</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="N° tarjeta">${v.tarjeta_propiedad || ''}</div>
+            </div>
+            <div class="campo">
+              <label>SOAT — Vigencia</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="Compañía / vencimiento">${v.soat || ''}</div>
+            </div>
+            <div class="campo">
+              <label>Aseguradora</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="Nombre aseguradora">${v.aseguradora || ''}</div>
+            </div>
+            <div class="campo">
+              <label>Cert. técnico-mecánica</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="Vencimiento">${v.cert_tecmec || ''}</div>
+            </div>
+            <div class="campo">
+              <label>Fecha salida vehículo</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="dd/mm/aaaa">${c.fecha_salida ? fmtFecha(c.fecha_salida) : ''}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CARGA -->
+      <div class="seccion">
+        <div class="sec-titulo">Descripción de la Carga</div>
+        <div class="sec-body">
+          <div class="campo-grid cols-2">
+            <div class="campo" style="grid-column: span 2">
+              <label>Mercancía</label>
+              <div class="valor">${cg.descripcion || 'Menaje de cocina y mesa — Línea importada'}</div>
+            </div>
+            <div class="campo" style="grid-column: span 2">
+              <label>Destino / Ruta</label>
+              <div class="valor">${cg.destino || '—'}</div>
+            </div>
+            <div class="campo" style="grid-column: span 2">
+              <label>Ciudades de entrega</label>
+              <div class="valor">${cg.ciudades || '—'}</div>
+            </div>
+            <div class="campo">
+              <label>Facturas</label>
+              <div class="valor">${cg.facturas || '—'}</div>
+            </div>
+            <div class="campo">
+              <label>Devoluciones</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="N° facturas devolución">${cg.devoluciones || ''}</div>
+            </div>
+            <div class="campo">
+              <label>Peso total</label>
+              <div class="valor">${fmtPeso(cg.peso || totPeso)}</div>
+            </div>
+            <div class="campo">
+              <label>Bultos</label>
+              <div class="valor">${(cg.bultos || totBultos).toLocaleString('es-CO')} un.</div>
+            </div>
+          </div>
+          <div class="resumen-valores">
+            <div class="rv-item">
+              <div class="rv-label">Valor mercancía</div>
+              <div class="rv-val">${fmtDinero(cg.valor_mercancia || totNeto)}</div>
+            </div>
+            <div class="rv-item flete">
+              <div class="rv-label">Valor flete</div>
+              <div class="rv-val">${fmtDinero(cg.valor_flete)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABLA FACTURAS -->
+      ${fs.length > 0 ? `
+      <div class="seccion">
+        <div class="sec-titulo">Detalle de Facturas (${fs.length})</div>
+        <div class="sec-body" style="padding: 0;">
+          <table class="tabla-facturas">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Factura</th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>Ciudad</th>
+                <th class="right">Neto</th>
+                <th class="right">Bultos</th>
+                <th class="right">Peso</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${fs.map((f, i) => `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td style="font-weight:700;color:#1255a4;font-family:monospace">${(f.factura_numero||'').replace(/^0+/,'')}</td>
+                  <td style="white-space:nowrap">${fmtFecha(f.fecha)}</td>
+                  <td>${f.cliente_nombre || '—'}</td>
+                  <td>${f.ciudad || '—'}</td>
+                  <td class="right" style="font-family:monospace">${fmtDinero(f.neto)}</td>
+                  <td class="right">${parseFloat(f.bultos)||0}</td>
+                  <td class="right">${parseFloat(f.peso)||0} kg</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="5" style="text-align:right">TOTALES</td>
+                <td class="right" style="font-family:monospace">${fmtDinero(totNeto)}</td>
+                <td class="right">${totBultos}</td>
+                <td class="right">${totPeso.toLocaleString('es-CO')} kg</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>` : ''}
+
+      <!-- CONDICIONES -->
+      <div class="condiciones">
+        <strong>Condiciones del contrato:</strong> El presente contrato de transporte de mercancía se rige por las
+        normas del Decreto 173 de 2001 y demás disposiciones vigentes del Ministerio de Transporte de Colombia.
+        El transportista declara recibir la mercancía en perfectas condiciones y se obliga a entregarla en el destino
+        pactado dentro del tiempo acordado. El valor del flete acordado cubre el transporte terrestre hasta el punto
+        de entrega señalado. La mercancía viaja bajo la responsabilidad del transportista desde el momento de su
+        cargue hasta la entrega al destinatario, con las garantías de ley. <strong>Empresa:</strong> ALUMAR S.A.S.
+      </div>
+
+      <!-- FIRMAS -->
+      <div class="firmas">
+        <div class="firma-bloque">
+          <div class="firma-nombre">ALUMAR S.A.S.</div>
+          <div class="firma-sub">Contratante — NIT</div>
+          <div class="firma-linea"></div>
+          <div class="firma-sub">Firma y sello</div>
+        </div>
+        <div class="firma-bloque">
+          <div class="firma-nombre">${t.nombre || 'Transportista'}</div>
+          <div class="firma-sub">CC: ${t.cc || '—'}</div>
+          <div class="firma-linea"></div>
+          <div class="firma-sub">Firma del transportista</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Event listeners ─────────────────────────────────────────────────────────
+  $('btn-cargar').addEventListener('click', () => {
+    const num = $('sel-guia').value;
+    if (!num) { setStatus('Selecciona una guía primero', 'error'); return; }
+    cargarContrato(num);
+  });
+
+  $('sel-guia').addEventListener('change', () => {
+    const num = $('sel-guia').value;
+    if (num) cargarContrato(num);
+  });
+
+  $('btn-print').addEventListener('click', () => window.print());
+
+  $('btn-nuevo').addEventListener('click', () => {
+    $('sel-guia').value = '';
+    $('contrato-hoja').innerHTML = `
+      <div id="pantalla-inicio">
+        <div class="icono">📄</div>
+        <p>Selecciona una guía en la barra superior para cargar el contrato</p>
+      </div>`;
+    setStatus('');
+  });
+
+  // ── Auto-carga desde ?guia=XXXXX ──────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', async () => {
+    await cargarListaGuias();
+    const params = new URLSearchParams(window.location.search);
+    const guiaParam = params.get('guia');
+    if (guiaParam) {
+      $('sel-guia').value = guiaParam;
+      await cargarContrato(guiaParam);
+    }
+
+    // Modo PDF: ocultar toolbar automáticamente
+    if (params.get('modo') === 'pdf') {
+      $('toolbar').style.display = 'none';
+    }
+  });
+</script>
+</body>
+</html>
