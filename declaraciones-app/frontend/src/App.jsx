@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import RUTAS_HISTORICAS from "./rutasHistoricas.json";
 import CONDUCTORES_INFO from "./conductoresInfo.json";
+import DashboardContratos from "./DashboardContratos";
 
 const API = import.meta.env.VITE_API_URL || "https://refreshing-gentleness-production-7a26.up.railway.app";
 const GS = "https://script.google.com/macros/s/AKfycbyZmzq0Wi2QlfDHIgjpH0NTHSAJV4q1JCN42zf2Z0-IAonSf7w54JNgmx4SPYAV5cS7/exec";
@@ -1276,7 +1277,7 @@ export default function App() {
 
       {/* TABS */}
       <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "0 2rem", display: "flex" }}>
-        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["contratos", `🚛 Contratos (${contratos.length})`], ["conductores", `👤 Conductores (${conductores.length})`]].map(([key, label]) => (
+        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["dashboard", "📊 Dashboard"], ["contratos", `🚛 Contratos (${contratos.length})`], ["conductores", `👤 Conductores (${conductores.length})`]].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
             background: "transparent", border: "none",
             borderBottom: tab === key ? `3px solid ${C.blue}` : "3px solid transparent",
@@ -1488,6 +1489,13 @@ export default function App() {
             );
             })()}
           </div>
+        )}
+
+        {/* TAB: DASHBOARD */}
+        {tab === "dashboard" && (
+          <DashboardContratos onOpenContrato={(num) => {
+            window.open(`http://localhost:3000/?guia=${num}`, '_blank');
+          }} />
         )}
 
         {/* TAB: CONTRATOS */}
