@@ -512,6 +512,192 @@ def process_invoice():
     return response
 
 
+@app.route("/api/process-refs", methods=["POST"])
+def process_refs():
+    """
+    Endpoint alternativo: recibe referencias de productos directamente (JSON).
+    Omite el paso de PDF/AI y va directo a buscar en Drive.
+    Body JSON: {
+      "referencias": ["AATI-007293", "TAATI-006075", ...],
+      "factura_nombre": "Factura 53855",
+      "cache_hints": {}
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    referencias = data.get("referencias", [])
+    factura_nombre = data.get("factura_nombre", "desde_bd")
+    cache_hints = data.get("cache_hints", {})
+
+    if not referencias:
+        return jsonify({"error": "Se requiere lista de referencias"}), 400
+
+    # 1. Autenticar con Drive
+    try:
+        token = get_drive_token()
+    except Exception as e:
+        return jsonify({"error": f"Error de autenticación con Google Drive: {str(e)}"}), 500
+
+    # 2. Construir términos de búsqueda con variantes
+    search_terms = set()
+    for ref in referencias:
+        if ref and len(ref.strip()) >= 4:
+            search_terms.update(build_search_variants(ref.strip()))
+
+    if not search_terms:
+        return jsonify({"error": "No se generaron términos de búsqueda válidos"}), 400
+
+    print("=" * 60)
+    print(f"PROCESS-REFS: {len(referencias)} refs → {len(search_terms)} términos")
+    print(f"Refs: {referencias[:10]}")
+    print("=" * 60)
+
+    # 3. Obtener subcarpetas de MANIFIESTOS
+    try:
+        supplier_folders = get_subfolders(MANIFIESTOS_FOLDER_ID, token)
+    except Exception as e:
+        return jsonify({"error": f"Error accediendo a Drive: {str(e)}"}), 500
+
+    # Priorizar carpetas conocidas del caché
+    cached_folder_ids = {v.get("folder_id") for v in cache_hints.values() if isinstance(v, dict) and v.get("folder_id")}
+    if cached_folder_ids:
+        supplier_folders.sort(key=lambda f: 0 if f["id"] in cached_folder_ids else 1)
+
+    # 4. Buscar en paralelo (misma lógica que /api/process)
+    matched_declarations = []
+
+    def check_folder(folder):
+        folder_name = folder["name"]
+        folder_id   = folder["id"]
+        try:
+            pdfs = get_pdfs_in_folder(folder_id, token)
+        except Exception:
+            return None
+        if not pdfs:
+            return None
+
+        folder_matched_terms = set()
+        folder_pdfs_results  = []
+        consecutive_misses   = 0
+        found_any            = False
+
+        for pdf_meta in pdfs:
+            remaining = {t for t in search_terms if t not in folder_matched_terms}
+            if not remaining:
+                break
+            if not found_any and consecutive_misses >= 3:
+                break
+            if found_any and consecutive_misses >= 2:
+                break
+            try:
+                pdf_bytes = drive_download(pdf_meta["id"], token)
+            except Exception:
+                consecutive_misses += 1
+                continue
+            matched_pages, newly_matched = find_matching_pages(pdf_bytes, remaining, folder_matched_terms)
+            if matched_pages:
+                folder_matched_terms.update(newly_matched)
+                folder_pdfs_results.append({
+                    "archivo": pdf_meta["name"],
+                    "paginas_match": matched_pages,
+                    "pdf_bytes": pdf_bytes,
+                    "matched_terms": newly_matched,
+                    "date": pdf_meta.get("modifiedTime", ""),
+                    "file_id": pdf_meta["id"],
+                })
+                consecutive_misses = 0
+                found_any = True
+            else:
+                consecutive_misses += 1
+
+        if not folder_pdfs_results:
+            return None
+        return {
+            "proveedor": folder_name,
+            "folder_id": folder_id,
+            "pdfs": folder_pdfs_results,
+        }
+
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        futures = {executor.submit(check_folder, f): f for f in supplier_folders}
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                matched_declarations.append(result)
+
+    if not matched_declarations:
+        return jsonify({
+            "error": "No se encontraron declaraciones para estas referencias",
+            "referencias_buscadas": list(search_terms),
+            "no_encontradas": referencias,
+        }), 404
+
+    # 5. Construir PDF final con deduplicación global
+    all_pdf_results = []
+    for decl in matched_declarations:
+        for pdf_result in decl["pdfs"]:
+            all_pdf_results.append({"proveedor": decl["proveedor"], "folder_id": decl.get("folder_id",""), **pdf_result})
+    all_pdf_results.sort(key=lambda x: x.get("date",""), reverse=True)
+
+    global_matched = set()
+    writer = PdfWriter()
+    resumen = []
+
+    for pdf_result in all_pdf_results:
+        new_terms = pdf_result["matched_terms"] - global_matched
+        if not new_terms:
+            continue
+        global_matched.update(new_terms)
+        reader = PdfReader(io.BytesIO(pdf_result["pdf_bytes"]))
+        pages_added = 0
+        with pdfplumber.open(io.BytesIO(pdf_result["pdf_bytes"])) as plumber_pdf:
+            for idx in pdf_result["paginas_match"]:
+                if idx < len(reader.pages):
+                    has_content = False
+                    if idx < len(plumber_pdf.pages):
+                        words = plumber_pdf.pages[idx].extract_words()
+                        if len(words) >= 10:
+                            has_content = True
+                        elif words:
+                            has_content = len(plumber_pdf.pages[idx].chars) >= 100
+                    if has_content:
+                        writer.add_page(reader.pages[idx])
+                        pages_added += 1
+        resumen.append({
+            "proveedor": pdf_result["proveedor"],
+            "archivo": pdf_result["archivo"],
+            "paginas_incluidas": pages_added,
+        })
+
+    # Referencias no encontradas
+    refs_upper = {r.upper().strip() for r in referencias}
+    not_found = [r for r in referencias if not any(v in global_matched for v in build_search_variants(r))]
+
+    # Cache update
+    cache_update = {}
+    for pdf_result in all_pdf_results:
+        for term in pdf_result.get("matched_terms", set()):
+            cache_update[term] = {
+                "folder_id":   pdf_result.get("folder_id",""),
+                "folder_name": pdf_result.get("proveedor",""),
+                "file_id":     pdf_result.get("file_id",""),
+                "file_name":   pdf_result.get("archivo",""),
+            }
+
+    output = io.BytesIO()
+    writer.write(output)
+    output.seek(0)
+
+    fecha_str = datetime.date.today().strftime("%Y%m%d")
+    filename = f"declaraciones_{factura_nombre.replace(' ','_')}_{fecha_str}.pdf"
+
+    response = send_file(output, mimetype="application/pdf", as_attachment=True, download_name=filename)
+    response.headers["X-Resumen"]          = json.dumps(resumen)
+    response.headers["X-No-Encontrados"]   = json.dumps(not_found)
+    response.headers["X-Productos-Buscados"] = json.dumps(list(search_terms)[:20])
+    response.headers["X-Cache-Update"]     = json.dumps(cache_update)
+    return response
+
+
 @app.route("/api/debug-invoice", methods=["POST"])
 def debug_invoice():
     """Diagnóstico: muestra el texto extraído y lo que devuelve la IA."""

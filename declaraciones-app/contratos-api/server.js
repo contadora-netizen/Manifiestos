@@ -350,6 +350,144 @@ app.get('/api/dashboard/guias', async (req, res) => {
   }
 });
 
+// ── GET /api/facturas/dia/:fecha/referencias - Referencias de productos por fecha ──
+app.get('/api/facturas/dia/:fecha/referencias', async (req, res) => {
+  try {
+    const fecha = req.params.fecha;
+
+    // Primero: facturas del día
+    const [facturas] = await getPool().query(`
+      SELECT
+        d.DCL_NUMERO   AS factura_numero,
+        d.DCL_FECHA    AS fecha,
+        c.CLT_NOMBRE   AS cliente_nombre,
+        cd.CDD_DESCRI  AS ciudad
+      FROM adn_doccli d
+      LEFT JOIN adn_clientes c  ON d.DCL_CLT_CODIGO = c.CLT_CODIGO
+      LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO = cd.CDD_CODIGO
+      WHERE DATE(d.DCL_FECHA) = ?
+      ORDER BY d.DCL_NUMERO ASC
+    `, [fecha]);
+
+    if (!facturas.length) {
+      return res.json({ fecha, total: 0, facturas: [] });
+    }
+
+    // Segundo: líneas de detalle (referencias de productos)
+    // Intentar tabla adn_docclid (detalle de facturas)
+    const numeros = facturas.map(f => f.factura_numero);
+    let lineas = [];
+    let tablaDetalle = '';
+
+    const tablasACandidatas = ['adn_docclid', 'adn_docclidet', 'adn_movimientos', 'adn_invmov'];
+    for (const tabla of tablasACandidatas) {
+      try {
+        const [rows] = await getPool().query(
+          `SELECT * FROM ${tabla} LIMIT 1`
+        );
+        tablaDetalle = tabla;
+        break;
+      } catch (e) {
+        continue;
+      }
+    }
+
+    if (tablaDetalle) {
+      // Detectar columnas disponibles
+      const [cols] = await getPool().query(
+        `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_NAME = ? AND TABLE_SCHEMA = DATABASE()`,
+        [tablaDetalle]
+      );
+      const colNames = cols.map(c => c.COLUMN_NAME.toUpperCase());
+
+      // Buscar columnas relevantes
+      const colRef    = colNames.find(c => c.includes('REF') || c.includes('CODIGO') && !c.includes('CLI'));
+      const colDesc   = colNames.find(c => c.includes('DESC') || c.includes('NOMB'));
+      const colNumDoc = colNames.find(c => c.includes('NUMERO') || c.includes('NUM') && !c.includes('GUIA'));
+
+      if (colNumDoc) {
+        const placeholders = numeros.map(() => '?').join(',');
+        const [det] = await getPool().query(
+          `SELECT * FROM ${tablaDetalle} WHERE ${colNumDoc} IN (${placeholders}) LIMIT 2000`,
+          numeros
+        );
+        lineas = det;
+      }
+    }
+
+    // Si no encontramos tabla de detalle, devolver facturas sin líneas
+    const resultado = facturas.map(f => {
+      const det = lineas.filter(l => {
+        const val = Object.values(l)[1]; // segunda columna suele ser el número de doc
+        return String(val) === String(f.factura_numero);
+      });
+      const referencias = det
+        .map(l => {
+          const vals = Object.values(l);
+          return vals.find(v => typeof v === 'string' && v.length >= 5 && /[A-Z]/.test(v) && /\d/.test(v));
+        })
+        .filter(Boolean);
+      return {
+        factura_numero: f.factura_numero.replace(/^0+/, ''),
+        factura_numero_raw: f.factura_numero,
+        fecha: f.fecha,
+        cliente: f.cliente_nombre,
+        ciudad: f.ciudad,
+        referencias,
+        lineas_raw: det.length,
+      };
+    });
+
+    res.json({
+      fecha,
+      total: facturas.length,
+      tabla_detalle_encontrada: tablaDetalle || null,
+      facturas: resultado,
+    });
+  } catch (err) {
+    console.error('Error /api/facturas/dia/:fecha/referencias:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/tablas - Explorar tablas disponibles en la BD ──
+app.get('/api/tablas', async (_req, res) => {
+  try {
+    const [rows] = await getPool().query(
+      `SELECT TABLE_NAME, TABLE_ROWS FROM information_schema.TABLES
+       WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME`
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/tabla/:nombre/cols - Ver columnas de una tabla ──
+app.get('/api/tabla/:nombre/cols', async (req, res) => {
+  try {
+    const [rows] = await getPool().query(
+      `SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS
+       WHERE TABLE_NAME = ? AND TABLE_SCHEMA = DATABASE() ORDER BY ORDINAL_POSITION`,
+      [req.params.nombre]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/tabla/:nombre/muestra - Ver 3 filas de muestra ──
+app.get('/api/tabla/:nombre/muestra', async (req, res) => {
+  try {
+    const nombre = req.params.nombre.replace(/[^a-zA-Z0-9_]/g, '');
+    const [rows] = await getPool().query(`SELECT * FROM ${nombre} LIMIT 3`);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── GET /api/declaraciones/dia/:fecha - Facturas del día directo de adn_doccli ──
 app.get('/api/declaraciones/dia/:fecha', async (req, res) => {
   try {

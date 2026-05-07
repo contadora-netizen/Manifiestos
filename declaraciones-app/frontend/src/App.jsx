@@ -1252,20 +1252,33 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   );
 }
 
-// ── Procesados: pestaña con consulta BD + monitor Drive ──────────────────────
+// ── Procesados: pestaña con consulta BD + búsqueda declaraciones en Drive ─────
 function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capiBase }) {
   const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
   const ayerStr = ayer.toISOString().slice(0, 10);
   const [bdFecha, setBdFecha] = useState(ayerStr);
   const [bdLoading, setBdLoading] = useState(false);
-  const [bdResumen, setBdResumen] = useState(null); // { fecha, total_guias, declaraciones, ... }
+  const [bdResumen, setBdResumen] = useState(null);
   const [bdError, setBdError] = useState("");
-  const [expandido, setExpandido] = useState(null); // id de la guía expandida
+
+  // Drive search state
+  const [driveLoading, setDriveLoading] = useState(false);
+  const [driveLogs, setDriveLogs] = useState([]);
+  const [driveItems, setDriveItems] = useState([]); // por factura
+  const [driveError, setDriveError] = useState("");
+  const logRef = useRef(null);
+
   const fmt = v => v ? `$${Number(v).toLocaleString("es-CO")}` : "—";
+
+  const addLog = (msg) => {
+    setDriveLogs(prev => [...prev, { time: new Date().toLocaleTimeString("es-CO"), msg }]);
+    setTimeout(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, 60);
+  };
 
   const consultarBD = async () => {
     if (!bdFecha) return;
     setBdLoading(true); setBdError(""); setBdResumen(null);
+    setDriveItems([]); setDriveLogs([]); setDriveError("");
     try {
       const r = await fetch(`${capiBase}/api/declaraciones/dia/${bdFecha}`);
       const d = await r.json();
@@ -1278,13 +1291,135 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
     }
   };
 
+  const buscarDeclaraciones = async () => {
+    if (!bdFecha || driveLoading) return;
+    setDriveLoading(true);
+    setDriveLogs([]);
+    setDriveItems([]);
+    setDriveError("");
+
+    try {
+      addLog(`📅 Consultando referencias del ${bdFecha} en la BD...`);
+
+      // Paso 1: obtener referencias de producto por factura
+      const r = await fetch(`${capiBase}/api/facturas/dia/${bdFecha}/referencias`);
+      const d = await r.json();
+      if (!r.ok || d.error) throw new Error(d.error || "Error consultando referencias");
+
+      const facturas = d.facturas || [];
+      const tablaOk = d.tabla_detalle_encontrada;
+      addLog(`🗄️ ${facturas.length} facturas · ${tablaOk ? `tabla de detalle: ${tablaOk}` : "sin tabla de detalle — solo número de factura"}`);
+
+      if (!facturas.length) {
+        addLog("⚠ No hay facturas para esta fecha.");
+        setDriveLoading(false);
+        return;
+      }
+
+      // Inicializar items para mostrar el progreso
+      setDriveItems(facturas.map(f => ({
+        factura: f.factura_numero,
+        cliente: f.cliente || "",
+        ciudad: f.ciudad || "",
+        refs: f.referencias || [],
+        status: "pending",
+        resumen: [],
+        notFound: [],
+        url: null,
+        filename: null,
+      })));
+
+      // Cargar cache de productos
+      let cache = {};
+      try { const raw = localStorage.getItem("alumar_product_cache"); if (raw) cache = JSON.parse(raw); } catch {}
+
+      // Paso 2: procesar cada factura contra Drive
+      for (let i = 0; i < facturas.length; i++) {
+        const f = facturas[i];
+        const facNum = f.factura_numero;
+        const refs = f.referencias || [];
+
+        setDriveItems(prev => prev.map(it => it.factura === facNum ? { ...it, status: "processing" } : it));
+
+        if (!refs.length) {
+          addLog(`⚠ [${i+1}/${facturas.length}] Factura ${facNum} (${f.cliente||"—"}): sin referencias de producto en BD`);
+          setDriveItems(prev => prev.map(it => it.factura === facNum ? { ...it, status: "sin_refs" } : it));
+          continue;
+        }
+
+        addLog(`⏳ [${i+1}/${facturas.length}] Factura ${facNum} — ${refs.length} ref${refs.length!==1?"s":""}: ${refs.slice(0,4).join(", ")}${refs.length>4?` +${refs.length-4} más`:""}`);
+
+        try {
+          const res = await fetch(`${API}/api/process-refs`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ referencias: refs, factura_nombre: `Factura_${facNum}`, cache_hints: cache }),
+          });
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            addLog(`  ✗ Error: ${errData.error || `HTTP ${res.status}`}`);
+            setDriveItems(prev => prev.map(it => it.factura === facNum ? { ...it, status: "error" } : it));
+            continue;
+          }
+
+          const resumenRaw = res.headers.get("X-Resumen");
+          const noEncRaw = res.headers.get("X-No-Encontrados");
+          const cacheUpd = res.headers.get("X-Cache-Update");
+          const resumen = resumenRaw ? JSON.parse(resumenRaw) : [];
+          const notFound = noEncRaw ? JSON.parse(noEncRaw) : [];
+
+          if (cacheUpd) {
+            try {
+              const cu = JSON.parse(cacheUpd);
+              cache = { ...cache, ...cu };
+              localStorage.setItem("alumar_product_cache", JSON.stringify(cache));
+            } catch {}
+          }
+
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const cdisposition = res.headers.get("Content-Disposition") || "";
+          const filename = cdisposition.match(/filename="(.+)"/)?.[1] || `declaraciones_${facNum}.pdf`;
+          const totalPags = resumen.reduce((a, r) => a + (r.paginas_incluidas || 0), 0);
+
+          resumen.forEach(r => addLog(`  ✓ ${r.proveedor}: ${r.archivo} (${r.paginas_incluidas} págs.)`));
+          if (notFound.length > 0) addLog(`  ⚠ Sin dec.: ${notFound.slice(0,5).join(", ")}${notFound.length>5?` (+${notFound.length-5} más)`:""}`);
+          addLog(`  📄 PDF listo — ${totalPags} páginas · ${resumen.length} proveedor${resumen.length!==1?"es":""}`);
+
+          setDriveItems(prev => prev.map(it =>
+            it.factura === facNum
+              ? { ...it, status: "done", resumen, notFound, url, filename }
+              : it
+          ));
+        } catch (e) {
+          addLog(`  ✗ Factura ${facNum}: ${e.message}`);
+          setDriveItems(prev => prev.map(it => it.factura === facNum ? { ...it, status: "error" } : it));
+        }
+      }
+
+      const conDec = driveItems.filter ? 0 : 0; // se calcula abajo desde el estado
+      addLog("─── Búsqueda en Drive completada ───");
+    } catch (e) {
+      setDriveError(e.message);
+      addLog(`✗ Error general: ${e.message}`);
+    } finally {
+      setDriveLoading(false);
+    }
+  };
+
+  const doneCount = driveItems.filter(i => i.status === "done").length;
+  const sinRefsCount = driveItems.filter(i => i.status === "sin_refs").length;
+  const errorCount = driveItems.filter(i => i.status === "error").length;
+
   return (
     <div style={{ maxWidth:960 }}>
-      {/* ── Sección BD ────────────────────────────────────────── */}
+
+      {/* ── Sección BD ─────────────────────────────────────────────── */}
       <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 20px", marginBottom:20, boxShadow:C.shadow }}>
         <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:4 }}>🗄️ Consultar facturas desde la Base de Datos</div>
         <div style={{ fontSize:12, color:C.textMuted, marginBottom:14 }}>
-          Extrae todas las guías y facturas despachadas en una fecha directamente del sistema ADN.
+          Extrae las facturas despachadas en una fecha directamente del sistema ADN y busca sus declaraciones de importación en Drive.
         </div>
         <div style={{ display:"flex", gap:10, alignItems:"flex-end", flexWrap:"wrap" }}>
           <div>
@@ -1293,8 +1428,8 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
               style={{ border:`1px solid ${C.border}`, borderRadius:6, padding:"7px 10px", fontSize:13, color:C.text, outline:"none" }} />
           </div>
           <button onClick={consultarBD} disabled={bdLoading || !bdFecha}
-            style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, color:"white", border:"none", borderRadius:8, padding:"9px 20px", cursor:"pointer", fontWeight:700, fontSize:12, display:"flex", alignItems:"center", gap:6, opacity: bdLoading ? 0.7 : 1 }}>
-            {bdLoading ? <><Spinner size={12}/> Consultando BD...</> : "🔍 Procesar día"}
+            style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, color:"white", border:"none", borderRadius:8, padding:"9px 20px", cursor:"pointer", fontWeight:700, fontSize:12, display:"flex", alignItems:"center", gap:6, opacity:bdLoading?0.7:1 }}>
+            {bdLoading ? <><Spinner size={12}/> Consultando BD...</> : "🗄️ Consultar facturas"}
           </button>
           {bdFecha === ayerStr && <span style={{ fontSize:11, color:C.textMuted, alignSelf:"center" }}>← ayer</span>}
         </div>
@@ -1307,7 +1442,7 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
 
         {bdResumen && (
           <div style={{ marginTop:16 }}>
-            {/* KPIs del día */}
+            {/* KPIs */}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:14 }}>
               {[
                 { lbl:"Facturas del día", val: bdResumen.total_facturas, color: C.blue },
@@ -1322,7 +1457,7 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
               ))}
             </div>
 
-            {/* Guías involucradas */}
+            {/* Guías */}
             {bdResumen.guias?.length > 0 && (
               <div style={{ marginBottom:12, fontSize:11, color:C.textMuted }}>
                 <strong style={{ color:C.text }}>Guías:</strong>{" "}
@@ -1340,125 +1475,174 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
                 📭 No se encontraron facturas para el {bdFecha}
               </div>
             ) : (
-              <div style={{ border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
-                {/* Header tabla */}
-                <div style={{ display:"grid", gridTemplateColumns:"80px 2fr 1.5fr 1fr 90px 90px 80px", gap:6, padding:"9px 12px", background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, fontSize:9, fontWeight:700, color:"#8faec8", letterSpacing:"0.07em" }}>
-                  <div>FACTURA N°</div><div>CLIENTE</div><div>CIUDAD / DPTO</div><div>GUÍA CTT</div><div style={{ textAlign:"right" }}>NETO</div><div style={{ textAlign:"right" }}>BULTOS</div><div style={{ textAlign:"right" }}>PESO</div>
-                </div>
-                {/* Filas */}
-                {bdResumen.facturas.map((f, i) => (
-                  <div key={i} style={{
-                    display:"grid", gridTemplateColumns:"80px 2fr 1.5fr 1fr 90px 90px 80px", gap:6,
-                    padding:"8px 12px", alignItems:"center",
-                    borderBottom: i < bdResumen.facturas.length-1 ? `1px solid ${C.border}` : "none",
-                    background: i%2===0 ? C.white : "#f8fafc"
-                  }}>
-                    <div style={{ fontWeight:800, color:C.blue, fontFamily:"monospace", fontSize:12 }}>{f.factura_numero}</div>
-                    <div>
-                      <div style={{ fontSize:11, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.cliente_nombre||"—"}</div>
-                      {f.transportista_nombre && (
-                        <div style={{ fontSize:9, color:C.textMuted }}>{f.transportista_nombre} {f.transportista_apellido||""} · {f.placa||""}</div>
-                      )}
-                    </div>
-                    <div style={{ fontSize:11, color:C.text }}>{f.ciudad||"—"}</div>
-                    <div>
-                      {f.guia_numero ? (
-                        <button onClick={() => window.open(`${capiBase}/?guia=${f.guia_numero}`, "_blank")}
-                          style={{ background:"#e8f0fb", color:C.blue, border:`1px solid ${C.blue}30`, borderRadius:4, padding:"2px 7px", fontSize:10, cursor:"pointer", fontWeight:700 }}>
-                          CTT-{String(f.guia_numero).padStart(5,"0")}
-                        </button>
-                      ) : <span style={{ color:C.textDim, fontSize:10 }}>Sin guía</span>}
-                    </div>
-                    <div style={{ textAlign:"right", fontSize:11, fontWeight:700, color:C.green, fontFamily:"monospace" }}>{fmt(f.neto)}</div>
-                    <div style={{ textAlign:"right", fontSize:11, color:C.text }}>{parseFloat(f.bultos)||0}</div>
-                    <div style={{ textAlign:"right", fontSize:11, color:C.textMuted }}>{parseFloat(f.peso)||0} kg</div>
+              <>
+                <div style={{ border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
+                  <div style={{ display:"grid", gridTemplateColumns:"80px 2fr 1.5fr 1fr 90px 90px 80px", gap:6, padding:"9px 12px", background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, fontSize:9, fontWeight:700, color:"#8faec8", letterSpacing:"0.07em" }}>
+                    <div>FACTURA N°</div><div>CLIENTE</div><div>CIUDAD</div><div>GUÍA CTT</div>
+                    <div style={{ textAlign:"right" }}>NETO</div><div style={{ textAlign:"right" }}>BULTOS</div><div style={{ textAlign:"right" }}>PESO</div>
                   </div>
-                ))}
-                {/* Fila totales */}
-                <div style={{ display:"grid", gridTemplateColumns:"80px 2fr 1.5fr 1fr 90px 90px 80px", gap:6, padding:"9px 12px", background:"#e8edf4", fontWeight:700, borderTop:`2px solid ${C.border}` }}>
-                  <div style={{ gridColumn:"span 4", textAlign:"right", fontSize:9, letterSpacing:"0.06em", color:C.textMuted }}>TOTALES ({bdResumen.total_facturas} facturas)</div>
-                  <div style={{ textAlign:"right", fontFamily:"monospace", color:C.green, fontSize:12 }}>{fmt(bdResumen.totales?.neto)}</div>
-                  <div style={{ textAlign:"right", fontSize:12 }}>{(bdResumen.totales?.bultos||0).toLocaleString("es-CO")}</div>
-                  <div style={{ textAlign:"right", fontSize:11, color:C.textMuted }}>{(bdResumen.totales?.peso||0).toLocaleString("es-CO")} kg</div>
+                  {bdResumen.facturas.map((f, i) => (
+                    <div key={i} style={{
+                      display:"grid", gridTemplateColumns:"80px 2fr 1.5fr 1fr 90px 90px 80px", gap:6,
+                      padding:"8px 12px", alignItems:"center",
+                      borderBottom: i < bdResumen.facturas.length-1 ? `1px solid ${C.border}` : "none",
+                      background: i%2===0 ? C.white : "#f8fafc"
+                    }}>
+                      <div style={{ fontWeight:800, color:C.blue, fontFamily:"monospace", fontSize:12 }}>{f.factura_numero}</div>
+                      <div>
+                        <div style={{ fontSize:11, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.cliente_nombre||"—"}</div>
+                        {f.transportista_nombre && (
+                          <div style={{ fontSize:9, color:C.textMuted }}>{f.transportista_nombre} {f.transportista_apellido||""} · {f.placa||""}</div>
+                        )}
+                      </div>
+                      <div style={{ fontSize:11, color:C.text }}>{f.ciudad||"—"}</div>
+                      <div>
+                        {f.guia_numero ? (
+                          <button onClick={() => window.open(`${capiBase}/?guia=${f.guia_numero}`, "_blank")}
+                            style={{ background:"#e8f0fb", color:C.blue, border:`1px solid ${C.blue}30`, borderRadius:4, padding:"2px 7px", fontSize:10, cursor:"pointer", fontWeight:700 }}>
+                            CTT-{String(f.guia_numero).padStart(5,"0")}
+                          </button>
+                        ) : <span style={{ color:C.textDim, fontSize:10 }}>Sin guía</span>}
+                      </div>
+                      <div style={{ textAlign:"right", fontSize:11, fontWeight:700, color:C.green, fontFamily:"monospace" }}>{fmt(f.neto)}</div>
+                      <div style={{ textAlign:"right", fontSize:11, color:C.text }}>{parseFloat(f.bultos)||0}</div>
+                      <div style={{ textAlign:"right", fontSize:11, color:C.textMuted }}>{parseFloat(f.peso)||0} kg</div>
+                    </div>
+                  ))}
+                  <div style={{ display:"grid", gridTemplateColumns:"80px 2fr 1.5fr 1fr 90px 90px 80px", gap:6, padding:"9px 12px", background:"#e8edf4", fontWeight:700, borderTop:`2px solid ${C.border}` }}>
+                    <div style={{ gridColumn:"span 4", textAlign:"right", fontSize:9, letterSpacing:"0.06em", color:C.textMuted }}>TOTALES ({bdResumen.total_facturas} facturas)</div>
+                    <div style={{ textAlign:"right", fontFamily:"monospace", color:C.green, fontSize:12 }}>{fmt(bdResumen.totales?.neto)}</div>
+                    <div style={{ textAlign:"right", fontSize:12 }}>{(bdResumen.totales?.bultos||0).toLocaleString("es-CO")}</div>
+                    <div style={{ textAlign:"right", fontSize:11, color:C.textMuted }}>{(bdResumen.totales?.peso||0).toLocaleString("es-CO")} kg</div>
+                  </div>
                 </div>
-              </div>
+
+                {/* Botón Buscar declaraciones en Drive */}
+                <div style={{ marginTop:16, display:"flex", alignItems:"center", gap:12 }}>
+                  <button onClick={buscarDeclaraciones} disabled={driveLoading}
+                    style={{ background:`linear-gradient(135deg,#1e7e34,#27a745)`, color:"white", border:"none", borderRadius:8, padding:"10px 22px", cursor:"pointer", fontWeight:700, fontSize:13, display:"flex", alignItems:"center", gap:8, opacity:driveLoading?0.7:1, boxShadow:"0 2px 8px rgba(30,126,52,0.3)" }}>
+                    {driveLoading ? <><Spinner size={13}/> Buscando en Drive...</> : "🔍 Buscar declaraciones en Drive"}
+                  </button>
+                  {driveItems.length > 0 && !driveLoading && (
+                    <span style={{ fontSize:12, color:C.textMuted }}>
+                      {doneCount > 0 && <span style={{ color:C.green, fontWeight:700 }}>✓ {doneCount} con declaraciones </span>}
+                      {sinRefsCount > 0 && <span style={{ color:C.accent }}>· {sinRefsCount} sin refs </span>}
+                      {errorCount > 0 && <span style={{ color:C.red }}>· {errorCount} con error</span>}
+                    </span>
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
       </div>
 
-      {/* ── Sección Drive (monitor automático) ───────────────── */}
-      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 20px", boxShadow:C.shadow }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-          <div>
-            <div style={{ fontSize:14, fontWeight:700, color:C.text }}>📂 Monitor Drive — Carpeta FELCO</div>
-            <div style={{ fontSize:12, color:C.textMuted }}>PDFs detectados automáticamente y procesados cada 10 minutos</div>
+      {/* ── Sección resultados Drive ─────────────────────────────────── */}
+      {(driveItems.length > 0 || driveLogs.length > 0) && (
+        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 20px", marginBottom:20, boxShadow:C.shadow }}>
+          <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:12 }}>
+            📂 Declaraciones de importación en Drive
+            {driveLoading && <span style={{ fontSize:11, color:C.textMuted, fontWeight:400, marginLeft:10 }}>buscando...</span>}
           </div>
-          <button onClick={recargarProcesados} disabled={procesadosLoading}
-            style={{ background:`linear-gradient(135deg,${C.blue},${C.blueLight})`, color:"white", border:"none", borderRadius:8, padding:"8px 16px", cursor:"pointer", fontWeight:700, fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
-            {procesadosLoading ? <><Spinner size={12}/> Cargando...</> : "🔄 Actualizar"}
-          </button>
-        </div>
 
-        <div style={{ background:"#e8f5e9", border:`1px solid ${C.green}40`, borderRadius:8, padding:"8px 14px", marginBottom:14, fontSize:12, color:C.green, display:"flex", alignItems:"center", gap:8 }}>
-          <span>⚙️</span>
-          <span><strong>Monitor activo:</strong> El sistema revisa la carpeta FELCO cada 10 minutos.</span>
-        </div>
+          {driveError && (
+            <div style={{ background:"#fff0f0", border:`1px solid #f5c6cb`, borderRadius:8, padding:"10px 14px", fontSize:12, color:C.red, marginBottom:12 }}>
+              ⚠ {driveError}
+            </div>
+          )}
 
-        {procesados.length === 0 ? (
-          <div style={{ padding:"2.5rem", textAlign:"center", color:C.textMuted }}>
-            <div style={{ fontSize:40, marginBottom:10 }}>📭</div>
-            <div style={{ fontSize:13, fontWeight:600, marginBottom:4 }}>Sin declaraciones procesadas de Drive aún</div>
-            <div style={{ fontSize:11, color:C.textDim }}>Sube un PDF a la carpeta FELCO en Google Drive para que aparezca aquí, o usa la consulta de BD de arriba.</div>
-          </div>
-        ) : (
-          <>
-            <div style={{ border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden" }}>
-              <div style={{ display:"grid", gridTemplateColumns:"2fr 1.5fr 1fr 1fr auto", gap:8, padding:"9px 14px", background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, fontSize:10, fontWeight:700, color:"#8faec8", letterSpacing:"0.07em" }}>
-                <div>ARCHIVO ORIGEN</div><div>FECHA PROCESADO</div><div>ESTADO</div><div>REFERENCIAS</div><div>ACCIONES</div>
+          <div style={{ display:"grid", gridTemplateColumns:"280px 1fr", gap:16 }}>
+            {/* Panel de actividad / log */}
+            <div style={{ borderRadius:8, overflow:"hidden", border:`1px solid ${C.border}` }}>
+              <div style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, padding:"8px 14px", fontSize:10, fontWeight:700, color:"#8faec8", letterSpacing:"0.1em" }}>
+                ACTIVIDAD
               </div>
-              {procesados.map((p, i) => {
-                const ok = p.estado === "ok" || p.estado === "OK" || !p.error;
-                const fecha = p.fecha_procesado ? new Date(p.fecha_procesado).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"}) : "—";
+              <div ref={logRef} style={{ height:320, overflowY:"auto", background:"#0a1a2e", padding:"10px 12px" }}>
+                {driveLogs.length === 0 ? (
+                  <div style={{ color:"#4a6380", fontSize:10, fontFamily:"monospace", padding:"4px 0" }}>Esperando...</div>
+                ) : driveLogs.map((l, i) => (
+                  <div key={i} style={{ display:"flex", gap:8, marginBottom:4, fontFamily:"monospace", fontSize:10, lineHeight:1.4 }}>
+                    <span style={{ color:"#3a5a7a", flexShrink:0 }}>{l.time}</span>
+                    <span style={{ color: l.msg.startsWith("  ✓") ? "#4caf50" : l.msg.startsWith("  ✗") || l.msg.startsWith("✗") ? "#ef5350" : l.msg.startsWith("  ⚠") || l.msg.startsWith("⚠") ? "#ff9800" : "#8fc7ff" }}>
+                      {l.msg}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Lista de facturas con resultados */}
+            <div style={{ display:"flex", flexDirection:"column", gap:8, maxHeight:340, overflowY:"auto" }}>
+              {driveItems.map((item) => {
+                const statusColor = item.status === "done" ? C.green : item.status === "error" ? C.red : item.status === "sin_refs" ? C.accent : item.status === "processing" ? C.blue : C.textMuted;
+                const statusLabel = item.status === "done" ? "✓ Con declaraciones" : item.status === "error" ? "✗ Error" : item.status === "sin_refs" ? "⚠ Sin referencias" : item.status === "processing" ? "⏳ Procesando..." : "· Pendiente";
                 return (
-                  <div key={p.id||i} style={{ display:"grid", gridTemplateColumns:"2fr 1.5fr 1fr 1fr auto", gap:8, padding:"10px 14px", alignItems:"center", borderBottom: i<procesados.length-1?`1px solid ${C.border}`:"none", background:i%2===0?C.white:"#f8fafc" }}>
-                    <div style={{ minWidth:0 }}>
-                      <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>📄 {p.archivo_origen||p.nombre_archivo||"Sin nombre"}</div>
-                      {p.archivo_salida && <div style={{ fontSize:10, color:C.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>↳ {p.archivo_salida}</div>}
+                  <div key={item.factura} style={{ border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", background: item.status === "processing" ? "#f0f8ff" : C.white }}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: item.resumen.length > 0 ? 8 : 0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                        <span style={{ fontFamily:"monospace", fontWeight:800, color:C.blue, fontSize:13 }}>{item.factura}</span>
+                        <span style={{ fontSize:11, color:C.text }}>{item.cliente}</span>
+                        {item.ciudad && <span style={{ fontSize:10, color:C.textMuted }}>— {item.ciudad}</span>}
+                        {item.refs.length > 0 && <span style={{ fontSize:9, color:C.textDim, background:"#f0f4f8", borderRadius:3, padding:"1px 5px" }}>{item.refs.length} refs</span>}
+                      </div>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <span style={{ fontSize:11, color:statusColor, fontWeight:600 }}>{statusLabel}</span>
+                        {item.url && (
+                          <a href={item.url} download={item.filename}
+                            style={{ fontSize:11, background:C.green, color:"white", borderRadius:5, padding:"4px 10px", textDecoration:"none", fontWeight:700, display:"flex", alignItems:"center", gap:4 }}>
+                            ⬇ Descargar PDF
+                          </a>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ fontSize:11, color:C.textMuted }}>{fecha}</div>
-                    <div>{ok ? <Badge color={C.green}>✓ Procesado</Badge> : <Badge color={C.red}>✗ Error</Badge>}</div>
-                    <div style={{ fontSize:11, color:C.textMuted }}>
-                      {p.num_matches != null ? `${p.num_matches} proveedor${p.num_matches!==1?"es":""}` : "—"}
-                      {p.num_no_match > 0 && <span style={{ color:C.red }}> · {p.num_no_match} sin match</span>}
-                    </div>
-                    <div style={{ display:"flex", gap:5 }}>
-                      {p.drive_link_salida && (
-                        <a href={p.drive_link_salida} target="_blank" rel="noopener noreferrer" style={{ fontSize:11, background:C.blue, color:"white", borderRadius:5, padding:"4px 10px", textDecoration:"none", fontWeight:700 }}>👁 Ver</a>
-                      )}
-                      {!p.drive_link_salida && p.error && (
-                        <span style={{ fontSize:10, color:C.red, fontStyle:"italic" }} title={p.error}>⚠ {String(p.error).slice(0,40)}</span>
-                      )}
-                    </div>
+
+                    {/* Detalle de proveedores encontrados */}
+                    {item.resumen.length > 0 && (
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:4 }}>
+                        {item.resumen.map((r, ri) => (
+                          <div key={ri} style={{ background:"#e8f5e9", border:`1px solid ${C.green}30`, borderRadius:4, padding:"2px 8px", fontSize:10, color:C.green }}>
+                            <strong>{r.proveedor}</strong> · {r.paginas_incluidas} pág.
+                          </div>
+                        ))}
+                        {item.notFound.length > 0 && (
+                          <div style={{ background:"#fff8e1", border:`1px solid ${C.accent}30`, borderRadius:4, padding:"2px 8px", fontSize:10, color:C.accent }}>
+                            {item.notFound.length} sin match
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Sin referencias en BD */}
+                    {item.status === "sin_refs" && (
+                      <div style={{ fontSize:10, color:C.textMuted, marginTop:4, fontStyle:"italic" }}>
+                        No se encontraron referencias de producto en la tabla de detalle de la BD.
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginTop:14 }}>
+          </div>
+
+          {/* KPIs resultados */}
+          {driveItems.length > 0 && !driveLoading && (
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginTop:16 }}>
               {[
-                { label:"Total", value: procesados.length, color: C.blue },
-                { label:"Con éxito", value: procesados.filter(p=>p.estado==="ok"||p.estado==="OK"||!p.error).length, color: C.green },
-                { label:"Con errores", value: procesados.filter(p=>p.error).length, color: C.red },
-              ].map(({ label, value, color }) => (
-                <div key={label} style={{ background:"#f0f4f8", borderRadius:8, padding:"12px", textAlign:"center" }}>
-                  <div style={{ fontSize:22, fontWeight:800, color }}>{value}</div>
-                  <div style={{ fontSize:11, color:C.textMuted, marginTop:2 }}>{label}</div>
+                { lbl:"Total facturas", val: driveItems.length, color: C.blue },
+                { lbl:"Con declaraciones", val: doneCount, color: C.green },
+                { lbl:"Sin referencias BD", val: sinRefsCount, color: C.accent },
+                { lbl:"Con error", val: errorCount, color: C.red },
+              ].map(({ lbl, val, color }) => (
+                <div key={lbl} style={{ background:"#f0f4f8", borderRadius:8, padding:"10px 12px", textAlign:"center" }}>
+                  <div style={{ fontSize:22, fontWeight:800, color }}>{val}</div>
+                  <div style={{ fontSize:10, color:C.textMuted, marginTop:2 }}>{lbl}</div>
                 </div>
               ))}
             </div>
-          </>
-        )}
-      </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
