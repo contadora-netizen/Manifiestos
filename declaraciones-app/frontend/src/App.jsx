@@ -882,9 +882,21 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   }, [form.valor_contrato, form.valor_pelete, form.valor_palencia]);
 
   const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState("");
+  const [filtroCiudad, setFiltroCiudad] = useState("");
+  const [filtroAnio, setFiltroAnio] = useState("");
   const conductoresHistoricos = Object.keys(RUTAS_HISTORICAS).sort();
-  const rutasDelConductor = conductorHistorico ? RUTAS_HISTORICAS[conductorHistorico] || [] : [];
-  const rutaSeleccionada = rutasDelConductor.find(r => r.ruta === rutaHistorica);
+  const todasLasRutas = conductorHistorico ? RUTAS_HISTORICAS[conductorHistorico] || [] : [];
+  // Años disponibles a partir de ultima_fecha (únicas, descendentes)
+  const aniosDisponibles = [...new Set(
+    todasLasRutas.map(r => r.ultima_fecha ? r.ultima_fecha.slice(0,4) : null).filter(Boolean)
+  )].sort((a,b) => b - a);
+  // Aplicar filtros
+  const rutasDelConductor = todasLasRutas.filter(r => {
+    const ciudadOk = filtroCiudad.trim() === "" || r.ruta.toUpperCase().includes(filtroCiudad.toUpperCase().trim());
+    const anioOk   = filtroAnio === "" || (r.ultima_fecha && r.ultima_fecha.startsWith(filtroAnio));
+    return ciudadOk && anioOk;
+  });
+  const rutaSeleccionada = todasLasRutas.find(r => r.ruta === rutaHistorica);
   const infoconductor = conductorHistorico ? CONDUCTORES_INFO[conductorHistorico] : null;
   const vehiculosDelConductor = infoconductor?.vehiculos || [];
 
@@ -952,6 +964,8 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                     setConductorHistorico(nombre);
                     setRutaHistorica("");
                     setVehiculoSeleccionado("");
+                    setFiltroCiudad("");
+                    setFiltroAnio("");
                     if (nombre) aplicarConductor(nombre, null);
                   }} style={{ ...inp, cursor:"pointer" }}>
                   <option value="">— Seleccionar conductor —</option>
@@ -982,12 +996,38 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
               </div>
 
               {/* Ruta */}
-              <div>
-                <label style={lbl}>Ruta{rutaSeleccionada ? ` · ${rutaSeleccionada.viajes}x · Prom $${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")}` : ""}</label>
+              {/* Ruta — con filtros ciudad y año */}
+              <div style={{ gridColumn: "span 1" }}>
+                <label style={lbl}>
+                  Ruta
+                  {rutaSeleccionada ? ` · ${rutaSeleccionada.viajes}x · Prom $${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")}` : ""}
+                  {conductorHistorico && rutasDelConductor.length !== todasLasRutas.length
+                    ? ` · ${rutasDelConductor.length}/${todasLasRutas.length} filtradas`
+                    : conductorHistorico ? ` · ${todasLasRutas.length} rutas` : ""}
+                </label>
+                {/* Filtros: ciudad + año */}
+                {conductorHistorico && (
+                  <div style={{ display:"flex", gap:6, marginBottom:5 }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 Buscar ciudad..."
+                      value={filtroCiudad}
+                      onChange={e => { setFiltroCiudad(e.target.value); setRutaHistorica(""); }}
+                      style={{ ...inp, flex:1, fontSize:11, padding:"4px 7px" }}
+                    />
+                    <select
+                      value={filtroAnio}
+                      onChange={e => { setFiltroAnio(e.target.value); setRutaHistorica(""); }}
+                      style={{ ...inp, width:76, fontSize:11, padding:"4px 6px", cursor:"pointer" }}>
+                      <option value="">Todos</option>
+                      {aniosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                )}
                 <select value={rutaHistorica}
                   onChange={e => {
                     setRutaHistorica(e.target.value);
-                    const ruta = rutasDelConductor.find(r => r.ruta === e.target.value);
+                    const ruta = todasLasRutas.find(r => r.ruta === e.target.value);
                     if (ruta) setForm(f => ({
                       ...f,
                       destino: ruta.ruta,
@@ -996,7 +1036,11 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                   }}
                   disabled={!conductorHistorico}
                   style={{ ...inp, cursor: conductorHistorico ? "pointer" : "not-allowed", opacity: conductorHistorico ? 1 : 0.5 }}>
-                  <option value="">— Seleccionar ruta —</option>
+                  <option value="">
+                    {rutasDelConductor.length === 0 && conductorHistorico
+                      ? "— Sin rutas para este filtro —"
+                      : "— Seleccionar ruta —"}
+                  </option>
                   {rutasDelConductor.map((r,i) => (
                     <option key={i} value={r.ruta}>
                       {r.ultima_fecha ? new Date(r.ultima_fecha).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"}) : "Sin fecha"} · {r.viajes}x · ${r.valor_promedio.toLocaleString("es-CO")} · {r.ruta}
