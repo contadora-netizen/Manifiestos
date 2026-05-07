@@ -350,99 +350,66 @@ app.get('/api/dashboard/guias', async (req, res) => {
   }
 });
 
-// ── GET /api/facturas/dia/:fecha/referencias - Referencias de productos por fecha ──
+// ── GET /api/facturas/dia/:fecha/referencias - Referencias de productos por factura ──
 app.get('/api/facturas/dia/:fecha/referencias', async (req, res) => {
   try {
     const fecha = req.params.fecha;
 
-    // Primero: facturas del día
-    const [facturas] = await getPool().query(`
+    // Una sola query: facturas del día + sus líneas de detalle desde adn_movcli
+    // MCL_DCL_NUMERO = número de factura (mismo formato que DCL_NUMERO)
+    // MCL_UPP_PDT_CODIGO = código/referencia del producto
+    const [lineas] = await getPool().query(`
       SELECT
-        d.DCL_NUMERO   AS factura_numero,
-        d.DCL_FECHA    AS fecha,
-        c.CLT_NOMBRE   AS cliente_nombre,
-        cd.CDD_DESCRI  AS ciudad
+        d.DCL_NUMERO          AS factura_numero,
+        d.DCL_FECHA           AS fecha,
+        d.DCL_TDT_CODIGO      AS tipo_doc,
+        c.CLT_NOMBRE          AS cliente,
+        cd.CDD_DESCRI         AS ciudad,
+        m.MCL_UPP_PDT_CODIGO  AS referencia,
+        m.MCL_DESCRI          AS descripcion,
+        m.MCL_CANTIDAD        AS cantidad
       FROM adn_doccli d
-      LEFT JOIN adn_clientes c  ON d.DCL_CLT_CODIGO = c.CLT_CODIGO
-      LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO = cd.CDD_CODIGO
+      LEFT JOIN adn_clientes    c  ON d.DCL_CLT_CODIGO  = c.CLT_CODIGO
+      LEFT JOIN adn_ciudades    cd ON c.CLT_CDD_CODIGO  = cd.CDD_CODIGO
+      LEFT JOIN adn_movcli      m  ON m.MCL_DCL_NUMERO  = d.DCL_NUMERO
+                                   AND m.MCL_DCL_TDT_CODIGO = d.DCL_TDT_CODIGO
       WHERE DATE(d.DCL_FECHA) = ?
-      ORDER BY d.DCL_NUMERO ASC
+      ORDER BY d.DCL_NUMERO ASC, m.MCL_UPP_PDT_CODIGO ASC
     `, [fecha]);
 
-    if (!facturas.length) {
-      return res.json({ fecha, total: 0, facturas: [] });
+    if (!lineas.length) {
+      return res.json({ fecha, total: 0, tabla_detalle_encontrada: 'adn_movcli', facturas: [] });
     }
 
-    // Segundo: líneas de detalle (referencias de productos)
-    // Intentar tabla adn_docclid (detalle de facturas)
-    const numeros = facturas.map(f => f.factura_numero);
-    let lineas = [];
-    let tablaDetalle = '';
-
-    const tablasACandidatas = ['adn_docclid', 'adn_docclidet', 'adn_movimientos', 'adn_invmov'];
-    for (const tabla of tablasACandidatas) {
-      try {
-        const [rows] = await getPool().query(
-          `SELECT * FROM ${tabla} LIMIT 1`
-        );
-        tablaDetalle = tabla;
-        break;
-      } catch (e) {
-        continue;
+    // Agrupar por factura
+    const facturaMap = new Map();
+    for (const row of lineas) {
+      const key = row.factura_numero;
+      if (!facturaMap.has(key)) {
+        facturaMap.set(key, {
+          factura_numero: key.replace(/^0+/, ''),
+          factura_numero_raw: key,
+          fecha: row.fecha,
+          cliente: row.cliente || '',
+          ciudad: row.ciudad || '',
+          referencias: [],
+          lineas_raw: 0,
+        });
+      }
+      const entry = facturaMap.get(key);
+      entry.lineas_raw++;
+      const ref = (row.referencia || '').trim();
+      // Incluir solo referencias con formato alfanumérico válido (ej: DM-420, AATI-007293)
+      if (ref && ref.length >= 2 && !entry.referencias.includes(ref)) {
+        entry.referencias.push(ref);
       }
     }
-
-    if (tablaDetalle) {
-      // Detectar columnas disponibles
-      const [cols] = await getPool().query(
-        `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_NAME = ? AND TABLE_SCHEMA = DATABASE()`,
-        [tablaDetalle]
-      );
-      const colNames = cols.map(c => c.COLUMN_NAME.toUpperCase());
-
-      // Buscar columnas relevantes
-      const colRef    = colNames.find(c => c.includes('REF') || c.includes('CODIGO') && !c.includes('CLI'));
-      const colDesc   = colNames.find(c => c.includes('DESC') || c.includes('NOMB'));
-      const colNumDoc = colNames.find(c => c.includes('NUMERO') || c.includes('NUM') && !c.includes('GUIA'));
-
-      if (colNumDoc) {
-        const placeholders = numeros.map(() => '?').join(',');
-        const [det] = await getPool().query(
-          `SELECT * FROM ${tablaDetalle} WHERE ${colNumDoc} IN (${placeholders}) LIMIT 2000`,
-          numeros
-        );
-        lineas = det;
-      }
-    }
-
-    // Si no encontramos tabla de detalle, devolver facturas sin líneas
-    const resultado = facturas.map(f => {
-      const det = lineas.filter(l => {
-        const val = Object.values(l)[1]; // segunda columna suele ser el número de doc
-        return String(val) === String(f.factura_numero);
-      });
-      const referencias = det
-        .map(l => {
-          const vals = Object.values(l);
-          return vals.find(v => typeof v === 'string' && v.length >= 5 && /[A-Z]/.test(v) && /\d/.test(v));
-        })
-        .filter(Boolean);
-      return {
-        factura_numero: f.factura_numero.replace(/^0+/, ''),
-        factura_numero_raw: f.factura_numero,
-        fecha: f.fecha,
-        cliente: f.cliente_nombre,
-        ciudad: f.ciudad,
-        referencias,
-        lineas_raw: det.length,
-      };
-    });
 
     res.json({
       fecha,
-      total: facturas.length,
-      tabla_detalle_encontrada: tablaDetalle || null,
-      facturas: resultado,
+      total: facturaMap.size,
+      tabla_detalle_encontrada: 'adn_movcli',
+      facturas: [...facturaMap.values()],
     });
   } catch (err) {
     console.error('Error /api/facturas/dia/:fecha/referencias:', err.message);
