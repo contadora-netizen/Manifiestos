@@ -182,6 +182,16 @@ body{font-family:Arial,sans-serif;font-size:9.5px;padding:12mm 14mm;color:#000}
   <div class="cell"><span class="lbl">Palencia</span><span class="val">${fmt(c.valor_palencia)}</span></div>
   <div class="cell"><span class="lbl"><strong>SS TOTAL</strong></span><span class="val" style="font-weight:bold;font-size:11px">${fmt(c.valor_total)}</span></div>
 </div>
+${(Number(c.anticipo)||Number(c.retencion)||Number(c.reteica)) ? `
+<div style="margin-top:4px;border:1px solid #000;border-radius:4px;padding:6px">
+  <div style="font-size:7px;font-weight:700;letter-spacing:0.08em;color:#555;margin-bottom:4px">LIQUIDACIÓN DE PAGO</div>
+  <div class="grid4">
+    <div class="cell"><span class="lbl">Anticipo</span><span class="val">${fmt(c.anticipo||0)}</span></div>
+    <div class="cell"><span class="lbl">Retención fuente</span><span class="val">${fmt(c.retencion||0)}</span></div>
+    <div class="cell"><span class="lbl">ReteICA</span><span class="val">${fmt(c.reteica||0)}</span></div>
+    <div class="cell"><span class="lbl"><strong>SALDO A PAGAR</strong></span><span class="val" style="font-weight:bold;font-size:11px;color:#1e7e34">${fmt(c.saldo_pagar||0)}</span></div>
+  </div>
+</div>` : ""}
 
 ${c.observaciones ? `<div style="margin-top:6px;font-size:8.5px"><strong>Observaciones:</strong> ${c.observaciones}</div>` : ""}
 
@@ -869,6 +879,7 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     vehiculo_propietario: "", aseguradora: "", tecnicomecanica: "", capacidad: "", medidas: "",
     facturas: "", devoluciones: "", destino: "",
     valor_mercancia: "", valor_contrato: "", valor_pelete: "", valor_palencia: "", valor_total: "",
+    anticipo: "", retencion: "", reteica: "", saldo_pagar: "",
     observaciones: "",
   };
   const [form, setForm] = useState(initial || empty);
@@ -880,6 +891,14 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     const total = (Number(form.valor_contrato)||0) + (Number(form.valor_pelete)||0) + (Number(form.valor_palencia)||0);
     if (total > 0) setForm(f => ({ ...f, valor_total: total }));
   }, [form.valor_contrato, form.valor_pelete, form.valor_palencia]);
+
+  useEffect(() => {
+    const base   = Number(form.valor_total)  || 0;
+    const ant    = Number(form.anticipo)     || 0;
+    const ret    = Number(form.retencion)    || 0;
+    const rica   = Number(form.reteica)      || 0;
+    setForm(f => ({ ...f, saldo_pagar: base - ant - ret - rica }));
+  }, [form.valor_total, form.anticipo, form.retencion, form.reteica]);
 
   const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState("");
   const [filtroCiudad, setFiltroCiudad] = useState("");
@@ -1168,6 +1187,53 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
             </div>
           </div>
 
+          {/* ── Liquidación de pago ─────────────────────────────────── */}
+          <Sec t="LIQUIDACIÓN DE PAGO" />
+          <div style={{ background:"#f8fbff", border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:12 }}>
+              <div>
+                <label style={lbl}>Anticipo $</label>
+                <input type="number" value={form.anticipo||""} onChange={e => set("anticipo",e.target.value)}
+                  placeholder="0" style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>Retención en la fuente $</label>
+                <input type="number" value={form.retencion||""} onChange={e => set("retencion",e.target.value)}
+                  placeholder="0" style={inp} />
+              </div>
+              <div>
+                <label style={lbl}>ReteICA $</label>
+                <input type="number" value={form.reteica||""} onChange={e => set("reteica",e.target.value)}
+                  placeholder="0" style={inp} />
+              </div>
+              <div>
+                <label style={{ ...lbl, color: form.saldo_pagar < 0 ? C.red : C.green }}>
+                  Saldo a pagar $ {form.saldo_pagar < 0 ? "⚠" : ""}
+                </label>
+                <input readOnly
+                  value={form.saldo_pagar !== "" && form.valor_total
+                    ? `$${Number(form.saldo_pagar).toLocaleString("es-CO")}` : ""}
+                  style={{ ...inp, background: form.saldo_pagar < 0 ? "#fff0f0" : "#e8f5e9",
+                    fontWeight: 700, fontSize: 13,
+                    color: form.saldo_pagar < 0 ? C.red : C.green,
+                    border: `1px solid ${form.saldo_pagar < 0 ? C.red : C.green}` }} />
+              </div>
+            </div>
+            {/* Resumen visual */}
+            {form.valor_total > 0 && (
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", fontSize:11, color:C.textMuted, borderTop:`1px dashed ${C.border}`, paddingTop:10 }}>
+                <span>SS Total <strong style={{ color:C.text }}>${Number(form.valor_total||0).toLocaleString("es-CO")}</strong></span>
+                {Number(form.anticipo) > 0 && <><span style={{ color:C.textDim }}>−</span><span>Anticipo <strong style={{ color:C.accent }}>${Number(form.anticipo).toLocaleString("es-CO")}</strong></span></>}
+                {Number(form.retencion) > 0 && <><span style={{ color:C.textDim }}>−</span><span>Retención <strong style={{ color:C.red }}>${Number(form.retencion).toLocaleString("es-CO")}</strong></span></>}
+                {Number(form.reteica) > 0 && <><span style={{ color:C.textDim }}>−</span><span>ReteICA <strong style={{ color:C.red }}>${Number(form.reteica).toLocaleString("es-CO")}</strong></span></>}
+                <span style={{ color:C.textDim }}>=</span>
+                <span style={{ fontWeight:700, fontSize:13, color: form.saldo_pagar < 0 ? C.red : C.green }}>
+                  Saldo ${Number(form.saldo_pagar||0).toLocaleString("es-CO")}
+                </span>
+              </div>
+            )}
+          </div>
+
           <div style={{ marginTop:16 }}>
             <label style={lbl}>Observaciones / Notas adicionales</label>
             <textarea value={form.observaciones||""} onChange={e => set("observaciones",e.target.value)}
@@ -1198,6 +1264,7 @@ function ContratoRow({ contrato, onEdit }) {
           <div style={{ fontSize:10, color:C.textMuted }}>{contrato.fecha_cargue} · {contrato.destino || "Sin destino especificado"}</div>
         </div>
         <Badge color={C.green}>{fmt(contrato.valor_total)}</Badge>
+        {contrato.saldo_pagar > 0 && <Badge color={C.blue}>Saldo {fmt(contrato.saldo_pagar)}</Badge>}
         <button onClick={e => { e.stopPropagation(); generateContratoPDF(contrato); }}
           style={{ fontSize:11, background:C.blue, color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>🖨 Imprimir</button>
         <button onClick={e => { e.stopPropagation(); onEdit(contrato); }}
@@ -1214,6 +1281,14 @@ function ContratoRow({ contrato, onEdit }) {
             <div><strong style={{ color:C.text }}>Valor mercancía:</strong> {fmt(contrato.valor_mercancia)}</div>
             <div><strong style={{ color:C.text }}>Contrato:</strong> {fmt(contrato.valor_contrato)} · Pelete: {fmt(contrato.valor_pelete)}</div>
             <div><strong style={{ color:C.text }}>Palencia:</strong> {fmt(contrato.valor_palencia)}</div>
+            {(Number(contrato.anticipo)||Number(contrato.retencion)||Number(contrato.reteica)) ? (
+              <div style={{ gridColumn:"span 3", marginTop:4, paddingTop:6, borderTop:`1px dashed ${C.border}`, display:"flex", gap:16, flexWrap:"wrap" }}>
+                {Number(contrato.anticipo) > 0 && <span><strong style={{ color:C.text }}>Anticipo:</strong> {fmt(contrato.anticipo)}</span>}
+                {Number(contrato.retencion) > 0 && <span><strong style={{ color:C.text }}>Retención:</strong> {fmt(contrato.retencion)}</span>}
+                {Number(contrato.reteica) > 0 && <span><strong style={{ color:C.text }}>ReteICA:</strong> {fmt(contrato.reteica)}</span>}
+                <span style={{ fontWeight:700, color:C.green }}><strong style={{ color:C.text }}>Saldo a pagar:</strong> {fmt(contrato.saldo_pagar)}</span>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
