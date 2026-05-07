@@ -350,6 +350,118 @@ app.get('/api/dashboard/guias', async (req, res) => {
   }
 });
 
+// ── GET /api/declaraciones/dia/:fecha - Guías + facturas de un día para declaraciones ──
+app.get('/api/declaraciones/dia/:fecha', async (req, res) => {
+  try {
+    const fecha = req.params.fecha; // formato YYYY-MM-DD
+
+    // 1. Traer todas las guías del día
+    const [guias] = await getPool().query(`
+      SELECT
+        g.DCG_NUMERO      AS guia_numero,
+        g.DCG_FECHA       AS fecha,
+        g.DCG_RUTA        AS ruta,
+        g.DCG_DESCRIPCION AS flete_descripcion,
+        g.DCG_NETOGUIA    AS valor_mercancia,
+        g.DCG_PESO        AS peso_total,
+        g.DCG_BULTOS      AS bultos,
+        g.DCG_ESTADO      AS estado,
+        t.TRA_NOMBRE      AS transportista_nombre,
+        t.TRA_APELLIDO    AS transportista_apellido,
+        t.TRA_CEDULA      AS transportista_cc,
+        v.VEH_PLACA       AS placa
+      FROM adn_doccliguia g
+      LEFT JOIN adn_transportistas t ON g.DCG_TRA_CODIGO = t.TRA_CODIGO
+      LEFT JOIN adn_vehiculos v      ON g.DCG_VEH_PLACA = v.VEH_PLACA
+      WHERE DATE(g.DCG_FECHA) = ?
+      ORDER BY g.DCG_NUMERO
+    `, [fecha]);
+
+    if (!guias.length) {
+      return res.json({ fecha, total_guias: 0, declaraciones: [] });
+    }
+
+    // 2. Para cada guía, traer sus facturas
+    const declaraciones = [];
+    for (const g of guias) {
+      const [facturas] = await getPool().query(`
+        SELECT
+          d.DCL_NUMERO      AS factura_numero,
+          d.DCL_FECHA       AS fecha_factura,
+          d.DCL_NETO        AS neto,
+          d.DCL_BRUTO       AS bruto,
+          d.DCL_BULTOS      AS bultos,
+          d.DCL_PESO        AS peso,
+          d.DCL_TDT_CODIGO  AS tipo_doc,
+          c.CLT_CODIGO      AS cliente_codigo,
+          c.CLT_NOMBRE      AS cliente_nombre,
+          c.CLT_DIRECCION1  AS cliente_direccion,
+          c.CLT_TELEFONO1   AS cliente_telefono,
+          c.CLT_NIT         AS cliente_nit,
+          cd.CDD_DESCRI     AS ciudad,
+          cd.CDD_DPTO       AS departamento
+        FROM adn_doccli d
+        LEFT JOIN adn_clientes  c  ON d.DCL_CLT_CODIGO = c.CLT_CODIGO
+        LEFT JOIN adn_ciudades  cd ON c.CLT_CDD_CODIGO = cd.CDD_CODIGO
+        WHERE d.DCL_NUMGUIA = ?
+        ORDER BY d.DCL_FECHA, d.DCL_NUMERO
+      `, [g.guia_numero]);
+
+      const totalNeto   = facturas.reduce((s, f) => s + (parseFloat(f.neto)   || 0), 0);
+      const totalBultos = facturas.reduce((s, f) => s + (parseFloat(f.bultos) || 0), 0);
+      const totalPeso   = facturas.reduce((s, f) => s + (parseFloat(f.peso)   || 0), 0);
+      const ciudades    = [...new Set(facturas.map(f => f.ciudad).filter(Boolean))];
+      const clientes    = [...new Set(facturas.map(f => f.cliente_nombre).filter(Boolean))];
+
+      declaraciones.push({
+        id: `DEC-${g.guia_numero.replace(/^0+/, '')}`,
+        guia_numero: g.guia_numero,
+        guia_num_limpio: g.guia_numero.replace(/^0+/, ''),
+        fecha: g.fecha,
+        ruta: g.ruta,
+        flete: g.flete_descripcion,
+        transportista: `${g.transportista_nombre || ''} ${g.transportista_apellido || ''}`.trim(),
+        transportista_cc: g.transportista_cc,
+        placa: g.placa,
+        estado_guia: g.estado,
+        total_facturas: facturas.length,
+        total_neto: Math.round(totalNeto),
+        total_bultos: totalBultos,
+        total_peso: totalPeso,
+        ciudades,
+        clientes,
+        facturas,
+        // Campos compatibles con la pestaña Procesados
+        archivo_origen: `Guía CTT-${g.guia_numero.replace(/^0+/, '').padStart(5,'0')} — ${g.ruta || 'Sin ruta'}`,
+        fecha_procesado: new Date().toISOString(),
+        estado: 'ok',
+        num_matches: facturas.length,
+        num_no_match: 0,
+        fuente: 'base_de_datos',
+      });
+    }
+
+    // 3. Totales generales del día
+    const totalNeto   = declaraciones.reduce((s, d) => s + d.total_neto,   0);
+    const totalBultos = declaraciones.reduce((s, d) => s + d.total_bultos, 0);
+    const totalPeso   = declaraciones.reduce((s, d) => s + d.total_peso,   0);
+    const totalFact   = declaraciones.reduce((s, d) => s + d.total_facturas, 0);
+
+    res.json({
+      fecha,
+      total_guias: guias.length,
+      total_facturas: totalFact,
+      total_neto: Math.round(totalNeto),
+      total_bultos: totalBultos,
+      total_peso: Math.round(totalPeso),
+      declaraciones,
+    });
+  } catch (err) {
+    console.error('Error /api/declaraciones/dia/:fecha:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Alumar Contratos → http://localhost:${PORT}`);
   console.log(`API contrato:     http://localhost:${PORT}/api/contrato/19002`);

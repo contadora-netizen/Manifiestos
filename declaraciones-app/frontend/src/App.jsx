@@ -1252,6 +1252,252 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   );
 }
 
+// ── Procesados: pestaña con consulta BD + monitor Drive ──────────────────────
+function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capiBase }) {
+  const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
+  const ayerStr = ayer.toISOString().slice(0, 10);
+  const [bdFecha, setBdFecha] = useState(ayerStr);
+  const [bdLoading, setBdLoading] = useState(false);
+  const [bdResumen, setBdResumen] = useState(null); // { fecha, total_guias, declaraciones, ... }
+  const [bdError, setBdError] = useState("");
+  const [expandido, setExpandido] = useState(null); // id de la guía expandida
+  const fmt = v => v ? `$${Number(v).toLocaleString("es-CO")}` : "—";
+
+  const consultarBD = async () => {
+    if (!bdFecha) return;
+    setBdLoading(true); setBdError(""); setBdResumen(null);
+    try {
+      const r = await fetch(`${capiBase}/api/declaraciones/dia/${bdFecha}`);
+      const d = await r.json();
+      if (!r.ok || d.error) throw new Error(d.error || "Error en la consulta");
+      setBdResumen(d);
+    } catch (e) {
+      setBdError(e.message);
+    } finally {
+      setBdLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth:960 }}>
+      {/* ── Sección BD ────────────────────────────────────────── */}
+      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 20px", marginBottom:20, boxShadow:C.shadow }}>
+        <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:4 }}>🗄️ Consultar facturas desde la Base de Datos</div>
+        <div style={{ fontSize:12, color:C.textMuted, marginBottom:14 }}>
+          Extrae todas las guías y facturas despachadas en una fecha directamente del sistema ADN.
+        </div>
+        <div style={{ display:"flex", gap:10, alignItems:"flex-end", flexWrap:"wrap" }}>
+          <div>
+            <label style={{ display:"block", fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:4 }}>FECHA A CONSULTAR</label>
+            <input type="date" value={bdFecha} onChange={e => setBdFecha(e.target.value)}
+              style={{ border:`1px solid ${C.border}`, borderRadius:6, padding:"7px 10px", fontSize:13, color:C.text, outline:"none" }} />
+          </div>
+          <button onClick={consultarBD} disabled={bdLoading || !bdFecha}
+            style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, color:"white", border:"none", borderRadius:8, padding:"9px 20px", cursor:"pointer", fontWeight:700, fontSize:12, display:"flex", alignItems:"center", gap:6, opacity: bdLoading ? 0.7 : 1 }}>
+            {bdLoading ? <><Spinner size={12}/> Consultando BD...</> : "🔍 Procesar día"}
+          </button>
+          {bdFecha === ayerStr && <span style={{ fontSize:11, color:C.textMuted, alignSelf:"center" }}>← ayer</span>}
+        </div>
+
+        {bdError && (
+          <div style={{ marginTop:12, background:"#fff0f0", border:`1px solid #f5c6cb`, borderRadius:8, padding:"10px 14px", fontSize:12, color:C.red }}>
+            ⚠ {bdError}
+          </div>
+        )}
+
+        {bdResumen && (
+          <div style={{ marginTop:16 }}>
+            {/* Resumen del día */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10, marginBottom:16 }}>
+              {[
+                { lbl:"Guías del día", val: bdResumen.total_guias, color: C.blue },
+                { lbl:"Facturas", val: bdResumen.total_facturas, color: C.navyMid },
+                { lbl:"Valor mercancía", val: fmt(bdResumen.total_neto), color: C.green },
+                { lbl:"Bultos", val: bdResumen.total_bultos?.toLocaleString("es-CO"), color: C.accent },
+                { lbl:"Peso total", val: `${(bdResumen.total_peso||0).toLocaleString("es-CO")} kg`, color: C.textMuted },
+              ].map(({ lbl, val, color }) => (
+                <div key={lbl} style={{ background:"#f0f4f8", borderRadius:8, padding:"10px 12px", textAlign:"center" }}>
+                  <div style={{ fontSize:18, fontWeight:800, color }}>{val}</div>
+                  <div style={{ fontSize:10, color:C.textMuted, marginTop:2 }}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+
+            {bdResumen.declaraciones.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:13 }}>
+                📭 No se encontraron guías para el {bdFecha}
+              </div>
+            ) : (
+              <div style={{ border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
+                {/* Header */}
+                <div style={{ display:"grid", gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr auto", gap:8, padding:"9px 14px", background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, fontSize:10, fontWeight:700, color:"#8faec8", letterSpacing:"0.07em" }}>
+                  <div>GUÍA / RUTA</div><div>TRANSPORTISTA</div><div>FACTURAS</div><div>VALOR</div><div>BULTOS</div><div></div>
+                </div>
+                {bdResumen.declaraciones.map((dec, i) => {
+                  const abierto = expandido === dec.id;
+                  return (
+                    <div key={dec.id} style={{ borderBottom: i < bdResumen.declaraciones.length-1 ? `1px solid ${C.border}` : "none" }}>
+                      {/* Fila resumen */}
+                      <div
+                        onClick={() => setExpandido(abierto ? null : dec.id)}
+                        style={{ display:"grid", gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr auto", gap:8, padding:"10px 14px", alignItems:"center", cursor:"pointer", background: abierto ? "#f0f7ff" : (i%2===0?C.white:"#f8fafc"), transition:"background 0.15s" }}>
+                        <div>
+                          <div style={{ fontSize:12, fontWeight:700, color:C.blue }}>CTT-{dec.guia_num_limpio.padStart(5,"0")}</div>
+                          <div style={{ fontSize:10, color:C.textMuted, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{dec.ruta || "Sin ruta"}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize:11, fontWeight:600, color:C.text }}>{dec.transportista || "—"}</div>
+                          <div style={{ fontSize:10, color:C.textMuted }}>{dec.placa || ""}</div>
+                        </div>
+                        <div style={{ fontSize:12, fontWeight:600, color:C.text }}>{dec.total_facturas}</div>
+                        <div style={{ fontSize:11, fontWeight:700, color:C.green }}>{fmt(dec.total_neto)}</div>
+                        <div style={{ fontSize:11, color:C.text }}>{(dec.total_bultos||0).toLocaleString("es-CO")}</div>
+                        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+                          <Badge color={C.green}>✓ BD</Badge>
+                          <span style={{ color:C.textDim, fontSize:12 }}>{abierto ? "▲" : "▼"}</span>
+                        </div>
+                      </div>
+                      {/* Detalle expandido */}
+                      {abierto && (
+                        <div style={{ padding:"12px 14px 14px", background:"#f8fbff", borderTop:`1px solid ${C.border}` }}>
+                          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:12 }}>
+                            {[
+                              ["Ciudades", dec.ciudades.join(", ") || "—"],
+                              ["Flete", dec.flete || "—"],
+                              ["Clientes", `${dec.clientes.length} cliente${dec.clientes.length!==1?"s":""}`],
+                            ].map(([k, v]) => (
+                              <div key={k} style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 10px" }}>
+                                <div style={{ fontSize:9, fontWeight:700, color:C.textMuted, textTransform:"uppercase", marginBottom:3 }}>{k}</div>
+                                <div style={{ fontSize:11, color:C.text, fontWeight:600 }}>{v}</div>
+                              </div>
+                            ))}
+                          </div>
+                          {/* Tabla facturas */}
+                          <div style={{ overflowX:"auto" }}>
+                            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:10 }}>
+                              <thead>
+                                <tr style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})` }}>
+                                  {["#","Factura","Tipo","Cliente","Ciudad","Neto","Bultos","Peso"].map(h => (
+                                    <th key={h} style={{ padding:"5px 8px", color:"#8faec8", fontWeight:700, textAlign:"left", letterSpacing:"0.05em", fontSize:9 }}>{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {dec.facturas.map((f, fi) => (
+                                  <tr key={fi} style={{ background: fi%2===0?"white":"#f8fafc" }}>
+                                    <td style={{ padding:"4px 8px", color:C.textMuted }}>{fi+1}</td>
+                                    <td style={{ padding:"4px 8px", fontWeight:700, color:C.blue, fontFamily:"monospace" }}>{(f.factura_numero||"").replace(/^0+/,"")}</td>
+                                    <td style={{ padding:"4px 8px", color:C.textMuted }}>{f.tipo_doc||"—"}</td>
+                                    <td style={{ padding:"4px 8px", color:C.text, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.cliente_nombre||"—"}</td>
+                                    <td style={{ padding:"4px 8px", color:C.textMuted }}>{f.ciudad||"—"}</td>
+                                    <td style={{ padding:"4px 8px", fontFamily:"monospace", color:C.green, fontWeight:600 }}>{fmt(f.neto)}</td>
+                                    <td style={{ padding:"4px 8px", textAlign:"right" }}>{parseFloat(f.bultos)||0}</td>
+                                    <td style={{ padding:"4px 8px", textAlign:"right", color:C.textMuted }}>{parseFloat(f.peso)||0} kg</td>
+                                  </tr>
+                                ))}
+                                <tr style={{ background:"#e8edf4", fontWeight:700 }}>
+                                  <td colSpan={5} style={{ padding:"5px 8px", textAlign:"right", fontSize:9, letterSpacing:"0.05em", color:C.textMuted }}>TOTALES</td>
+                                  <td style={{ padding:"5px 8px", fontFamily:"monospace", color:C.green }}>{fmt(dec.total_neto)}</td>
+                                  <td style={{ padding:"5px 8px", textAlign:"right" }}>{dec.total_bultos}</td>
+                                  <td style={{ padding:"5px 8px", textAlign:"right", color:C.textMuted }}>{dec.total_peso.toFixed(0)} kg</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                          <div style={{ marginTop:10, display:"flex", gap:8 }}>
+                            <button
+                              onClick={() => window.open(`${capiBase}/?guia=${dec.guia_num_limpio}`, "_blank")}
+                              style={{ fontSize:11, background:C.blue, color:"white", border:"none", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontWeight:700 }}>
+                              📄 Ver contrato en visor
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Sección Drive (monitor automático) ───────────────── */}
+      <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"16px 20px", boxShadow:C.shadow }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+          <div>
+            <div style={{ fontSize:14, fontWeight:700, color:C.text }}>📂 Monitor Drive — Carpeta FELCO</div>
+            <div style={{ fontSize:12, color:C.textMuted }}>PDFs detectados automáticamente y procesados cada 10 minutos</div>
+          </div>
+          <button onClick={recargarProcesados} disabled={procesadosLoading}
+            style={{ background:`linear-gradient(135deg,${C.blue},${C.blueLight})`, color:"white", border:"none", borderRadius:8, padding:"8px 16px", cursor:"pointer", fontWeight:700, fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
+            {procesadosLoading ? <><Spinner size={12}/> Cargando...</> : "🔄 Actualizar"}
+          </button>
+        </div>
+
+        <div style={{ background:"#e8f5e9", border:`1px solid ${C.green}40`, borderRadius:8, padding:"8px 14px", marginBottom:14, fontSize:12, color:C.green, display:"flex", alignItems:"center", gap:8 }}>
+          <span>⚙️</span>
+          <span><strong>Monitor activo:</strong> El sistema revisa la carpeta FELCO cada 10 minutos.</span>
+        </div>
+
+        {procesados.length === 0 ? (
+          <div style={{ padding:"2.5rem", textAlign:"center", color:C.textMuted }}>
+            <div style={{ fontSize:40, marginBottom:10 }}>📭</div>
+            <div style={{ fontSize:13, fontWeight:600, marginBottom:4 }}>Sin declaraciones procesadas de Drive aún</div>
+            <div style={{ fontSize:11, color:C.textDim }}>Sube un PDF a la carpeta FELCO en Google Drive para que aparezca aquí, o usa la consulta de BD de arriba.</div>
+          </div>
+        ) : (
+          <>
+            <div style={{ border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden" }}>
+              <div style={{ display:"grid", gridTemplateColumns:"2fr 1.5fr 1fr 1fr auto", gap:8, padding:"9px 14px", background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, fontSize:10, fontWeight:700, color:"#8faec8", letterSpacing:"0.07em" }}>
+                <div>ARCHIVO ORIGEN</div><div>FECHA PROCESADO</div><div>ESTADO</div><div>REFERENCIAS</div><div>ACCIONES</div>
+              </div>
+              {procesados.map((p, i) => {
+                const ok = p.estado === "ok" || p.estado === "OK" || !p.error;
+                const fecha = p.fecha_procesado ? new Date(p.fecha_procesado).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"}) : "—";
+                return (
+                  <div key={p.id||i} style={{ display:"grid", gridTemplateColumns:"2fr 1.5fr 1fr 1fr auto", gap:8, padding:"10px 14px", alignItems:"center", borderBottom: i<procesados.length-1?`1px solid ${C.border}`:"none", background:i%2===0?C.white:"#f8fafc" }}>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>📄 {p.archivo_origen||p.nombre_archivo||"Sin nombre"}</div>
+                      {p.archivo_salida && <div style={{ fontSize:10, color:C.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>↳ {p.archivo_salida}</div>}
+                    </div>
+                    <div style={{ fontSize:11, color:C.textMuted }}>{fecha}</div>
+                    <div>{ok ? <Badge color={C.green}>✓ Procesado</Badge> : <Badge color={C.red}>✗ Error</Badge>}</div>
+                    <div style={{ fontSize:11, color:C.textMuted }}>
+                      {p.num_matches != null ? `${p.num_matches} proveedor${p.num_matches!==1?"es":""}` : "—"}
+                      {p.num_no_match > 0 && <span style={{ color:C.red }}> · {p.num_no_match} sin match</span>}
+                    </div>
+                    <div style={{ display:"flex", gap:5 }}>
+                      {p.drive_link_salida && (
+                        <a href={p.drive_link_salida} target="_blank" rel="noopener noreferrer" style={{ fontSize:11, background:C.blue, color:"white", borderRadius:5, padding:"4px 10px", textDecoration:"none", fontWeight:700 }}>👁 Ver</a>
+                      )}
+                      {!p.drive_link_salida && p.error && (
+                        <span style={{ fontSize:10, color:C.red, fontStyle:"italic" }} title={p.error}>⚠ {String(p.error).slice(0,40)}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginTop:14 }}>
+              {[
+                { label:"Total", value: procesados.length, color: C.blue },
+                { label:"Con éxito", value: procesados.filter(p=>p.estado==="ok"||p.estado==="OK"||!p.error).length, color: C.green },
+                { label:"Con errores", value: procesados.filter(p=>p.error).length, color: C.red },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ background:"#f0f4f8", borderRadius:8, padding:"12px", textAlign:"center" }}>
+                  <div style={{ fontSize:22, fontWeight:800, color }}>{value}</div>
+                  <div style={{ fontSize:11, color:C.textMuted, marginTop:2 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Contrato: fila de historial ───────────────────────────────────────────────
 function ContratoRow({ contrato, onEdit }) {
   const [open, setOpen] = useState(false);
@@ -1920,124 +2166,12 @@ export default function App() {
 
         {/* TAB: PROCESADOS AUTOMÁTICOS */}
         {tab === "procesados" && (
-          <div style={{ maxWidth:900 }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
-              <div>
-                <div style={{ fontSize:16, fontWeight:700, color:C.text }}>📂 Declaraciones procesadas automáticamente</div>
-                <div style={{ fontSize:12, color:C.textMuted }}>
-                  Facturas detectadas en la carpeta FELCO de Drive y procesadas por el sistema cada 10 minutos
-                </div>
-              </div>
-              <button onClick={recargarProcesados} disabled={procesadosLoading}
-                style={{ background:`linear-gradient(135deg,${C.blue},${C.blueLight})`, color:"white", border:"none", borderRadius:8, padding:"9px 18px", cursor:"pointer", fontWeight:700, fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
-                {procesadosLoading ? <><Spinner size={12}/> Cargando...</> : "🔄 Actualizar"}
-              </button>
-            </div>
-
-            {/* Info card */}
-            <div style={{ background:"#e8f5e9", border:`1px solid ${C.green}40`, borderRadius:10, padding:"10px 16px", marginBottom:16, fontSize:12, color:C.green, display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:16 }}>⚙️</span>
-              <span><strong>Monitor activo:</strong> El sistema revisa la carpeta FELCO cada 10 minutos. Los nuevos PDFs se procesan automáticamente y aparecen aquí.</span>
-            </div>
-
-            {procesados.length === 0 ? (
-              <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"4rem 2rem", textAlign:"center", boxShadow:C.shadow }}>
-                <div style={{ fontSize:48, marginBottom:12 }}>📭</div>
-                <div style={{ fontSize:14, fontWeight:600, color:C.textMuted, marginBottom:6 }}>Sin declaraciones procesadas aún</div>
-                <div style={{ fontSize:12, color:C.textDim, maxWidth:400, margin:"0 auto" }}>
-                  Cuando suba una factura PDF a la carpeta FELCO en Google Drive, el sistema la procesará automáticamente y el resultado aparecerá aquí.
-                </div>
-              </div>
-            ) : (
-              <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden", boxShadow:C.shadow }}>
-                {/* Encabezado tabla */}
-                <div style={{ display:"grid", gridTemplateColumns:"2fr 1.5fr 1fr 1fr auto", gap:8, padding:"10px 16px", background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, fontSize:10, fontWeight:700, color:"#8faec8", letterSpacing:"0.08em" }}>
-                  <div>ARCHIVO ORIGEN</div>
-                  <div>FECHA PROCESADO</div>
-                  <div>ESTADO</div>
-                  <div>REFERENCIAS</div>
-                  <div>ACCIONES</div>
-                </div>
-                {procesados.map((p, i) => {
-                  const ok = p.estado === "ok" || p.estado === "OK" || !p.error;
-                  const fecha = p.fecha_procesado ? new Date(p.fecha_procesado).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
-                  return (
-                    <div key={p.id || i} style={{
-                      display:"grid", gridTemplateColumns:"2fr 1.5fr 1fr 1fr auto", gap:8,
-                      padding:"10px 16px", alignItems:"center",
-                      borderBottom: i < procesados.length - 1 ? `1px solid ${C.border}` : "none",
-                      background: i % 2 === 0 ? C.white : "#f8fafc",
-                      transition:"background 0.15s"
-                    }}>
-                      {/* Archivo origen */}
-                      <div style={{ minWidth:0 }}>
-                        <div style={{ fontSize:12, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                          📄 {p.archivo_origen || p.nombre_archivo || "Sin nombre"}
-                        </div>
-                        {p.archivo_salida && (
-                          <div style={{ fontSize:10, color:C.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                            ↳ {p.archivo_salida}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Fecha */}
-                      <div style={{ fontSize:11, color:C.textMuted }}>{fecha}</div>
-
-                      {/* Estado */}
-                      <div>
-                        {ok
-                          ? <Badge color={C.green}>✓ Procesado</Badge>
-                          : <Badge color={C.red}>✗ Error</Badge>
-                        }
-                      </div>
-
-                      {/* Referencias */}
-                      <div style={{ fontSize:11, color:C.textMuted }}>
-                        {p.num_matches != null ? `${p.num_matches} proveedor${p.num_matches !== 1 ? "es" : ""}` : "—"}
-                        {p.num_no_match > 0 && <span style={{ color:C.red }}> · {p.num_no_match} sin match</span>}
-                      </div>
-
-                      {/* Acciones */}
-                      <div style={{ display:"flex", gap:5, flexShrink:0 }}>
-                        {p.drive_link_salida && (
-                          <a href={p.drive_link_salida} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize:11, background:C.blue, color:"white", borderRadius:5, padding:"4px 10px", textDecoration:"none", fontWeight:700, display:"flex", alignItems:"center", gap:4 }}>
-                            👁 Ver
-                          </a>
-                        )}
-                        {p.drive_link_salida && (
-                          <a href={p.drive_link_salida.replace("/view","/export?format=pdf")} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize:11, background:C.green, color:"white", borderRadius:5, padding:"4px 10px", textDecoration:"none", fontWeight:700, display:"flex", alignItems:"center" }}>
-                            ⬇
-                          </a>
-                        )}
-                        {!p.drive_link_salida && p.error && (
-                          <span style={{ fontSize:10, color:C.red, fontStyle:"italic" }} title={p.error}>⚠ {String(p.error).slice(0,40)}</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Stats resumen */}
-            {procesados.length > 0 && (
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginTop:16 }}>
-                {[
-                  { label:"Total procesados", value: procesados.length, color: C.blue },
-                  { label:"Con éxito", value: procesados.filter(p => p.estado === "ok" || p.estado === "OK" || !p.error).length, color: C.green },
-                  { label:"Con errores", value: procesados.filter(p => p.error).length, color: C.red },
-                ].map(({ label, value, color }) => (
-                  <div key={label} style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px", textAlign:"center", boxShadow:C.shadow }}>
-                    <div style={{ fontSize:24, fontWeight:800, color }}>{value}</div>
-                    <div style={{ fontSize:11, color:C.textMuted, marginTop:4 }}>{label}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <ProcesadosTab
+            procesados={procesados}
+            procesadosLoading={procesadosLoading}
+            recargarProcesados={recargarProcesados}
+            capiBase={CAPI_BASE}
+          />
         )}
 
       </div>
