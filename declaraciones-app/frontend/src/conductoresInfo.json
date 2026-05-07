@@ -73,19 +73,21 @@
   },
   "MARIO ALBERTO MOJICA": {
     "cc": "13924592",
-    "licencia_categoria": "Publica",
-    "licencia_vencimiento": "2025-11-16",
+    "licencia_categoria": "C2 Publica",
+    "licencia_vencimiento": "2029-01-16",
     "eps": "Salud Total",
     "arl": "Positiva",
     "vehiculos": [
       {
         "placas": "LPK427",
-        "tipo": "Camion",
-        "medidas": "5.60x2.40x2.60",
-        "capacidad": "28 m3",
-        "soat": "2026-02-16",
-        "tecnicomecanica": "2025-11-27",
-        "propietario": "PEDRO JOSE CORREDOR VESGA"
+        "tipo": "Camion JAC",
+        "medidas": "2.40x2.40x5.60",
+        "capacidad": "32 m3",
+        "soat": "2026-02-24",
+        "tecnicomecanica": "2026-02-15",
+        "propietario": "PEDRO JOSE CORREDOR VESGA",
+        "aseguradora": "AXA COLPATRIA",
+        "licencia_transito": "10028426939"
       }
     ]
   },

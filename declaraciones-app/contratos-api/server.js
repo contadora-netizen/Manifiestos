@@ -1,6 +1,5 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
-const puppeteer = require('puppeteer');
 const path = require('path');
 
 require('dotenv').config ? require('dotenv').config() : null;
@@ -26,8 +25,14 @@ function getPool() {
   return pool;
 }
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+});
 app.use(express.json());
+
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'alumar-contratos-api' }));
 
 // ── GET /api/guias - List recent guides for the dropdown ──
 app.get('/api/guias', async (_req, res) => {
@@ -223,39 +228,7 @@ app.get('/api/vehiculos', async (_req, res) => {
   }
 });
 
-// ── POST /api/pdf - Generate PDF from contract HTML ──
-app.post('/api/pdf', async (req, res) => {
-  try {
-    const { contratoNumero } = req.body;
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-    const page = await browser.newPage();
-
-    const url = `http://localhost:${PORT}/?guia=${contratoNumero || ''}&modo=pdf`;
-    await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
-
-    await page.waitForSelector('.contrato-hoja', { timeout: 10000 });
-
-    const pdf = await page.pdf({
-      format: 'Letter',
-      printBackground: true,
-      margin: { top: '10mm', bottom: '10mm', left: '12mm', right: '12mm' },
-      displayHeaderFooter: false,
-    });
-
-    await browser.close();
-
-    const filename = `Contrato_Transporte_CTT-${contratoNumero || 'borrador'}.pdf`;
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(pdf);
-  } catch (err) {
-    console.error('Error PDF:', err.message);
-    res.status(500).json({ error: 'Error generando PDF: ' + err.message });
-  }
-});
+// ── POST /api/pdf - Eliminado: el frontend genera los PDFs directamente ──
 
 // ── GET /api/dashboard/kpis - KPIs for the dashboard ──
 app.get('/api/dashboard/kpis', async (_req, res) => {

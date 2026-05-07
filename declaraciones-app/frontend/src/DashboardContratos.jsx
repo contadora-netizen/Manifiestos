@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const CAPI = "/api";
+const CAPI = import.meta.env.VITE_CAPI_URL || "/api";
 
 const C = {
   bg: "#f0f4f8", card: "#ffffff", border: "#dde3ec",
