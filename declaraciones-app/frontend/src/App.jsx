@@ -1360,10 +1360,7 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
                         <div style={{ fontSize:9, color:C.textMuted }}>{f.transportista_nombre} {f.transportista_apellido||""} · {f.placa||""}</div>
                       )}
                     </div>
-                    <div>
-                      <div style={{ fontSize:11, color:C.text }}>{f.ciudad||"—"}</div>
-                      {f.departamento && <div style={{ fontSize:9, color:C.textMuted }}>{f.departamento}</div>}
-                    </div>
+                    <div style={{ fontSize:11, color:C.text }}>{f.ciudad||"—"}</div>
                     <div>
                       {f.guia_numero ? (
                         <button onClick={() => window.open(`${capiBase}/?guia=${f.guia_numero}`, "_blank")}

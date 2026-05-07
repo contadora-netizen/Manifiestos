@@ -370,7 +370,6 @@ app.get('/api/declaraciones/dia/:fecha', async (req, res) => {
         c.CLT_DIRECCION1    AS cliente_direccion,
         c.CLT_TELEFONO1     AS cliente_telefono,
         cd.CDD_DESCRI       AS ciudad,
-        cd.CDD_DPTO         AS departamento,
         g.DCG_RUTA          AS ruta,
         t.TRA_NOMBRE        AS transportista_nombre,
         t.TRA_APELLIDO      AS transportista_apellido,
