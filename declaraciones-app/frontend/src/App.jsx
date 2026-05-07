@@ -510,6 +510,11 @@ const TIPOS_DOC = ["Licencia", "SOAT", "Técnico-mecánica", "Cédula", "EPS", "
 const getDocsConductor = (id) => { try { return JSON.parse(localStorage.getItem(`alumar_docs_${id}`) || "[]"); } catch { return []; } };
 const saveDocsConductor = (id, docs) => { try { localStorage.setItem(`alumar_docs_${id}`, JSON.stringify(docs)); } catch { alert("Almacenamiento lleno. Elimina documentos antiguos."); } };
 
+// ── Conductor: helpers seguridad social ───────────────────────────────────────
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const getSegSal = (id) => { try { return JSON.parse(localStorage.getItem(`alumar_segsal_${id}`) || "[]"); } catch { return []; } };
+const saveSegSal = (id, data) => { try { localStorage.setItem(`alumar_segsal_${id}`, JSON.stringify(data)); } catch { alert("Almacenamiento lleno."); } };
+
 // ── Conductor: fila ───────────────────────────────────────────────────────────
 function ConductorRow({ conductor: c, onEdit }) {
   const [open, setOpen] = useState(false);
@@ -517,8 +522,14 @@ function ConductorRow({ conductor: c, onEdit }) {
   const [uploading, setUploading] = useState(false);
   const [nuevoTipo, setNuevoTipo] = useState("Licencia");
   const [nuevoNombre, setNuevoNombre] = useState("");
-  const [docTab, setDocTab] = useState("info"); // "info" | "docs"
+  const [docTab, setDocTab] = useState("info"); // "info" | "docs" | "segsal"
   const fileRef = useRef();
+  const segFileRef = useRef();
+  const [segsal, setSegsal] = useState(() => getSegSal(c.id));
+  const [showSegForm, setShowSegForm] = useState(false);
+  const [segUpload, setSegUpload] = useState(null);
+  const emptySegForm = { mes: String(new Date().getMonth()), anio: String(new Date().getFullYear()), fecha_pago: "", total: "", eps_valor: "", arl_valor: "", pension_valor: "" };
+  const [segForm, setSegForm] = useState(emptySegForm);
 
   const venceColor = (dateStr) => {
     if (!dateStr) return C.textDim;
@@ -609,7 +620,7 @@ function ConductorRow({ conductor: c, onEdit }) {
         <div style={{ borderTop:`1px solid ${C.border}`, background:"#f8fafc" }}>
           {/* Sub-tabs */}
           <div style={{ display:"flex", borderBottom:`1px solid ${C.border}`, background:C.white }}>
-            {[["info","📋 Información"],["docs",`📎 Documentos (${docs.length})`]].map(([k,lbl]) => (
+            {[["info","📋 Información"],["docs",`📎 Documentos (${docs.length})`],["segsal",`🏥 Seg. Social${segsal.length > 0 ? ` (${segsal.length})` : ""}`]].map(([k,lbl]) => (
               <button key={k} onClick={() => setDocTab(k)} style={{
                 background:"transparent", border:"none",
                 borderBottom: docTab===k ? `2px solid ${C.blue}` : "2px solid transparent",
@@ -695,6 +706,151 @@ function ConductorRow({ conductor: c, onEdit }) {
               )}
             </div>
           )}
+          {/* TAB SEGURIDAD SOCIAL */}
+          {docTab === "segsal" && (
+            <div style={{ padding:"12px 14px" }}>
+              {/* Header + botón */}
+              <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px", marginBottom:12 }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: showSegForm ? 12 : 0 }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:C.textDim, letterSpacing:"0.08em" }}>PLANILLAS DE SEGURIDAD SOCIAL</div>
+                  <button onClick={() => { setShowSegForm(v => !v); setSegUpload(null); setSegForm(emptySegForm); }}
+                    style={{ background: showSegForm ? "transparent" : C.blue, color: showSegForm ? C.textMuted : "white", border:`1px solid ${showSegForm ? C.border : C.blue}`, borderRadius:6, padding:"5px 14px", cursor:"pointer", fontWeight:700, fontSize:11 }}>
+                    {showSegForm ? "✕ Cancelar" : "➕ Nueva planilla"}
+                  </button>
+                </div>
+
+                {showSegForm && (
+                  <div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
+                      <div>
+                        <label style={{ fontSize:10, color:C.textMuted, fontWeight:600, display:"block", marginBottom:3 }}>Mes</label>
+                        <select value={segForm.mes} onChange={e => setSegForm(f => ({...f, mes: e.target.value}))} style={{ ...inp, cursor:"pointer" }}>
+                          {MESES.map((m,i) => <option key={i} value={String(i)}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize:10, color:C.textMuted, fontWeight:600, display:"block", marginBottom:3 }}>Año</label>
+                        <input value={segForm.anio} onChange={e => setSegForm(f => ({...f, anio: e.target.value}))} style={inp} placeholder="2026" />
+                      </div>
+                      <div>
+                        <label style={{ fontSize:10, color:C.textMuted, fontWeight:600, display:"block", marginBottom:3 }}>Fecha de pago</label>
+                        <input type="date" value={segForm.fecha_pago} onChange={e => setSegForm(f => ({...f, fecha_pago: e.target.value}))} style={inp} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize:10, color:C.textMuted, fontWeight:600, display:"block", marginBottom:3 }}>Total pagado $</label>
+                        <input type="number" value={segForm.total} onChange={e => setSegForm(f => ({...f, total: e.target.value}))} style={inp} placeholder="575800" />
+                      </div>
+                      <div>
+                        <label style={{ fontSize:10, color:C.textMuted, fontWeight:600, display:"block", marginBottom:3 }}>🏥 Salud (EPS) $</label>
+                        <input type="number" value={segForm.eps_valor} onChange={e => setSegForm(f => ({...f, eps_valor: e.target.value}))} style={inp} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize:10, color:C.textMuted, fontWeight:600, display:"block", marginBottom:3 }}>⛑ ARL $</label>
+                        <input type="number" value={segForm.arl_valor} onChange={e => setSegForm(f => ({...f, arl_valor: e.target.value}))} style={inp} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize:10, color:C.textMuted, fontWeight:600, display:"block", marginBottom:3 }}>💰 Pensión $</label>
+                        <input type="number" value={segForm.pension_valor} onChange={e => setSegForm(f => ({...f, pension_valor: e.target.value}))} style={inp} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize:10, color:C.textMuted, fontWeight:600, display:"block", marginBottom:3 }}>📎 Escáner planilla</label>
+                        <button onClick={() => segFileRef.current?.click()}
+                          style={{ background: segUpload ? C.green : "#f0f4f8", color: segUpload ? "white" : C.textMuted, border:`1px solid ${segUpload ? C.green : C.border}`, borderRadius:5, padding:"6px 8px", cursor:"pointer", fontSize:10, width:"100%", fontWeight:600 }}>
+                          {segUpload ? `✓ ${segUpload.nombre.slice(0,18)}` : "📎 Adjuntar PDF"}
+                        </button>
+                        <input ref={segFileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:"none" }}
+                          onChange={e => {
+                            const f = e.target.files[0];
+                            if (!f) return;
+                            if (f.size > 5*1024*1024) { alert("Máximo 5 MB"); return; }
+                            const fr = new FileReader();
+                            fr.onloadend = () => setSegUpload({ data: fr.result, nombre: f.name, mimetype: f.type });
+                            fr.readAsDataURL(f);
+                            e.target.value = "";
+                          }} />
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginTop:12, paddingTop:10, borderTop:`1px solid ${C.border}` }}>
+                      <button onClick={() => { setShowSegForm(false); setSegForm(emptySegForm); setSegUpload(null); }}
+                        style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 16px", cursor:"pointer", color:C.textMuted, fontSize:11 }}>Cancelar</button>
+                      <button onClick={() => {
+                        if (!segForm.fecha_pago) { alert("Ingresa la fecha de pago"); return; }
+                        const nuevo = {
+                          id: crypto.randomUUID(),
+                          mes: segForm.mes, anio: segForm.anio,
+                          mes_nombre: MESES[parseInt(segForm.mes)],
+                          fecha_pago: segForm.fecha_pago,
+                          total: Number(segForm.total) || 0,
+                          eps_valor: Number(segForm.eps_valor) || 0,
+                          arl_valor: Number(segForm.arl_valor) || 0,
+                          pension_valor: Number(segForm.pension_valor) || 0,
+                          archivo: segUpload?.data || null,
+                          nombre_archivo: segUpload?.nombre || null,
+                          mimetype: segUpload?.mimetype || null,
+                          fecha_subida: new Date().toISOString(),
+                        };
+                        const updated = [nuevo, ...segsal].sort((a,b) => parseInt(b.anio)*12+parseInt(b.mes) - (parseInt(a.anio)*12+parseInt(a.mes)));
+                        saveSegSal(c.id, updated);
+                        setSegsal(updated);
+                        setShowSegForm(false);
+                        setSegForm(emptySegForm);
+                        setSegUpload(null);
+                      }} style={{ background:`linear-gradient(135deg,${C.accent},${C.gold})`, color:"white", border:"none", borderRadius:6, padding:"6px 20px", cursor:"pointer", fontWeight:700, fontSize:11 }}>
+                        💾 Guardar planilla
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Lista planillas */}
+              {segsal.length === 0 ? (
+                <div style={{ textAlign:"center", padding:"2rem", color:C.textDim, fontSize:12 }}>
+                  📋 No hay planillas registradas. Agrega la del mes actual con <strong>➕ Nueva planilla</strong>.
+                </div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  {segsal.map(p => {
+                    const diasDesde = Math.floor((new Date() - new Date(p.fecha_pago)) / (1000*60*60*24));
+                    const col = diasDesde <= 35 ? C.green : diasDesde <= 70 ? C.accent : C.red;
+                    const fmt = v => v ? `$${Number(v).toLocaleString("es-CO")}` : "—";
+                    return (
+                      <div key={p.id} style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                          <span style={{ background:`${col}18`, color:col, border:`1px solid ${col}40`, borderRadius:5, padding:"3px 10px", fontSize:12, fontWeight:700 }}>
+                            {p.mes_nombre} {p.anio}
+                          </span>
+                          <span style={{ fontSize:11, color:C.textMuted }}>
+                            Pagado: {new Date(p.fecha_pago).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"})}
+                          </span>
+                          <span style={{ fontSize:12, fontWeight:700, color:C.text, marginLeft:"auto" }}>{fmt(p.total)}</span>
+                          {p.archivo && (
+                            <button onClick={() => {
+                              const w = window.open("","_blank");
+                              if (p.mimetype?.startsWith("image/")) {
+                                w.document.write(`<html><body style="margin:0;background:#222;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${p.archivo}" style="max-width:100%;max-height:100vh;object-fit:contain"/></body></html>`);
+                              } else {
+                                w.document.write(`<html><body style="margin:0;height:100vh"><iframe src="${p.archivo}" style="width:100%;height:100%;border:none"></iframe></body></html>`);
+                              }
+                              w.document.close();
+                            }} style={{ fontSize:11, background:C.blue, color:"white", border:"none", borderRadius:5, padding:"3px 10px", cursor:"pointer", fontWeight:700 }}>👁 Ver</button>
+                          )}
+                          <button onClick={() => { if(confirm(`¿Eliminar planilla ${p.mes_nombre} ${p.anio}?`)) { const u = segsal.filter(s => s.id !== p.id); saveSegSal(c.id, u); setSegsal(u); }}}
+                            style={{ fontSize:11, background:"transparent", border:`1px solid ${C.border}`, color:C.red, borderRadius:5, padding:"3px 8px", cursor:"pointer", fontWeight:700 }}>✕</button>
+                        </div>
+                        <div style={{ display:"flex", gap:16, fontSize:11, color:C.textMuted }}>
+                          {p.eps_valor > 0 && <span>🏥 Salud: <strong style={{color:C.text}}>{fmt(p.eps_valor)}</strong></span>}
+                          {p.arl_valor > 0 && <span>⛑ ARL: <strong style={{color:C.text}}>{fmt(p.arl_valor)}</strong></span>}
+                          {p.pension_valor > 0 && <span>💰 Pensión: <strong style={{color:C.text}}>{fmt(p.pension_valor)}</strong></span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       )}
     </div>
@@ -726,9 +882,21 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   }, [form.valor_contrato, form.valor_pelete, form.valor_palencia]);
 
   const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState("");
+  const [filtroCiudad, setFiltroCiudad] = useState("");
+  const [filtroAnio, setFiltroAnio] = useState("");
   const conductoresHistoricos = Object.keys(RUTAS_HISTORICAS).sort();
-  const rutasDelConductor = conductorHistorico ? RUTAS_HISTORICAS[conductorHistorico] || [] : [];
-  const rutaSeleccionada = rutasDelConductor.find(r => r.ruta === rutaHistorica);
+  const todasLasRutas = conductorHistorico ? RUTAS_HISTORICAS[conductorHistorico] || [] : [];
+  // Años disponibles a partir de ultima_fecha (únicas, descendentes)
+  const aniosDisponibles = [...new Set(
+    todasLasRutas.map(r => r.ultima_fecha ? r.ultima_fecha.slice(0,4) : null).filter(Boolean)
+  )].sort((a,b) => b - a);
+  // Aplicar filtros
+  const rutasDelConductor = todasLasRutas.filter(r => {
+    const ciudadOk = filtroCiudad.trim() === "" || r.ruta.toUpperCase().includes(filtroCiudad.toUpperCase().trim());
+    const anioOk   = filtroAnio === "" || (r.ultima_fecha && r.ultima_fecha.startsWith(filtroAnio));
+    return ciudadOk && anioOk;
+  });
+  const rutaSeleccionada = todasLasRutas.find(r => r.ruta === rutaHistorica);
   const infoconductor = conductorHistorico ? CONDUCTORES_INFO[conductorHistorico] : null;
   const vehiculosDelConductor = infoconductor?.vehiculos || [];
 
@@ -796,6 +964,8 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                     setConductorHistorico(nombre);
                     setRutaHistorica("");
                     setVehiculoSeleccionado("");
+                    setFiltroCiudad("");
+                    setFiltroAnio("");
                     if (nombre) aplicarConductor(nombre, null);
                   }} style={{ ...inp, cursor:"pointer" }}>
                   <option value="">— Seleccionar conductor —</option>
@@ -826,12 +996,38 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
               </div>
 
               {/* Ruta */}
-              <div>
-                <label style={lbl}>Ruta{rutaSeleccionada ? ` · ${rutaSeleccionada.viajes}x · Prom $${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")}` : ""}</label>
+              {/* Ruta — con filtros ciudad y año */}
+              <div style={{ gridColumn: "span 1" }}>
+                <label style={lbl}>
+                  Ruta
+                  {rutaSeleccionada ? ` · ${rutaSeleccionada.viajes}x · Prom $${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")}` : ""}
+                  {conductorHistorico && rutasDelConductor.length !== todasLasRutas.length
+                    ? ` · ${rutasDelConductor.length}/${todasLasRutas.length} filtradas`
+                    : conductorHistorico ? ` · ${todasLasRutas.length} rutas` : ""}
+                </label>
+                {/* Filtros: ciudad + año */}
+                {conductorHistorico && (
+                  <div style={{ display:"flex", gap:6, marginBottom:5 }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 Buscar ciudad..."
+                      value={filtroCiudad}
+                      onChange={e => { setFiltroCiudad(e.target.value); setRutaHistorica(""); }}
+                      style={{ ...inp, flex:1, fontSize:11, padding:"4px 7px" }}
+                    />
+                    <select
+                      value={filtroAnio}
+                      onChange={e => { setFiltroAnio(e.target.value); setRutaHistorica(""); }}
+                      style={{ ...inp, width:76, fontSize:11, padding:"4px 6px", cursor:"pointer" }}>
+                      <option value="">Todos</option>
+                      {aniosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                )}
                 <select value={rutaHistorica}
                   onChange={e => {
                     setRutaHistorica(e.target.value);
-                    const ruta = rutasDelConductor.find(r => r.ruta === e.target.value);
+                    const ruta = todasLasRutas.find(r => r.ruta === e.target.value);
                     if (ruta) setForm(f => ({
                       ...f,
                       destino: ruta.ruta,
@@ -840,7 +1036,11 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                   }}
                   disabled={!conductorHistorico}
                   style={{ ...inp, cursor: conductorHistorico ? "pointer" : "not-allowed", opacity: conductorHistorico ? 1 : 0.5 }}>
-                  <option value="">— Seleccionar ruta —</option>
+                  <option value="">
+                    {rutasDelConductor.length === 0 && conductorHistorico
+                      ? "— Sin rutas para este filtro —"
+                      : "— Seleccionar ruta —"}
+                  </option>
                   {rutasDelConductor.map((r,i) => (
                     <option key={i} value={r.ruta}>
                       {r.ultima_fecha ? new Date(r.ultima_fecha).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"}) : "Sin fecha"} · {r.viajes}x · ${r.valor_promedio.toLocaleString("es-CO")} · {r.ruta}
