@@ -4,6 +4,7 @@ import CONDUCTORES_INFO from "./conductoresInfo.json";
 import DashboardContratos from "./DashboardContratos";
 
 const API = import.meta.env.VITE_API_URL || "https://refreshing-gentleness-production-7a26.up.railway.app";
+const CAPI_BASE = (import.meta.env.VITE_CAPI_URL || "").replace(/\/api$/, "") || "http://localhost:3000";
 const GS = "https://script.google.com/macros/s/AKfycbzT419j_RKVp1RmtDMJ62T2bERbnu1yfZrFBrO2QdzR3jCeViFtXieMqRFOomUhCKrQ/exec";
 
 // ── Google Sheets API ─────────────────────────────────────────────────────────
@@ -1493,7 +1494,7 @@ export default function App() {
 
       {/* TABS */}
       <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "0 2rem", display: "flex" }}>
-        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["dashboard", "📊 Dashboard"], ["contratos", `🚛 Contratos (${contratos.length})`], ["conductores", `👤 Conductores (${conductores.length})`], ["procesados", `📂 Procesados${procesados.length > 0 ? ` (${procesados.length})` : ""}`]].map(([key, label]) => (
+        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["dashboard", "📊 Dashboard"], ["guias-ctt", "📄 Guías CTT"], ["contratos", `🚛 Contratos (${contratos.length})`], ["conductores", `👤 Conductores (${conductores.length})`], ["procesados", `📂 Procesados${procesados.length > 0 ? ` (${procesados.length})` : ""}`]].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
             background: "transparent", border: "none",
             borderBottom: tab === key ? `3px solid ${C.blue}` : "3px solid transparent",
@@ -1710,8 +1711,20 @@ export default function App() {
         {/* TAB: DASHBOARD */}
         {tab === "dashboard" && (
           <DashboardContratos onOpenContrato={(num) => {
-            window.open(`http://localhost:3000/?guia=${num}`, '_blank');
+            window.open(`${CAPI_BASE}/?guia=${num}`, '_blank');
           }} />
+        )}
+
+        {/* TAB: GUÍAS CTT */}
+        {tab === "guias-ctt" && (
+          <div style={{ height: "calc(100vh - 120px)", display: "flex", flexDirection: "column" }}>
+            <iframe
+              src={CAPI_BASE}
+              title="Guías CTT — Contratos de Transporte"
+              style={{ flex: 1, border: "none", borderRadius: 8, width: "100%" }}
+              allow="print"
+            />
+          </div>
         )}
 
         {/* TAB: CONTRATOS */}
