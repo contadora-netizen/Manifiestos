@@ -1307,14 +1307,13 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
 
         {bdResumen && (
           <div style={{ marginTop:16 }}>
-            {/* Resumen del día */}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10, marginBottom:16 }}>
+            {/* KPIs del día */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:14 }}>
               {[
-                { lbl:"Guías del día", val: bdResumen.total_guias, color: C.blue },
-                { lbl:"Facturas", val: bdResumen.total_facturas, color: C.navyMid },
-                { lbl:"Valor mercancía", val: fmt(bdResumen.total_neto), color: C.green },
-                { lbl:"Bultos", val: bdResumen.total_bultos?.toLocaleString("es-CO"), color: C.accent },
-                { lbl:"Peso total", val: `${(bdResumen.total_peso||0).toLocaleString("es-CO")} kg`, color: C.textMuted },
+                { lbl:"Facturas del día", val: bdResumen.total_facturas, color: C.blue },
+                { lbl:"Valor neto total", val: fmt(bdResumen.totales?.neto), color: C.green },
+                { lbl:"Bultos", val: (bdResumen.totales?.bultos||0).toLocaleString("es-CO"), color: C.accent },
+                { lbl:"Peso total", val: `${(bdResumen.totales?.peso||0).toLocaleString("es-CO")} kg`, color: C.textMuted },
               ].map(({ lbl, val, color }) => (
                 <div key={lbl} style={{ background:"#f0f4f8", borderRadius:8, padding:"10px 12px", textAlign:"center" }}>
                   <div style={{ fontSize:18, fontWeight:800, color }}>{val}</div>
@@ -1323,99 +1322,68 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
               ))}
             </div>
 
-            {bdResumen.declaraciones.length === 0 ? (
+            {/* Guías involucradas */}
+            {bdResumen.guias?.length > 0 && (
+              <div style={{ marginBottom:12, fontSize:11, color:C.textMuted }}>
+                <strong style={{ color:C.text }}>Guías:</strong>{" "}
+                {bdResumen.guias.map(g => (
+                  <button key={g} onClick={() => window.open(`${capiBase}/?guia=${g}`, "_blank")}
+                    style={{ marginRight:5, background:"#e8f0fb", color:C.blue, border:`1px solid ${C.blue}30`, borderRadius:4, padding:"2px 8px", fontSize:11, cursor:"pointer", fontWeight:700 }}>
+                    CTT-{String(g).padStart(5,"0")}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {bdResumen.total_facturas === 0 ? (
               <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:13 }}>
-                📭 No se encontraron guías para el {bdFecha}
+                📭 No se encontraron facturas para el {bdFecha}
               </div>
             ) : (
               <div style={{ border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
-                {/* Header */}
-                <div style={{ display:"grid", gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr auto", gap:8, padding:"9px 14px", background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, fontSize:10, fontWeight:700, color:"#8faec8", letterSpacing:"0.07em" }}>
-                  <div>GUÍA / RUTA</div><div>TRANSPORTISTA</div><div>FACTURAS</div><div>VALOR</div><div>BULTOS</div><div></div>
+                {/* Header tabla */}
+                <div style={{ display:"grid", gridTemplateColumns:"80px 2fr 1.5fr 1fr 90px 90px 80px", gap:6, padding:"9px 12px", background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, fontSize:9, fontWeight:700, color:"#8faec8", letterSpacing:"0.07em" }}>
+                  <div>FACTURA N°</div><div>CLIENTE</div><div>CIUDAD / DPTO</div><div>GUÍA CTT</div><div style={{ textAlign:"right" }}>NETO</div><div style={{ textAlign:"right" }}>BULTOS</div><div style={{ textAlign:"right" }}>PESO</div>
                 </div>
-                {bdResumen.declaraciones.map((dec, i) => {
-                  const abierto = expandido === dec.id;
-                  return (
-                    <div key={dec.id} style={{ borderBottom: i < bdResumen.declaraciones.length-1 ? `1px solid ${C.border}` : "none" }}>
-                      {/* Fila resumen */}
-                      <div
-                        onClick={() => setExpandido(abierto ? null : dec.id)}
-                        style={{ display:"grid", gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr auto", gap:8, padding:"10px 14px", alignItems:"center", cursor:"pointer", background: abierto ? "#f0f7ff" : (i%2===0?C.white:"#f8fafc"), transition:"background 0.15s" }}>
-                        <div>
-                          <div style={{ fontSize:12, fontWeight:700, color:C.blue }}>CTT-{dec.guia_num_limpio.padStart(5,"0")}</div>
-                          <div style={{ fontSize:10, color:C.textMuted, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{dec.ruta || "Sin ruta"}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize:11, fontWeight:600, color:C.text }}>{dec.transportista || "—"}</div>
-                          <div style={{ fontSize:10, color:C.textMuted }}>{dec.placa || ""}</div>
-                        </div>
-                        <div style={{ fontSize:12, fontWeight:600, color:C.text }}>{dec.total_facturas}</div>
-                        <div style={{ fontSize:11, fontWeight:700, color:C.green }}>{fmt(dec.total_neto)}</div>
-                        <div style={{ fontSize:11, color:C.text }}>{(dec.total_bultos||0).toLocaleString("es-CO")}</div>
-                        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-                          <Badge color={C.green}>✓ BD</Badge>
-                          <span style={{ color:C.textDim, fontSize:12 }}>{abierto ? "▲" : "▼"}</span>
-                        </div>
-                      </div>
-                      {/* Detalle expandido */}
-                      {abierto && (
-                        <div style={{ padding:"12px 14px 14px", background:"#f8fbff", borderTop:`1px solid ${C.border}` }}>
-                          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:12 }}>
-                            {[
-                              ["Ciudades", dec.ciudades.join(", ") || "—"],
-                              ["Flete", dec.flete || "—"],
-                              ["Clientes", `${dec.clientes.length} cliente${dec.clientes.length!==1?"s":""}`],
-                            ].map(([k, v]) => (
-                              <div key={k} style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 10px" }}>
-                                <div style={{ fontSize:9, fontWeight:700, color:C.textMuted, textTransform:"uppercase", marginBottom:3 }}>{k}</div>
-                                <div style={{ fontSize:11, color:C.text, fontWeight:600 }}>{v}</div>
-                              </div>
-                            ))}
-                          </div>
-                          {/* Tabla facturas */}
-                          <div style={{ overflowX:"auto" }}>
-                            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:10 }}>
-                              <thead>
-                                <tr style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})` }}>
-                                  {["#","Factura","Tipo","Cliente","Ciudad","Neto","Bultos","Peso"].map(h => (
-                                    <th key={h} style={{ padding:"5px 8px", color:"#8faec8", fontWeight:700, textAlign:"left", letterSpacing:"0.05em", fontSize:9 }}>{h}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {dec.facturas.map((f, fi) => (
-                                  <tr key={fi} style={{ background: fi%2===0?"white":"#f8fafc" }}>
-                                    <td style={{ padding:"4px 8px", color:C.textMuted }}>{fi+1}</td>
-                                    <td style={{ padding:"4px 8px", fontWeight:700, color:C.blue, fontFamily:"monospace" }}>{(f.factura_numero||"").replace(/^0+/,"")}</td>
-                                    <td style={{ padding:"4px 8px", color:C.textMuted }}>{f.tipo_doc||"—"}</td>
-                                    <td style={{ padding:"4px 8px", color:C.text, maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.cliente_nombre||"—"}</td>
-                                    <td style={{ padding:"4px 8px", color:C.textMuted }}>{f.ciudad||"—"}</td>
-                                    <td style={{ padding:"4px 8px", fontFamily:"monospace", color:C.green, fontWeight:600 }}>{fmt(f.neto)}</td>
-                                    <td style={{ padding:"4px 8px", textAlign:"right" }}>{parseFloat(f.bultos)||0}</td>
-                                    <td style={{ padding:"4px 8px", textAlign:"right", color:C.textMuted }}>{parseFloat(f.peso)||0} kg</td>
-                                  </tr>
-                                ))}
-                                <tr style={{ background:"#e8edf4", fontWeight:700 }}>
-                                  <td colSpan={5} style={{ padding:"5px 8px", textAlign:"right", fontSize:9, letterSpacing:"0.05em", color:C.textMuted }}>TOTALES</td>
-                                  <td style={{ padding:"5px 8px", fontFamily:"monospace", color:C.green }}>{fmt(dec.total_neto)}</td>
-                                  <td style={{ padding:"5px 8px", textAlign:"right" }}>{dec.total_bultos}</td>
-                                  <td style={{ padding:"5px 8px", textAlign:"right", color:C.textMuted }}>{dec.total_peso.toFixed(0)} kg</td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-                          <div style={{ marginTop:10, display:"flex", gap:8 }}>
-                            <button
-                              onClick={() => window.open(`${capiBase}/?guia=${dec.guia_num_limpio}`, "_blank")}
-                              style={{ fontSize:11, background:C.blue, color:"white", border:"none", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontWeight:700 }}>
-                              📄 Ver contrato en visor
-                            </button>
-                          </div>
-                        </div>
+                {/* Filas */}
+                {bdResumen.facturas.map((f, i) => (
+                  <div key={i} style={{
+                    display:"grid", gridTemplateColumns:"80px 2fr 1.5fr 1fr 90px 90px 80px", gap:6,
+                    padding:"8px 12px", alignItems:"center",
+                    borderBottom: i < bdResumen.facturas.length-1 ? `1px solid ${C.border}` : "none",
+                    background: i%2===0 ? C.white : "#f8fafc"
+                  }}>
+                    <div style={{ fontWeight:800, color:C.blue, fontFamily:"monospace", fontSize:12 }}>{f.factura_numero}</div>
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.cliente_nombre||"—"}</div>
+                      {f.transportista_nombre && (
+                        <div style={{ fontSize:9, color:C.textMuted }}>{f.transportista_nombre} {f.transportista_apellido||""} · {f.placa||""}</div>
                       )}
                     </div>
-                  );
-                })}
+                    <div>
+                      <div style={{ fontSize:11, color:C.text }}>{f.ciudad||"—"}</div>
+                      {f.departamento && <div style={{ fontSize:9, color:C.textMuted }}>{f.departamento}</div>}
+                    </div>
+                    <div>
+                      {f.guia_numero ? (
+                        <button onClick={() => window.open(`${capiBase}/?guia=${f.guia_numero}`, "_blank")}
+                          style={{ background:"#e8f0fb", color:C.blue, border:`1px solid ${C.blue}30`, borderRadius:4, padding:"2px 7px", fontSize:10, cursor:"pointer", fontWeight:700 }}>
+                          CTT-{String(f.guia_numero).padStart(5,"0")}
+                        </button>
+                      ) : <span style={{ color:C.textDim, fontSize:10 }}>Sin guía</span>}
+                    </div>
+                    <div style={{ textAlign:"right", fontSize:11, fontWeight:700, color:C.green, fontFamily:"monospace" }}>{fmt(f.neto)}</div>
+                    <div style={{ textAlign:"right", fontSize:11, color:C.text }}>{parseFloat(f.bultos)||0}</div>
+                    <div style={{ textAlign:"right", fontSize:11, color:C.textMuted }}>{parseFloat(f.peso)||0} kg</div>
+                  </div>
+                ))}
+                {/* Fila totales */}
+                <div style={{ display:"grid", gridTemplateColumns:"80px 2fr 1.5fr 1fr 90px 90px 80px", gap:6, padding:"9px 12px", background:"#e8edf4", fontWeight:700, borderTop:`2px solid ${C.border}` }}>
+                  <div style={{ gridColumn:"span 4", textAlign:"right", fontSize:9, letterSpacing:"0.06em", color:C.textMuted }}>TOTALES ({bdResumen.total_facturas} facturas)</div>
+                  <div style={{ textAlign:"right", fontFamily:"monospace", color:C.green, fontSize:12 }}>{fmt(bdResumen.totales?.neto)}</div>
+                  <div style={{ textAlign:"right", fontSize:12 }}>{(bdResumen.totales?.bultos||0).toLocaleString("es-CO")}</div>
+                  <div style={{ textAlign:"right", fontSize:11, color:C.textMuted }}>{(bdResumen.totales?.peso||0).toLocaleString("es-CO")} kg</div>
+                </div>
               </div>
             )}
           </div>
