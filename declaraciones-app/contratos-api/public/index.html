@@ -14,21 +14,29 @@
       background: #f0f4f8;
     }
 
-    /* ── Toolbar (oculta al imprimir) ── */
+    /* ── Toolbar ── */
     #toolbar {
       background: #0a1f3c;
       color: white;
-      padding: 10px 24px;
+      padding: 10px 20px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       flex-wrap: wrap;
       position: sticky;
       top: 0;
       z-index: 100;
+      border-bottom: 2px solid #d4780a;
     }
-    #toolbar .logo { font-weight: 700; font-size: 15px; letter-spacing: 0.05em; color: #e8920c; }
-    #toolbar select, #toolbar input {
+    #toolbar .logo {
+      font-weight: 900;
+      font-size: 16px;
+      letter-spacing: 0.06em;
+      color: #e8920c;
+      white-space: nowrap;
+    }
+    #toolbar .sep { color: #2a4a7a; font-size: 18px; }
+    #toolbar select, #toolbar input[type="text"] {
       padding: 6px 10px;
       border: 1px solid #2a4a7a;
       border-radius: 6px;
@@ -38,6 +46,9 @@
       font-family: inherit;
       cursor: pointer;
     }
+    #toolbar select { min-width: 320px; }
+    #toolbar input[type="text"] { width: 180px; }
+    #toolbar input[type="text"]::placeholder { color: #6a8ab0; }
     #toolbar select option { background: #0a1f3c; }
     #toolbar button {
       padding: 7px 16px;
@@ -48,28 +59,26 @@
       cursor: pointer;
       font-family: inherit;
       transition: opacity 0.15s;
+      white-space: nowrap;
     }
     #toolbar button:hover { opacity: 0.85; }
-    #btn-cargar { background: #e8920c; color: white; }
     #btn-print  { background: #1255a4; color: white; }
     #btn-nuevo  { background: transparent; color: #8faec8; border: 1px solid #2a4a7a !important; }
-    #toolbar .sep { color: #2a4a7a; font-size: 18px; }
-    #toolbar .status-msg { font-size: 11px; color: #8faec8; margin-left: auto; }
+    #toolbar .status-msg { font-size: 11px; color: #8faec8; margin-left: auto; white-space: nowrap; }
     #toolbar .status-msg.error { color: #ff8a80; }
     #toolbar .status-msg.ok    { color: #69f0ae; }
 
-    /* ── Página del contrato ── */
+    /* ── Página ── */
     #page-wrap {
       padding: 24px;
       display: flex;
       justify-content: center;
     }
-
     .contrato-hoja {
       background: white;
       width: 216mm;
       min-height: 280mm;
-      padding: 14mm 14mm 16mm 14mm;
+      padding: 12mm 13mm 14mm 13mm;
       box-shadow: 0 4px 24px rgba(10,31,60,0.15);
       border-radius: 4px;
       position: relative;
@@ -84,46 +93,45 @@
       padding-bottom: 10px;
       margin-bottom: 10px;
     }
-    .enc-left .nombre-empresa { font-size: 17px; font-weight: 900; color: #0a1f3c; letter-spacing: 0.04em; }
-    .enc-left .sub-empresa    { font-size: 9.5px; color: #4a6380; margin-top: 2px; }
+    .enc-left .nombre-empresa { font-size: 18px; font-weight: 900; color: #0a1f3c; letter-spacing: 0.04em; }
+    .enc-left .sub-empresa    { font-size: 9px; color: #4a6380; margin-top: 2px; }
     .enc-right                { text-align: right; }
-    .enc-right .titulo-doc    { font-size: 13px; font-weight: 700; color: #0a1f3c; text-transform: uppercase; }
-    .enc-right .num-ctt       { font-size: 19px; font-weight: 900; color: #e8920c; margin: 2px 0; }
-    .enc-right .fecha-doc     { font-size: 10px; color: #4a6380; }
+    .enc-right .titulo-doc    { font-size: 12px; font-weight: 700; color: #0a1f3c; text-transform: uppercase; letter-spacing: 0.04em; }
+    .enc-right .num-ctt       { font-size: 20px; font-weight: 900; color: #e8920c; margin: 2px 0; font-family: 'Courier New', monospace; }
+    .enc-right .fecha-doc     { font-size: 9.5px; color: #4a6380; }
 
     /* ── Secciones ── */
     .seccion {
       border: 1px solid #dde3ec;
       border-radius: 6px;
-      margin-bottom: 8px;
+      margin-bottom: 7px;
       overflow: hidden;
     }
     .sec-titulo {
       background: #0a1f3c;
       color: #8faec8;
-      font-size: 8.5px;
+      font-size: 8px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.07em;
+      letter-spacing: 0.09em;
       padding: 4px 10px;
     }
-    .sec-body {
-      padding: 8px 10px;
-    }
+    .sec-titulo.gold { background: #7a4200; color: #f5c060; }
+    .sec-body { padding: 8px 10px; }
 
-    /* ── Grid de campos ── */
+    /* ── Grids de campos ── */
     .campo-grid {
       display: grid;
-      gap: 6px 12px;
+      gap: 5px 12px;
     }
     .campo-grid.cols-2 { grid-template-columns: 1fr 1fr; }
     .campo-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
     .campo-grid.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
-    .campo-grid.cols-1-2 { grid-template-columns: 1fr 2fr; }
+    .campo-grid.cols-5 { grid-template-columns: 1fr 1fr 1fr 1fr 1fr; }
 
     .campo label {
       display: block;
-      font-size: 8px;
+      font-size: 7.5px;
       font-weight: 700;
       color: #8fa3bc;
       text-transform: uppercase;
@@ -131,10 +139,10 @@
       margin-bottom: 2px;
     }
     .campo .valor {
-      font-size: 11px;
+      font-size: 10.5px;
       color: #1a2535;
       font-weight: 600;
-      min-height: 16px;
+      min-height: 15px;
       border-bottom: 1px solid #e8edf4;
       padding-bottom: 2px;
     }
@@ -142,22 +150,85 @@
       border-bottom: 1px dashed #b0c4de;
       outline: none;
       cursor: text;
+      border-radius: 2px;
+      padding: 1px 3px;
+      transition: background 0.1s;
     }
     .campo .valor.editable:focus {
       border-bottom-color: #1255a4;
-      background: #f0f7ff;
+      background: #eef5ff;
     }
     .campo .valor.editable:empty::before {
       content: attr(data-placeholder);
-      color: #b0c4de;
+      color: #c0cfe0;
       font-weight: 400;
+      font-style: italic;
     }
+    .campo .valor.calc {
+      background: #e8f5e9;
+      color: #1e7e34;
+      font-weight: 900;
+      font-size: 12px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      border: 1px solid #a5d6a7;
+      border-bottom: 1px solid #a5d6a7;
+    }
+    .campo .valor.calc.negativo {
+      background: #fff0f0;
+      color: #c0392b;
+      border-color: #ef9a9a;
+    }
+
+    /* ── Liquidación ── */
+    .liquidacion-resumen {
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: #f8fbff;
+      border: 1px dashed #b0c4de;
+      border-radius: 5px;
+      font-size: 10px;
+      color: #4a6380;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .liquidacion-resumen .eq-item { display: flex; flex-direction: column; align-items: center; }
+    .liquidacion-resumen .eq-label { font-size: 7px; text-transform: uppercase; letter-spacing: 0.05em; color: #8fa3bc; }
+    .liquidacion-resumen .eq-val   { font-weight: 700; font-size: 11px; color: #1a2535; }
+    .liquidacion-resumen .eq-op    { font-size: 16px; color: #b0c4de; align-self: center; padding-top: 6px; }
+    .liquidacion-resumen .eq-result .eq-val { color: #1e7e34; font-size: 13px; }
+    .liquidacion-resumen .eq-result.negativo .eq-val { color: #c0392b; }
+
+    /* ── Resumen valores mercancía/flete ── */
+    .resumen-valores {
+      display: flex;
+      gap: 10px;
+      margin-top: 7px;
+    }
+    .rv-item {
+      flex: 1;
+      background: #f0f4f8;
+      border-radius: 5px;
+      padding: 6px 10px;
+    }
+    .rv-item .rv-label { font-size: 7.5px; color: #8fa3bc; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .rv-item .rv-val   { font-size: 14px; font-weight: 900; color: #0a1f3c; margin-top: 1px; }
+    .rv-item.flete .rv-val  { color: #d4780a; }
+    .rv-item.flete .rv-edit {
+      font-size: 14px; font-weight: 900; color: #d4780a;
+      outline: none; border: none; background: transparent;
+      width: 100%; cursor: text;
+      border-bottom: 1px dashed #e8a050;
+    }
+    .rv-item.flete .rv-edit:focus { background: #fff8ee; }
 
     /* ── Tabla facturas ── */
     .tabla-facturas {
       width: 100%;
       border-collapse: collapse;
-      font-size: 9.5px;
+      font-size: 9px;
     }
     .tabla-facturas th {
       background: #122a50;
@@ -165,114 +236,116 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      padding: 5px 7px;
+      padding: 4px 6px;
       text-align: left;
     }
     .tabla-facturas th.right, .tabla-facturas td.right { text-align: right; }
     .tabla-facturas td {
-      padding: 4px 7px;
+      padding: 3px 6px;
       border-bottom: 1px solid #f0f4f8;
       color: #1a2535;
     }
     .tabla-facturas tr:nth-child(even) td { background: #f8fafc; }
     .tabla-facturas .total-row td {
-      background: #f0f4f8;
+      background: #e8edf4;
       font-weight: 700;
-      border-top: 2px solid #dde3ec;
+      border-top: 2px solid #c0cfe0;
     }
 
-    /* ── Valor resumen (mercancía / flete) ── */
-    .resumen-valores {
-      display: flex;
-      gap: 12px;
-      margin-top: 6px;
-    }
-    .rv-item {
-      flex: 1;
-      background: #f0f4f8;
-      border-radius: 6px;
-      padding: 6px 10px;
-    }
-    .rv-item .rv-label { font-size: 8px; color: #8fa3bc; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-    .rv-item .rv-val   { font-size: 14px; font-weight: 900; color: #0a1f3c; margin-top: 1px; }
-    .rv-item.flete .rv-val { color: #d4780a; }
-
-    /* ── Condiciones ── */
-    .condiciones {
-      font-size: 8px;
-      color: #6a80a0;
-      line-height: 1.5;
-      margin-top: 4px;
-      padding: 8px 10px;
-      background: #f8fafc;
-      border-radius: 4px;
+    /* ── Cláusulas ── */
+    .clausulas-wrap {
       border: 1px solid #dde3ec;
+      border-radius: 6px;
+      margin-bottom: 7px;
+      overflow: hidden;
     }
-    .condiciones strong { color: #4a6380; }
+    .clausulas-titulo {
+      background: #0a1f3c;
+      color: #8faec8;
+      font-size: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      padding: 4px 10px;
+    }
+    .clausulas-body {
+      padding: 8px 10px;
+      background: #fafbfc;
+    }
+    .clausula {
+      font-size: 7.8px;
+      color: #3a5070;
+      line-height: 1.55;
+      margin-bottom: 5px;
+      text-align: justify;
+    }
+    .clausula strong { color: #0a1f3c; }
 
     /* ── Firmas ── */
     .firmas {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
       margin-top: 10px;
     }
-    .firma-bloque {
-      border-top: 2px solid #0a1f3c;
-      padding-top: 8px;
-    }
+    .firma-bloque { border-top: 2px solid #0a1f3c; padding-top: 8px; }
     .firma-bloque .firma-nombre { font-size: 10px; font-weight: 700; color: #0a1f3c; }
-    .firma-bloque .firma-sub    { font-size: 8.5px; color: #4a6380; margin-top: 2px; }
-    .firma-bloque .firma-linea  {
-      height: 36px;
-      border-bottom: 1px solid #dde3ec;
-      margin: 8px 0 4px;
-    }
+    .firma-bloque .firma-sub    { font-size: 8px; color: #4a6380; margin-top: 2px; }
+    .firma-bloque .firma-linea  { height: 34px; border-bottom: 1px solid #dde3ec; margin: 8px 0 4px; }
 
-    /* ── Estado badge ── */
+    /* ── Badge ── */
     .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 9px; font-weight: 700; }
-    .badge-ok  { background: #e8f5e9; color: #1e7e34; }
-    .badge-pend{ background: #fff3e0; color: #e65100; }
+    .badge-ok   { background: #e8f5e9; color: #1e7e34; }
+    .badge-pend { background: #fff3e0; color: #e65100; }
 
-    /* ── Pantalla de inicio ── */
-    #pantalla-inicio {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 200px;
-      color: #8fa3bc;
-      gap: 10px;
+    /* ── Observaciones ── */
+    .obs-field {
+      width: 100%;
+      font-size: 9px;
+      color: #3a5070;
+      outline: none;
+      border: 1px dashed #b0c4de;
+      border-radius: 4px;
+      padding: 4px 6px;
+      min-height: 28px;
+      font-family: inherit;
+      line-height: 1.5;
     }
-    #pantalla-inicio .icono { font-size: 48px; }
+    .obs-field:focus { border-color: #1255a4; background: #eef5ff; }
+    .obs-field:empty::before { content: attr(data-placeholder); color: #c0cfe0; font-style: italic; }
+
+    /* ── Pantalla inicio ── */
+    #pantalla-inicio {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 260px; color: #8fa3bc; gap: 10px;
+    }
+    #pantalla-inicio .icono { font-size: 52px; }
     #pantalla-inicio p { font-size: 13px; }
+    #pantalla-inicio .hint { font-size: 11px; color: #6a8ab0; }
 
     /* ── Spinner ── */
     .spinner {
-      display: inline-block;
-      width: 16px; height: 16px;
-      border: 2px solid #dde3ec;
-      border-top-color: #1255a4;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 6px;
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid #dde3ec; border-top-color: #1255a4;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 6px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── Print ── */
     @media print {
-      body { background: white; }
+      body { background: white; font-size: 10.5px; }
       #toolbar { display: none !important; }
       #page-wrap { padding: 0; }
       .contrato-hoja {
-        box-shadow: none;
-        border-radius: 0;
-        width: 100%;
-        padding: 10mm 12mm;
+        box-shadow: none; border-radius: 0;
+        width: 100%; padding: 8mm 10mm;
       }
-      .campo .valor.editable { border-bottom: none; cursor: default; }
+      .campo .valor.editable { border-bottom: 1px solid #ccc; cursor: default; }
       .campo .valor.editable:empty::before { content: ''; }
+      .obs-field { border: none; border-bottom: 1px solid #ccc; }
+      .rv-item.flete .rv-edit { border-bottom: none; }
+      .liquidacion-resumen { border: 1px solid #ccc; }
     }
   </style>
 </head>
@@ -282,11 +355,9 @@
 <div id="toolbar">
   <span class="logo">ALUMAR</span>
   <span class="sep">|</span>
-  <select id="sel-guia" title="Seleccionar guía">
-    <option value="">— Seleccionar guía —</option>
-  </select>
-  <button id="btn-cargar">Cargar</button>
-  <button id="btn-nuevo">Nueva búsqueda</button>
+  <input type="text" id="inp-buscar" placeholder="🔍 Buscar por transportista o N°..." autocomplete="off" />
+  <select id="sel-guia" title="Seleccionar guía"></select>
+  <button id="btn-nuevo">✕ Limpiar</button>
   <span class="sep">|</span>
   <button id="btn-print">⎙ Imprimir / PDF</button>
   <span id="status-msg" class="status-msg"></span>
@@ -297,15 +368,14 @@
   <div class="contrato-hoja" id="contrato-hoja">
     <div id="pantalla-inicio">
       <div class="icono">📄</div>
-      <p>Selecciona una guía en la barra superior para cargar el contrato</p>
+      <p>Selecciona una guía para cargar el contrato</p>
+      <div class="hint">Puedes buscar por nombre del transportista o número de guía</div>
     </div>
   </div>
 </div>
 
 <script>
-  const API = '';  // mismo origen: contratos-api sirve el HTML y la API
-
-  // ── Utilidades ──────────────────────────────────────────────────────────────
+  const API = '';
   const $ = id => document.getElementById(id);
   const setStatus = (msg, type = '') => {
     const el = $('status-msg');
@@ -316,6 +386,7 @@
   const fmtFecha = iso => {
     if (!iso) return '—';
     const d = new Date(iso);
+    if (isNaN(d)) return iso;
     return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
@@ -324,32 +395,56 @@
     return '$ ' + num.toLocaleString('es-CO', { minimumFractionDigits: 0 });
   };
 
-  const fmtPeso = n => {
-    const num = parseFloat(n) || 0;
-    return num.toLocaleString('es-CO') + ' kg';
-  };
+  // ── Cláusulas ───────────────────────────────────────────────────────────────
+  const CLAUSULAS = [
+    ["PRIMERA", "El transportista se compromete con Alumar SAS a transportar y entregar en forma directa, en el destino que se encuentra registrado en cada factura, en el vehículo que se relaciona en este contrato y no en uno distinto, vehículo que debe estar conducido por el mismo conductor que figura en este contrato y no por una persona distinta, la mercancía completa y en perfecto estado de empaque y contenido relacionada en cada una de las facturas que se relacionan en este contrato, a más tardar en los 8 días siguientes a la entrega de Alumar al transportista. PARÁGRAFO 1: Se considera incumplimiento de este contrato y constituye una grave falta el entregar la mercancía en una dirección distinta a la señalada en la factura, así medien instrucciones verbales distintas. PARÁGRAFO 2: Se considera incumplimiento de este contrato y una grave falta que el transportista destine un conductor distinto al que se relaciona en este contrato, sin consultar previamente con Alumar dicho cambio. PARÁGRAFO 3: El entregar en el destino la mercancía en mal estado de empaque o de producto se considera incumplimiento de este contrato y hace responsable al transportista de estos daños. El conductor se compromete a responder las llamadas del departamento de despachos y a facilitar la información solicitada."],
+    ["SEGUNDA", "El transportista está obligado a permanecer en la bodega de Alumar pendiente del llenado del vehículo, para constatar las diferentes cantidades de unidades de embalaje. Alumar funcionará de 6AM a 8PM."],
+    ["TERCERA", "El transportista se compromete a rodar únicamente en el horario de 6AM a 8PM."],
+    ["CUARTA", "El transportista se compromete a entregar en cada destino, las unidades de embalaje contadas en presencia del cliente y hacer firmar y sellar al cliente dicho cumplido a satisfacción, firma acompañada del nombre y cédula de quien firma y se obliga a enviar al whatsapp del departamento de tráfico de Alumar la copia del cumplido firmado y sellado por el cliente cada vez que termine una entrega. Esta copia no es válida para el pago del contrato; para ello debe entregar los cumplidos en físico y completamente."],
+    ["QUINTA", "Cualquier faltante de mercancía en el vehículo será responsabilidad del transportista (quien deberá cancelar su valor comercial precio de venta actualizado) en las 48 horas siguientes a la entrega de los cumplidos físicos en Alumar. Si este faltante no fuere cancelado en el tiempo previsto, Alumar procederá conforme a la ley."],
+    ["SEXTA", "El transportista tiene la obligación de rodar durante las noches de su ruta, el vehículo en parqueaderos legalmente establecidos, debidamente vigilados, que respondan por las pérdidas parciales y totales. No hacerlo constituye violación a este contrato y acarrea las consecuencias legales además de exigir al transportista la restitución del dinero correspondiente a la mercancía perdida o averiada."],
+    ["SÉPTIMA", "Es violación a este contrato cargar dentro del vehículo mercancía distinta a la de Alumar y constituye muy grave delito cargar mercancía que pueda atentar contra la mercancía de Alumar como ácidos, líquidos inflamables, venenos, tierra, arena, y todo aquello que pueda afectar el estado de la mercancía. Lo mismo que constituye delito muy grave cargar mercancía prohibida por la ley como estupefacientes, pólvora y afines. Estos casos, de ser comprobados, serán denunciados a la Fiscalía de la Nación."],
+    ["OCTAVA", "El valor acordado para este contrato es pagadero así: 60% a la firma de este contrato y 40% al recibir la totalidad de los cumplidos debidamente firmados por el cliente. Entregas de mercancía cuyo cumplido no haya sido firmado debidamente por el cliente, serán cobradas al transportista en su totalidad. La no entrega de los cumplidos en físico o la pérdida del documento no justificado acarreará sanción."],
+    ["NOVENA", "Si el transportista no entregare la totalidad de la mercancía en los 8 días estipulados en este contrato, deberá cancelar a Alumar, a modo de multa, $100.000 pesos diarios por cada día de retraso sin justificación comprobada."],
+  ];
 
-  // ── Cargar lista de guías ──────────────────────────────────────────────────
+  // ── Lista de guías y búsqueda ───────────────────────────────────────────────
+  let todasLasGuias = [];
+
+  function poblarSelect(filtro = '') {
+    const sel = $('sel-guia');
+    const val = sel.value;
+    sel.innerHTML = '<option value="">— Seleccionar guía —</option>';
+    const q = filtro.toLowerCase();
+    const filtradas = q
+      ? todasLasGuias.filter(g => g._texto.includes(q))
+      : todasLasGuias;
+    filtradas.forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.num;
+      opt.textContent = g.label;
+      sel.appendChild(opt);
+    });
+    if (val && filtradas.find(g => g.num === val)) sel.value = val;
+    setStatus(`${filtradas.length} de ${todasLasGuias.length} guías`, filtradas.length ? 'ok' : 'error');
+  }
+
   async function cargarListaGuias() {
     try {
       setStatus('Cargando guías…');
       const resp = await fetch(API + '/api/guias');
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const guias = await resp.json();
-
-      const sel = $('sel-guia');
-      sel.innerHTML = '<option value="">— Seleccionar guía —</option>';
-      guias.forEach(g => {
+      todasLasGuias = guias.map(g => {
         const num  = (g.guia_numero || '').replace(/^0+/, '');
         const tran = [g.transportista_nombre, g.transportista_apellido].filter(Boolean).join(' ');
-        const opt  = document.createElement('option');
-        opt.value  = num;
-        opt.textContent = `CTT-${num.padStart(5,'0')}  •  ${fmtFecha(g.fecha)}  •  ${tran}  •  ${g.placa || ''}`;
-        sel.appendChild(opt);
+        const label = `CTT-${num.padStart(5,'0')}  •  ${fmtFecha(g.fecha)}  •  ${tran}  •  ${g.placa || ''}  •  ${g.ruta || ''}`;
+        return { num, label, _texto: label.toLowerCase() };
       });
-      setStatus(`${guias.length} guías disponibles`, 'ok');
+      poblarSelect();
+      setStatus(`${todasLasGuias.length} guías disponibles`, 'ok');
     } catch (e) {
-      setStatus('Error cargando guías: ' + e.message, 'error');
+      setStatus('Error: ' + e.message, 'error');
     }
   }
 
@@ -357,7 +452,7 @@
   async function cargarContrato(num) {
     if (!num) return;
     const hoja = $('contrato-hoja');
-    hoja.innerHTML = '<div style="padding:40px;text-align:center;color:#8fa3bc"><span class="spinner"></span> Cargando datos desde MySQL…</div>';
+    hoja.innerHTML = '<div style="padding:50px;text-align:center;color:#8fa3bc"><span class="spinner"></span> Cargando datos desde la base de datos…</div>';
     setStatus('Consultando BD…');
     try {
       const resp = await fetch(API + '/api/contrato/' + num);
@@ -365,50 +460,50 @@
       const d = await resp.json();
       if (d.error) throw new Error(d.error);
       renderContrato(d, hoja);
-      setStatus('Contrato CTT-' + String(num).padStart(5,'0') + ' cargado', 'ok');
+      setStatus('CTT-' + String(num).padStart(5,'0') + ' cargado', 'ok');
     } catch (e) {
-      hoja.innerHTML = `<div style="padding:40px;text-align:center;color:#ff8a80">⚠ ${e.message}</div>`;
+      hoja.innerHTML = `<div style="padding:40px;text-align:center;color:#ff8a80;font-size:13px">⚠ ${e.message}</div>`;
       setStatus('Error: ' + e.message, 'error');
     }
   }
 
-  // ── Renderizar contrato ─────────────────────────────────────────────────────
+  // ── Renderizar ──────────────────────────────────────────────────────────────
   function renderContrato(d, hoja) {
-    const c  = d.contrato      || {};
-    const t  = d.transportista || {};
-    const cd = d.conductor     || {};
-    const v  = d.vehiculo      || {};
-    const cg = d.carga         || {};
+    const c  = d.contrato         || {};
+    const t  = d.transportista    || {};
+    const cd = d.conductor        || {};
+    const v  = d.vehiculo         || {};
+    const cg = d.carga            || {};
     const fs = d.facturas_detalle || [];
 
-    const numStr = String(c.numero || '').padStart(5, '0');
-
-    const totNeto   = fs.reduce((s, f) => s + (parseFloat(f.neto)  || 0), 0);
+    const numStr    = String(c.numero || '').padStart(5, '0');
+    const totNeto   = fs.reduce((s, f) => s + (parseFloat(f.neto)   || 0), 0);
     const totBultos = fs.reduce((s, f) => s + (parseFloat(f.bultos) || 0), 0);
-    const totPeso   = fs.reduce((s, f) => s + (parseFloat(f.peso)  || 0), 0);
+    const totPeso   = fs.reduce((s, f) => s + (parseFloat(f.peso)   || 0), 0);
+    const valFlete  = cg.valor_flete || 0;
 
     hoja.innerHTML = `
       <!-- ENCABEZADO -->
       <div class="enc">
         <div class="enc-left">
           <div class="nombre-empresa">ALUMAR S.A.S.</div>
-          <div class="sub-empresa">Importación y distribución — Línea mesa y cocina</div>
-          <div class="sub-empresa" style="margin-top:2px">Cali, Colombia</div>
+          <div class="sub-empresa">Importación y distribución de productos para el hogar — Línea mesa y cocina</div>
+          <div class="sub-empresa" style="margin-top:2px">Los Patios, Norte de Santander — Colombia</div>
         </div>
         <div class="enc-right">
-          <div class="titulo-doc">Contrato de Transporte de Mercancía</div>
+          <div class="titulo-doc">Contrato de Transporte Terrestre de Mercancía</div>
           <div class="num-ctt">CTT-${numStr}</div>
-          <div class="fecha-doc">Fecha cargue: ${fmtFecha(c.fecha_cargue)}</div>
-          ${c.estado ? `<div style="margin-top:4px"><span class="badge ${c.estado === 'ACTIVO' ? 'badge-ok' : 'badge-pend'}">${c.estado}</span></div>` : ''}
+          <div class="fecha-doc">Fecha de cargue: ${fmtFecha(c.fecha_cargue)}</div>
+          ${c.estado ? `<div style="margin-top:4px"><span class="badge ${c.estado==='ACTIVO'?'badge-ok':'badge-pend'}">${c.estado}</span></div>` : ''}
         </div>
       </div>
 
       <!-- TRANSPORTISTA -->
       <div class="seccion">
-        <div class="sec-titulo">Datos del Transportista</div>
+        <div class="sec-titulo">Datos del Transportista / Contratista</div>
         <div class="sec-body">
-          <div class="campo-grid cols-2">
-            <div class="campo" style="grid-column: span 2">
+          <div class="campo-grid cols-3">
+            <div class="campo" style="grid-column:span 2">
               <label>Nombre completo</label>
               <div class="valor">${t.nombre || '—'}</div>
             </div>
@@ -417,7 +512,7 @@
               <div class="valor">${t.cc || '—'}</div>
             </div>
             <div class="campo">
-              <label>Teléfono fijo</label>
+              <label>Teléfono</label>
               <div class="valor">${t.telefono || '—'}</div>
             </div>
             <div class="campo">
@@ -428,9 +523,13 @@
               <label>Ciudad</label>
               <div class="valor editable" contenteditable="true" data-placeholder="Ingresar ciudad">${t.ciudad || ''}</div>
             </div>
-            <div class="campo" style="grid-column: span 2">
+            <div class="campo" style="grid-column:span 2">
               <label>Dirección</label>
               <div class="valor">${t.direccion || '—'}</div>
+            </div>
+            <div class="campo">
+              <label>Email</label>
+              <div class="valor">${t.email || '—'}</div>
             </div>
           </div>
         </div>
@@ -440,14 +539,34 @@
       <div class="seccion">
         <div class="sec-titulo">Conductor del Vehículo</div>
         <div class="sec-body">
-          <div class="campo-grid cols-2">
-            <div class="campo">
+          <div class="campo-grid cols-4">
+            <div class="campo" style="grid-column:span 2">
               <label>Nombre completo del conductor</label>
-              <div class="valor editable" contenteditable="true" data-placeholder="Nombre y apellido">${cd.nombre || ''}</div>
+              <div class="valor editable" contenteditable="true" data-placeholder="Nombre y apellidos">${cd.nombre || ''}</div>
             </div>
             <div class="campo">
               <label>Cédula de ciudadanía</label>
               <div class="valor editable" contenteditable="true" data-placeholder="Número CC">${cd.cc || ''}</div>
+            </div>
+            <div class="campo">
+              <label>Celular conductor</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="N° celular">${cd.celular || ''}</div>
+            </div>
+            <div class="campo">
+              <label>Categoría licencia</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="Ej: C2 - Pública">${cd.licencia_categoria || ''}</div>
+            </div>
+            <div class="campo">
+              <label>N° licencia conducción</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="Número">${cd.licencia_numero || ''}</div>
+            </div>
+            <div class="campo">
+              <label>Vencimiento licencia</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="dd/mm/aaaa">${cd.licencia_vencimiento ? fmtFecha(cd.licencia_vencimiento) : ''}</div>
+            </div>
+            <div class="campo">
+              <label>EPS</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="Nombre EPS">${cd.eps || ''}</div>
             </div>
           </div>
         </div>
@@ -463,7 +582,7 @@
               <div class="valor">${v.placas || '—'}</div>
             </div>
             <div class="campo">
-              <label>Marca</label>
+              <label>Marca / Tipo</label>
               <div class="valor">${v.marca || '—'}</div>
             </div>
             <div class="campo">
@@ -475,17 +594,17 @@
               <div class="valor">${v.capacidad || '—'}</div>
             </div>
           </div>
-          <div class="campo-grid cols-3" style="margin-top:6px">
-            <div class="campo">
-              <label>Licencia de tránsito</label>
-              <div class="valor editable" contenteditable="true" data-placeholder="N° licencia">${v.licencia || ''}</div>
-            </div>
+          <div class="campo-grid cols-4" style="margin-top:5px">
             <div class="campo">
               <label>Tarjeta de propiedad</label>
               <div class="valor editable" contenteditable="true" data-placeholder="N° tarjeta">${v.tarjeta_propiedad || ''}</div>
             </div>
             <div class="campo">
-              <label>SOAT — Vigencia</label>
+              <label>Licencia de tránsito</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="N° licencia">${v.licencia || ''}</div>
+            </div>
+            <div class="campo">
+              <label>SOAT — Vencimiento</label>
               <div class="valor editable" contenteditable="true" data-placeholder="Compañía / vencimiento">${v.soat || ''}</div>
             </div>
             <div class="campo">
@@ -508,34 +627,34 @@
       <div class="seccion">
         <div class="sec-titulo">Descripción de la Carga</div>
         <div class="sec-body">
-          <div class="campo-grid cols-2">
-            <div class="campo" style="grid-column: span 2">
-              <label>Mercancía</label>
+          <div class="campo-grid cols-4">
+            <div class="campo" style="grid-column:span 2">
+              <label>Descripción de la mercancía</label>
               <div class="valor">${cg.descripcion || 'Menaje de cocina y mesa — Línea importada'}</div>
-            </div>
-            <div class="campo" style="grid-column: span 2">
-              <label>Destino / Ruta</label>
-              <div class="valor">${cg.destino || '—'}</div>
-            </div>
-            <div class="campo" style="grid-column: span 2">
-              <label>Ciudades de entrega</label>
-              <div class="valor">${cg.ciudades || '—'}</div>
-            </div>
-            <div class="campo">
-              <label>Facturas</label>
-              <div class="valor">${cg.facturas || '—'}</div>
-            </div>
-            <div class="campo">
-              <label>Devoluciones</label>
-              <div class="valor editable" contenteditable="true" data-placeholder="N° facturas devolución">${cg.devoluciones || ''}</div>
             </div>
             <div class="campo">
               <label>Peso total</label>
-              <div class="valor">${fmtPeso(cg.peso || totPeso)}</div>
+              <div class="valor">${(cg.peso || totPeso).toLocaleString('es-CO')} kg</div>
             </div>
             <div class="campo">
               <label>Bultos</label>
               <div class="valor">${(cg.bultos || totBultos).toLocaleString('es-CO')} un.</div>
+            </div>
+            <div class="campo" style="grid-column:span 2">
+              <label>Destino / Ruta</label>
+              <div class="valor">${cg.destino || '—'}</div>
+            </div>
+            <div class="campo" style="grid-column:span 2">
+              <label>Ciudades de entrega</label>
+              <div class="valor">${cg.ciudades || '—'}</div>
+            </div>
+            <div class="campo" style="grid-column:span 2">
+              <label>Facturas N°</label>
+              <div class="valor">${cg.facturas || '—'}</div>
+            </div>
+            <div class="campo" style="grid-column:span 2">
+              <label>Devoluciones N°</label>
+              <div class="valor editable" contenteditable="true" data-placeholder="N° facturas de devolución">${cg.devoluciones || ''}</div>
             </div>
           </div>
           <div class="resumen-valores">
@@ -544,8 +663,63 @@
               <div class="rv-val">${fmtDinero(cg.valor_mercancia || totNeto)}</div>
             </div>
             <div class="rv-item flete">
-              <div class="rv-label">Valor flete</div>
-              <div class="rv-val">${fmtDinero(cg.valor_flete)}</div>
+              <div class="rv-label">Valor flete (SS Total)</div>
+              <div id="flete-val" class="rv-edit" contenteditable="true" data-raw="${valFlete}">${fmtDinero(valFlete)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIQUIDACIÓN DE PAGO -->
+      <div class="seccion">
+        <div class="sec-titulo gold">Liquidación de Pago</div>
+        <div class="sec-body">
+          <div class="campo-grid cols-4">
+            <div class="campo">
+              <label>SS Total (flete) $</label>
+              <div class="valor" id="liq-total" style="font-weight:700">${fmtDinero(valFlete)}</div>
+            </div>
+            <div class="campo">
+              <label>Anticipo $</label>
+              <div class="valor editable" id="liq-anticipo" contenteditable="true" data-placeholder="0" data-num="0">0</div>
+            </div>
+            <div class="campo">
+              <label>Retención en la fuente $</label>
+              <div class="valor editable" id="liq-retencion" contenteditable="true" data-placeholder="0" data-num="0">0</div>
+            </div>
+            <div class="campo">
+              <label>ReteICA $</label>
+              <div class="valor editable" id="liq-reteica" contenteditable="true" data-placeholder="0" data-num="0">0</div>
+            </div>
+            <div class="campo" style="grid-column:span 4; margin-top:4px">
+              <label>Saldo a pagar $</label>
+              <div class="valor calc" id="liq-saldo">${fmtDinero(valFlete)}</div>
+            </div>
+          </div>
+          <div class="liquidacion-resumen" id="liq-resumen">
+            <div class="eq-item">
+              <div class="eq-label">SS Total</div>
+              <div class="eq-val" id="r-total">${fmtDinero(valFlete)}</div>
+            </div>
+            <div class="eq-op">−</div>
+            <div class="eq-item">
+              <div class="eq-label">Anticipo</div>
+              <div class="eq-val" id="r-anticipo">$ 0</div>
+            </div>
+            <div class="eq-op">−</div>
+            <div class="eq-item">
+              <div class="eq-label">Retención</div>
+              <div class="eq-val" id="r-retencion">$ 0</div>
+            </div>
+            <div class="eq-op">−</div>
+            <div class="eq-item">
+              <div class="eq-label">ReteICA</div>
+              <div class="eq-val" id="r-reteica">$ 0</div>
+            </div>
+            <div class="eq-op">=</div>
+            <div class="eq-item eq-result" id="r-result">
+              <div class="eq-label">Saldo a pagar</div>
+              <div class="eq-val" id="r-saldo">${fmtDinero(valFlete)}</div>
             </div>
           </div>
         </div>
@@ -555,7 +729,7 @@
       ${fs.length > 0 ? `
       <div class="seccion">
         <div class="sec-titulo">Detalle de Facturas (${fs.length})</div>
-        <div class="sec-body" style="padding: 0;">
+        <div class="sec-body" style="padding:0">
           <table class="tabla-facturas">
             <thead>
               <tr>
@@ -583,7 +757,7 @@
                 </tr>
               `).join('')}
               <tr class="total-row">
-                <td colspan="5" style="text-align:right">TOTALES</td>
+                <td colspan="5" style="text-align:right;font-size:8px;letter-spacing:0.05em">TOTALES</td>
                 <td class="right" style="font-family:monospace">${fmtDinero(totNeto)}</td>
                 <td class="right">${totBultos}</td>
                 <td class="right">${totPeso.toLocaleString('es-CO')} kg</td>
@@ -593,69 +767,147 @@
         </div>
       </div>` : ''}
 
-      <!-- CONDICIONES -->
-      <div class="condiciones">
-        <strong>Condiciones del contrato:</strong> El presente contrato de transporte de mercancía se rige por las
-        normas del Decreto 173 de 2001 y demás disposiciones vigentes del Ministerio de Transporte de Colombia.
-        El transportista declara recibir la mercancía en perfectas condiciones y se obliga a entregarla en el destino
-        pactado dentro del tiempo acordado. El valor del flete acordado cubre el transporte terrestre hasta el punto
-        de entrega señalado. La mercancía viaja bajo la responsabilidad del transportista desde el momento de su
-        cargue hasta la entrega al destinatario, con las garantías de ley. <strong>Empresa:</strong> ALUMAR S.A.S.
+      <!-- OBSERVACIONES -->
+      <div class="seccion">
+        <div class="sec-titulo">Observaciones</div>
+        <div class="sec-body">
+          <div class="obs-field" contenteditable="true" data-placeholder="Ingresar observaciones o notas adicionales al contrato…"></div>
+        </div>
+      </div>
+
+      <!-- CLÁUSULAS -->
+      <div class="clausulas-wrap">
+        <div class="clausulas-titulo">Cláusulas del Contrato</div>
+        <div class="clausulas-body">
+          ${CLAUSULAS.map(([nom, txt]) => `
+            <div class="clausula"><strong>${nom}.</strong> ${txt}</div>
+          `).join('')}
+          <div style="font-size:8px;color:#3a5070;margin-top:6px;text-align:justify">
+            En prueba de conformidad se firma en original y copia, una para Alumar y otra para el contratista,
+            en el municipio de Los Patios, Norte de Santander.
+          </div>
+        </div>
       </div>
 
       <!-- FIRMAS -->
       <div class="firmas">
         <div class="firma-bloque">
           <div class="firma-nombre">ALUMAR S.A.S.</div>
-          <div class="firma-sub">Contratante — NIT</div>
+          <div class="firma-sub">Contratante</div>
           <div class="firma-linea"></div>
           <div class="firma-sub">Firma y sello</div>
         </div>
         <div class="firma-bloque">
           <div class="firma-nombre">${t.nombre || 'Transportista'}</div>
-          <div class="firma-sub">CC: ${t.cc || '—'}</div>
+          <div class="firma-sub">CC: ${t.cc || '—'} · Contratista</div>
           <div class="firma-linea"></div>
           <div class="firma-sub">Firma del transportista</div>
         </div>
+        <div class="firma-bloque">
+          <div class="firma-nombre" id="firma-conductor-nombre" style="font-size:9px;min-height:14px">${cd.nombre || '___________________________'}</div>
+          <div class="firma-sub">CC: <span id="firma-conductor-cc">${cd.cc || '_______________'}</span> · Conductor</div>
+          <div class="firma-linea"></div>
+          <div class="firma-sub">Firma del conductor</div>
+        </div>
       </div>
     `;
+
+    // ── Lógica de liquidación ─────────────────────────────────────────────────
+    let fleteActual = valFlete;
+
+    function parsearNum(el) {
+      const txt = (el.textContent || '').replace(/[^\d.-]/g, '');
+      return parseFloat(txt) || 0;
+    }
+
+    function recalcular() {
+      const total  = fleteActual;
+      const ant    = parsearNum($('liq-anticipo'));
+      const ret    = parsearNum($('liq-retencion'));
+      const rica   = parsearNum($('liq-reteica'));
+      const saldo  = total - ant - ret - rica;
+
+      $('liq-saldo').textContent = fmtDinero(saldo);
+      $('liq-saldo').className   = 'valor calc' + (saldo < 0 ? ' negativo' : '');
+
+      $('r-total').textContent     = fmtDinero(total);
+      $('r-anticipo').textContent  = fmtDinero(ant);
+      $('r-retencion').textContent = fmtDinero(ret);
+      $('r-reteica').textContent   = fmtDinero(rica);
+      $('r-saldo').textContent     = fmtDinero(saldo);
+      $('r-result').className      = 'eq-item eq-result' + (saldo < 0 ? ' negativo' : '');
+      $('liq-total').textContent   = fmtDinero(total);
+    }
+
+    ['liq-anticipo','liq-retencion','liq-reteica'].forEach(id => {
+      $(id).addEventListener('input', recalcular);
+    });
+
+    // Flete editable → actualiza liquidación
+    const fleteEl = $('flete-val');
+    if (fleteEl) {
+      fleteEl.addEventListener('focus', () => {
+        fleteEl.textContent = String(fleteActual || 0);
+      });
+      fleteEl.addEventListener('blur', () => {
+        const n = parseFloat((fleteEl.textContent||'').replace(/[^\d.-]/g,'')) || 0;
+        fleteActual = n;
+        fleteEl.textContent = fmtDinero(n);
+        recalcular();
+      });
+    }
+
+    // Actualizar nombre conductor en firma cuando se edita el campo
+    const condNombreEl = hoja.querySelector('[data-placeholder="Nombre y apellidos"]');
+    if (condNombreEl) {
+      condNombreEl.addEventListener('input', () => {
+        const fn = $('firma-conductor-nombre');
+        if (fn) fn.textContent = condNombreEl.textContent || '___________________________';
+      });
+    }
+    const condCCEl = hoja.querySelector('[data-placeholder="Número CC"]');
+    if (condCCEl) {
+      condCCEl.addEventListener('input', () => {
+        const fc = $('firma-conductor-cc');
+        if (fc) fc.textContent = condCCEl.textContent || '_______________';
+      });
+    }
   }
 
   // ── Event listeners ─────────────────────────────────────────────────────────
-  $('btn-cargar').addEventListener('click', () => {
-    const num = $('sel-guia').value;
-    if (!num) { setStatus('Selecciona una guía primero', 'error'); return; }
-    cargarContrato(num);
-  });
-
   $('sel-guia').addEventListener('change', () => {
     const num = $('sel-guia').value;
     if (num) cargarContrato(num);
+  });
+
+  $('inp-buscar').addEventListener('input', e => {
+    poblarSelect(e.target.value);
   });
 
   $('btn-print').addEventListener('click', () => window.print());
 
   $('btn-nuevo').addEventListener('click', () => {
     $('sel-guia').value = '';
+    $('inp-buscar').value = '';
+    poblarSelect('');
     $('contrato-hoja').innerHTML = `
       <div id="pantalla-inicio">
         <div class="icono">📄</div>
-        <p>Selecciona una guía en la barra superior para cargar el contrato</p>
+        <p>Selecciona una guía para cargar el contrato</p>
+        <div class="hint">Puedes buscar por nombre del transportista o número de guía</div>
       </div>`;
     setStatus('');
   });
 
-  // ── Auto-carga desde ?guia=XXXXX ──────────────────────────────────────────
+  // ── Auto-carga desde ?guia=XXXXX ────────────────────────────────────────────
   window.addEventListener('DOMContentLoaded', async () => {
     await cargarListaGuias();
-    const params = new URLSearchParams(window.location.search);
+    const params    = new URLSearchParams(window.location.search);
     const guiaParam = params.get('guia');
     if (guiaParam) {
       $('sel-guia').value = guiaParam;
       await cargarContrato(guiaParam);
     }
-
-    // Modo PDF: ocultar toolbar automáticamente
     if (params.get('modo') === 'pdf') {
       $('toolbar').style.display = 'none';
     }
