@@ -367,7 +367,6 @@ app.get('/api/declaraciones/dia/:fecha', async (req, res) => {
         d.DCL_PESO          AS peso,
         c.CLT_CODIGO        AS cliente_codigo,
         c.CLT_NOMBRE        AS cliente_nombre,
-        c.CLT_NIT           AS cliente_nit,
         c.CLT_DIRECCION1    AS cliente_direccion,
         c.CLT_TELEFONO1     AS cliente_telefono,
         cd.CDD_DESCRI       AS ciudad,
