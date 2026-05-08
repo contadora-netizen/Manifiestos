@@ -1816,14 +1816,25 @@ function CroquisBodega({ productos, zonaActiva, onZonaClick, piso }) {
   );
 }
 
+const CAP_DEFAULT = { A:50, E:60, F:40, B:50, D:30, G:35, H:30 };
+const lsGet = (k, def) => { try { return JSON.parse(localStorage.getItem(k) || JSON.stringify(def)); } catch { return def; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
 function BodegaTab({ capiBase }) {
-  const [data, setData]         = useState(null);
-  const [loading, setLoading]   = useState(false);
-  const [meses, setMeses]       = useState(6);
-  const [busqueda, setBusqueda] = useState("");
-  const [zonaActiva, setZonaActiva] = useState(null);
+  const [data, setData]           = useState(null);
+  const [loading, setLoading]     = useState(false);
+  const [meses, setMeses]         = useState(6);
+  const [busqueda, setBusqueda]   = useState("");
+  const [zonaActiva, setZonaActiva]   = useState(null);
   const [filtroClase, setFiltroClase] = useState("todas");
   const [pisoVista, setPisoVista]     = useState(1);
+  const [vistaPanel, setVistaPanel]   = useState("productos"); // "productos" | "historial"
+  const [overrides, setOverrides]     = useState(() => lsGet("alumar_zona_ov", {}));
+  const [capacidades, setCapacidades] = useState(() => lsGet("alumar_zona_caps", CAP_DEFAULT));
+  const [historial, setHistorial]     = useState(() => lsGet("alumar_bodega_hist", []));
+  const [editandoCap, setEditandoCap] = useState(false);
+  const [capTemp, setCapTemp]         = useState(CAP_DEFAULT);
+  const [conocidos, setConocidos]     = useState(() => new Set(lsGet("alumar_conocidos", [])));
 
   const cargar = async () => {
     setLoading(true);
@@ -1831,37 +1842,30 @@ function BodegaTab({ capiBase }) {
       const r = await fetch(`${capiBase}/api/rotacion-bodega?meses=${meses}`);
       const d = await r.json();
       setData(d);
+      // detectar nuevos SKUs
+      const actuales = new Set((d.productos || []).map(p => p.codigo));
+      if (conocidos.size > 0) {
+        const nuevos = [...actuales].filter(c => !conocidos.has(c));
+        if (nuevos.length > 0) {
+          const entrada = { ts: new Date().toISOString(), tipo:"nuevos", detalle:`${nuevos.length} SKU(s) nuevos detectados: ${nuevos.slice(0,5).join(", ")}${nuevos.length>5?` +${nuevos.length-5}`:""}`};
+          setHistorial(h => { const u=[entrada,...h].slice(0,100); lsSet("alumar_bodega_hist",u); return u; });
+        }
+      }
+      setConocidos(actuales);
+      lsSet("alumar_conocidos", [...actuales]);
     } catch (e) { alert("Error: " + e.message); }
     finally { setLoading(false); }
   };
   useEffect(() => { cargar(); }, []);
 
-  const descargarCSV = () => {
-    if (!data) return;
-    const filas = [
-      ["Rank","Código","Descripción","Clase","Zona","Piso","Unidades vendidas","N° facturas"],
-      ...data.productos.map(p => [
-        p.rank, p.codigo, `"${p.descripcion}"`, p.clase_rotacion,
-        `Zona ${p.zona}`, ZONA_INFO[p.zona]?.piso || "",
-        p.unidades_vendidas, p.num_facturas
-      ])
-    ];
-    const csv = filas.map(f => f.join(";")).join("\n");
-    const blob = new Blob(["﻿" + csv], { type:"text/csv;charset=utf-8;" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `ubicaciones_bodega_${meses}meses.csv`;
-    a.click();
-  };
+  // Aplicar overrides manuales a los productos
+  const productos = (data?.productos || []).map(p => ({
+    ...p, zona: overrides[p.codigo] || p.zona, zonaAuto: p.zona, esOverride: !!overrides[p.codigo]
+  }));
 
-  const onZonaClick = (zona) => {
-    setZonaActiva(z => z === zona ? null : zona);
-    setPisoVista(["B","D","G","H"].includes(zona) ? 2 : 1);
-    setBusqueda("");
-    setFiltroClase("todas");
-  };
+  // Productos sin ubicar = nuevos en BD que no se han visto antes
+  const sinUbicar = productos.filter(p => !lsGet("alumar_conocidos_pre",[]).includes(p.codigo));
 
-  const productos = data?.productos || [];
   const filtrados = productos.filter(p => {
     const txt = busqueda.toLowerCase();
     const matchBus   = !txt || p.codigo.toLowerCase().includes(txt) || (p.descripcion||"").toLowerCase().includes(txt);
@@ -1870,154 +1874,321 @@ function BodegaTab({ capiBase }) {
     return matchBus && matchZona && matchClase;
   });
 
+  const conteoZona = {};
+  Object.keys(ZONA_INFO).forEach(z => { conteoZona[z] = productos.filter(p => p.zona === z).length; });
+
   const zonaInfo = zonaActiva ? ZONA_INFO[zonaActiva] : null;
+
+  const onZonaClick = (zona) => {
+    setZonaActiva(z => z === zona ? null : zona);
+    setPisoVista(["B","D","G","H"].includes(zona) ? 2 : 1);
+    setBusqueda(""); setFiltroClase("todas"); setVistaPanel("productos");
+  };
+
+  const cambiarZona = (codigo, descripcion, zonaAnterior, zonaNueva) => {
+    const nuevos = { ...overrides };
+    if (zonaNueva === "auto") { delete nuevos[codigo]; }
+    else { nuevos[codigo] = zonaNueva; }
+    setOverrides(nuevos);
+    lsSet("alumar_zona_ov", nuevos);
+    const h = { ts:new Date().toISOString(), tipo:"cambio", codigo, descripcion: descripcion?.slice(0,40), de: zonaAnterior, a: zonaNueva === "auto" ? "AUTO" : zonaNueva };
+    setHistorial(prev => { const u=[h,...prev].slice(0,100); lsSet("alumar_bodega_hist",u); return u; });
+  };
+
+  const imprimirEtiquetas = () => {
+    const lista = filtrados.slice(0, 200);
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Etiquetas Bodega</title>
+    <style>
+      body{font-family:Arial,sans-serif;margin:0;padding:10px}
+      .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+      .etiqueta{border:2px solid #333;border-radius:6px;padding:10px;page-break-inside:avoid}
+      .zona{font-size:28px;font-weight:900;color:#fff;text-align:center;padding:4px;border-radius:4px;margin-bottom:6px}
+      .codigo{font-family:monospace;font-size:13px;font-weight:700;color:#1255a4}
+      .desc{font-size:11px;color:#333;margin-top:2px}
+      .clase{font-size:10px;font-weight:700;margin-top:4px}
+      .piso{font-size:10px;color:#666}
+      @media print{@page{margin:1cm}}
+    </style></head><body>
+    <h2 style="text-align:center;margin-bottom:12px">📦 Etiquetas Bodega — ${zonaActiva ? `Zona ${zonaActiva}` : "Todas las zonas"} · ${new Date().toLocaleDateString("es-CO")}</h2>
+    <div class="grid">${lista.map(p => {
+      const zi = ZONA_INFO[p.zona] || {};
+      return `<div class="etiqueta">
+        <div class="zona" style="background:${zi.color}">${p.zona}</div>
+        <div class="codigo">${p.codigo}</div>
+        <div class="desc">${p.descripcion || ""}</div>
+        <div class="clase" style="color:${CLASE_COLOR[p.clase_rotacion]}">Clase ${p.clase_rotacion} · ${p.unidades_vendidas?.toLocaleString("es-CO")} uds/período</div>
+        <div class="piso">${zi.piso || ""}</div>
+      </div>`;
+    }).join("")}</div>
+    <script>window.onload=()=>{window.print();}</script></body></html>`;
+    const w = window.open("","_blank");
+    w.document.write(html);
+    w.document.close();
+  };
+
+  const descargarCSV = () => {
+    if (!data) return;
+    const filas = [
+      ["Rank","Código","Descripción","Clase","Zona Asignada","Zona Auto","Manual","Piso","Unidades","Facturas"],
+      ...productos.map(p => [p.rank, p.codigo, `"${p.descripcion}"`, p.clase_rotacion,
+        `Zona ${p.zona}`, `Zona ${p.zonaAuto}`, p.esOverride?"SÍ":"NO",
+        ZONA_INFO[p.zona]?.piso||"", p.unidades_vendidas, p.num_facturas])
+    ];
+    const csv = filas.map(f => f.join(";")).join("\n");
+    const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8;"});
+    const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=`ubicaciones_bodega_${meses}meses.csv`; a.click();
+  };
 
   return (
     <div style={{ maxWidth:1200, margin:"0 auto" }}>
 
       {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
         <div>
           <div style={{ fontSize:18, fontWeight:800, color:C.navy }}>🏭 Organización de Bodega</div>
-          <div style={{ fontSize:12, color:C.textMuted }}>Clic en una zona del croquis para ver sus productos</div>
+          <div style={{ fontSize:12, color:C.textMuted }}>Clic en una zona para ver productos · Asignación manual disponible</div>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-          <select value={meses} onChange={e => { setMeses(Number(e.target.value)); }}
+          <select value={meses} onChange={e => setMeses(Number(e.target.value))}
             style={{ border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px", fontSize:12 }}>
             {[3,6,12,24].map(m => <option key={m} value={m}>Últimos {m} meses</option>)}
           </select>
           <button onClick={cargar} disabled={loading}
             style={{ background:C.blue, color:"white", border:"none", borderRadius:6, padding:"7px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-            {loading ? "⏳" : "🔄"} Actualizar
+            {loading?"⏳":"🔄"} Actualizar
+          </button>
+          <button onClick={imprimirEtiquetas} disabled={!data}
+            style={{ background:"#6a1b9a", color:"white", border:"none", borderRadius:6, padding:"7px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            🖨 Etiquetas
           </button>
           <button onClick={descargarCSV} disabled={!data}
             style={{ background:C.green, color:"white", border:"none", borderRadius:6, padding:"7px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-            ⬇ Excel CSV
+            ⬇ CSV
           </button>
         </div>
       </div>
 
-      {/* Layout: croquis + panel productos */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 380px", gap:16 }}>
+      {/* Alerta nuevos SKUs */}
+      {historial[0]?.tipo === "nuevos" && (
+        <div style={{ background:"#fff3e0", border:`1px solid ${C.accent}`, borderRadius:8, padding:"10px 14px", marginBottom:12,
+          display:"flex", alignItems:"center", gap:10, fontSize:12 }}>
+          <span style={{ fontSize:18 }}>⚠️</span>
+          <div><strong style={{ color:C.accent }}>Nuevos SKUs detectados:</strong> {historial[0].detalle}</div>
+          <button onClick={() => setVistaPanel("historial")}
+            style={{ marginLeft:"auto", border:`1px solid ${C.accent}`, background:"transparent", borderRadius:5,
+              padding:"3px 10px", fontSize:11, color:C.accent, cursor:"pointer" }}>Ver historial</button>
+        </div>
+      )}
+
+      {/* Layout principal */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 400px", gap:16 }}>
 
         {/* Croquis */}
         <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
-          {/* Selector piso */}
           <div style={{ display:"flex", gap:8, marginBottom:12 }}>
             {[1,2].map(p => (
               <button key={p} onClick={() => setPisoVista(p)}
                 style={{ flex:1, border:"none", borderRadius:8, padding:"8px 0", fontSize:13, fontWeight:700, cursor:"pointer",
-                  background: pisoVista === p ? C.navy : "#f0f4f8",
-                  color: pisoVista === p ? "white" : C.textMuted }}>
-                {p === 1 ? "🏢 Primer Piso" : "🏗 Segundo Piso"}
+                  background:pisoVista===p?C.navy:"#f0f4f8", color:pisoVista===p?"white":C.textMuted }}>
+                {p===1?"🏢 Primer Piso":"🏗 Segundo Piso"}
               </button>
             ))}
             {zonaActiva && (
               <button onClick={() => setZonaActiva(null)}
-                style={{ border:`1px solid ${C.border}`, borderRadius:8, padding:"8px 14px", fontSize:12, cursor:"pointer",
-                  background:"transparent", color:C.textMuted }}>
-                ✕ Ver todo
+                style={{ border:`1px solid ${C.border}`, borderRadius:8, padding:"8px 14px", fontSize:12, cursor:"pointer", background:"transparent", color:C.textMuted }}>
+                ✕ Todo
               </button>
             )}
+            <button onClick={() => setEditandoCap(v=>!v)}
+              style={{ border:`1px solid ${C.border}`, borderRadius:8, padding:"8px 12px", fontSize:11, cursor:"pointer",
+                background:editandoCap?"#e3f2fd":"transparent", color:C.blue }}>
+              ⚙ Capacidades
+            </button>
           </div>
+
+          {/* Editor de capacidades */}
+          {editandoCap && (
+            <div style={{ background:"#f0f4f8", borderRadius:8, padding:12, marginBottom:12 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:C.textDim, marginBottom:8 }}>POSICIONES POR ZONA (estibas aprox.)</div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:6 }}>
+                {Object.keys(ZONA_INFO).map(z => (
+                  <div key={z} style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:ZONA_INFO[z].color }}>{z}</div>
+                    <input type="number" min={1} max={500}
+                      value={capTemp[z] ?? capacidades[z]}
+                      onChange={e => setCapTemp(t => ({...t,[z]:Number(e.target.value)}))}
+                      style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:4, padding:"4px", fontSize:12, textAlign:"center" }}/>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                <button onClick={() => { const c={...capacidades,...capTemp}; setCapacidades(c); lsSet("alumar_zona_caps",c); setEditandoCap(false); }}
+                  style={{ background:C.blue, color:"white", border:"none", borderRadius:6, padding:"6px 16px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                  💾 Guardar
+                </button>
+                <button onClick={() => setEditandoCap(false)}
+                  style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 14px", fontSize:12, cursor:"pointer", color:C.textMuted }}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
 
           {loading ? (
             <div style={{ textAlign:"center", padding:"3rem", color:C.textMuted }}>
               <Spinner size={24}/><div style={{ marginTop:12 }}>Consultando BD...</div>
             </div>
           ) : (
-            <CroquisBodega productos={productos} zonaActiva={zonaActiva} onZonaClick={onZonaClick} piso={pisoVista} />
+            <CroquisBodega productos={productos} zonaActiva={zonaActiva} onZonaClick={onZonaClick} piso={pisoVista} capacidades={capacidades}/>
           )}
 
-          {/* Leyenda A/B/C */}
+          {/* Barras de ocupación */}
+          {data && (
+            <div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:5 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:C.textDim, letterSpacing:"0.08em" }}>OCUPACIÓN ESTIMADA POR ZONA</div>
+              {Object.entries(ZONA_INFO).map(([zona, info]) => {
+                const cap  = capacidades[zona] || 1;
+                const cnt  = conteoZona[zona]  || 0;
+                const pct  = Math.min(Math.round((cnt/cap)*100), 100);
+                const col  = pct >= 90 ? C.red : pct >= 70 ? C.accent : C.green;
+                return (
+                  <div key={zona} style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ width:50, fontSize:11, fontWeight:700, color:info.color }}>{zona}</div>
+                    <div style={{ flex:1, background:"#f0f4f8", borderRadius:4, height:14, overflow:"hidden" }}>
+                      <div style={{ width:`${pct}%`, background:col, height:"100%", borderRadius:4, transition:"width 0.5s" }}/>
+                    </div>
+                    <div style={{ width:70, fontSize:10, color:col, fontWeight:700, textAlign:"right" }}>{cnt}/{cap} ({pct}%)</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Filtro clase */}
           {data && (
             <div style={{ display:"flex", gap:8, marginTop:12 }}>
-              {[["A","Alta rotación · 1° piso zona A/E",data.clase_A],
-                ["B","Media rotación · 1° piso zona E/F",data.clase_B],
-                ["C","Baja rotación · 2° piso",data.clase_C]].map(([cls,lbl,cnt]) => (
-                <div key={cls} onClick={() => setFiltroClase(fc => fc===cls?"todas":cls)}
-                  style={{ flex:1, border:`2px solid ${filtroClase===cls ? CLASE_COLOR[cls] : C.border}`,
-                    background: filtroClase===cls ? CLASE_COLOR[cls]+"14" : "#f8fafc",
-                    borderRadius:8, padding:"8px 10px", cursor:"pointer", textAlign:"center" }}>
-                  <div style={{ fontWeight:900, color:CLASE_COLOR[cls], fontSize:16 }}>{cls}</div>
-                  <div style={{ fontSize:11, fontWeight:700, color:C.text }}>{cnt} refs</div>
+              {[["A","Alta",data.clase_A],["B","Media",data.clase_B],["C","Baja",data.clase_C]].map(([cls,lbl,cnt]) => (
+                <div key={cls} onClick={() => setFiltroClase(fc=>fc===cls?"todas":cls)}
+                  style={{ flex:1, border:`2px solid ${filtroClase===cls?CLASE_COLOR[cls]:C.border}`,
+                    background:filtroClase===cls?CLASE_COLOR[cls]+"14":"#f8fafc",
+                    borderRadius:8, padding:"8px", cursor:"pointer", textAlign:"center" }}>
+                  <div style={{ fontWeight:900, color:CLASE_COLOR[cls], fontSize:15 }}>{cls}</div>
+                  <div style={{ fontSize:11, fontWeight:700 }}>{cnt}</div>
                   <div style={{ fontSize:9, color:C.textMuted }}>{lbl}</div>
                 </div>
               ))}
+              <div style={{ flex:1, background:"#f8fafc", border:`1px solid ${C.border}`, borderRadius:8, padding:"8px", textAlign:"center" }}>
+                <div style={{ fontWeight:900, color:C.textDim, fontSize:15 }}>✏</div>
+                <div style={{ fontSize:11, fontWeight:700 }}>{Object.keys(overrides).length}</div>
+                <div style={{ fontSize:9, color:C.textMuted }}>manuales</div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Panel lateral: productos de la zona */}
-        <div style={{ background:C.white, border:`1px solid ${zonaInfo ? zonaInfo.color : C.border}`,
+        {/* Panel derecho */}
+        <div style={{ background:C.white, border:`1px solid ${zonaInfo?zonaInfo.color:C.border}`,
           borderRadius:12, overflow:"hidden", display:"flex", flexDirection:"column" }}>
 
-          {/* Header panel */}
-          <div style={{ padding:"12px 14px", background: zonaInfo ? zonaInfo.color : C.navy,
-            color:"white", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          {/* Tabs panel */}
+          <div style={{ display:"flex", borderBottom:`1px solid ${C.border}` }}>
+            {[["productos","📦 Productos"],["historial",`📋 Historial (${historial.length})`]].map(([v,l]) => (
+              <button key={v} onClick={() => setVistaPanel(v)}
+                style={{ flex:1, border:"none", borderBottom:`3px solid ${vistaPanel===v?(zonaInfo?.color||C.blue):"transparent"}`,
+                  padding:"10px 0", fontSize:12, fontWeight:vistaPanel===v?700:400,
+                  color:vistaPanel===v?(zonaInfo?.color||C.blue):C.textMuted,
+                  background:"transparent", cursor:"pointer" }}>{l}</button>
+            ))}
+          </div>
+
+          {/* Header zona */}
+          <div style={{ padding:"10px 14px", background:zonaInfo?zonaInfo.color:C.navy, color:"white",
+            display:"flex", alignItems:"center", justifyContent:"space-between" }}>
             <div>
-              <div style={{ fontWeight:800, fontSize:14 }}>
-                {zonaActiva ? `Zona ${zonaActiva} — ${ZONA_INFO[zonaActiva]?.piso}` : "Todas las zonas"}
+              <div style={{ fontWeight:800, fontSize:13 }}>
+                {zonaActiva?`Zona ${zonaActiva} — ${ZONA_INFO[zonaActiva]?.piso}`:"Todas las zonas"}
               </div>
-              <div style={{ fontSize:11, opacity:0.85 }}>
-                {zonaActiva ? ZONA_INFO[zonaActiva]?.desc : `${productos.length} referencias totales`}
+              <div style={{ fontSize:10, opacity:0.85 }}>
+                {zonaActiva?ZONA_INFO[zonaActiva]?.desc:`${productos.length} referencias totales`}
               </div>
             </div>
-            <div style={{ fontWeight:900, fontSize:22 }}>{filtrados.length}</div>
+            <div style={{ fontWeight:900, fontSize:20 }}>{vistaPanel==="productos"?filtrados.length:historial.length}</div>
           </div>
 
-          {/* Buscador */}
-          <div style={{ padding:"10px 12px", borderBottom:`1px solid ${C.border}` }}>
-            <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
-              placeholder="🔍 Buscar código o producto..."
-              style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:6,
-                padding:"6px 10px", fontSize:12, boxSizing:"border-box" }} />
-          </div>
-
-          {/* Lista productos */}
-          <div style={{ overflowY:"auto", flex:1, maxHeight:480 }}>
-            {filtrados.length === 0 ? (
-              <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:12 }}>
-                {zonaActiva ? `Sin productos en Zona ${zonaActiva}` : "Sin resultados"}
-              </div>
-            ) : (
-              filtrados.slice(0,150).map((p, i) => {
-                const zi = ZONA_INFO[p.zona] || {};
-                return (
-                  <div key={p.codigo} style={{
-                    padding:"8px 12px", borderBottom:`1px solid ${C.border}`,
-                    background: i%2===0 ? "#f8fafc" : C.white,
-                    display:"flex", alignItems:"flex-start", gap:8
-                  }}>
-                    <span style={{ background:CLASE_COLOR[p.clase_rotacion]+"18", color:CLASE_COLOR[p.clase_rotacion],
-                      borderRadius:4, padding:"2px 6px", fontWeight:800, fontSize:10, flexShrink:0, marginTop:2 }}>
-                      {p.clase_rotacion}
+          {vistaPanel === "historial" ? (
+            <div style={{ overflowY:"auto", flex:1, maxHeight:520 }}>
+              {historial.length === 0 ? (
+                <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:12 }}>Sin cambios registrados aún</div>
+              ) : historial.map((h, i) => (
+                <div key={i} style={{ padding:"8px 12px", borderBottom:`1px solid ${C.border}`, fontSize:11 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2 }}>
+                    <span style={{ fontWeight:700, color: h.tipo==="cambio"?C.blue:C.accent }}>
+                      {h.tipo==="cambio"?"✏ Cambio de zona":"⚠ "+h.tipo}
                     </span>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontFamily:"monospace", fontWeight:700, color:C.blue, fontSize:11 }}>{p.codigo}</div>
-                      <div style={{ fontSize:11, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                        {p.descripcion}
-                      </div>
-                      <div style={{ fontSize:10, color:C.textMuted }}>
-                        {(p.unidades_vendidas||0).toLocaleString("es-CO")} uds · {p.num_facturas} facturas
-                      </div>
-                    </div>
-                    {!zonaActiva && (
-                      <span style={{ background:zi.bg, color:zi.color, borderRadius:4,
-                        padding:"2px 6px", fontSize:10, fontWeight:700, flexShrink:0 }}>
-                        Z{p.zona}
-                      </span>
-                    )}
+                    <span style={{ color:C.textDim, fontSize:10 }}>{new Date(h.ts).toLocaleString("es-CO",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
                   </div>
-                );
-              })
-            )}
-            {filtrados.length > 150 && (
-              <div style={{ textAlign:"center", padding:10, fontSize:11, color:C.textMuted }}>
-                Mostrando 150 de {filtrados.length} — usa el buscador
+                  {h.tipo==="cambio" ? (
+                    <div>
+                      <span style={{ fontFamily:"monospace", color:C.blue }}>{h.codigo}</span>
+                      {" "}<span style={{ color:C.textMuted }}>{h.descripcion}</span><br/>
+                      <span style={{ background:"#fdecea", color:C.red, borderRadius:3, padding:"1px 5px", fontSize:10 }}>Zona {h.de}</span>
+                      {" → "}
+                      <span style={{ background:"#e8f5e9", color:C.green, borderRadius:3, padding:"1px 5px", fontSize:10 }}>Zona {h.a}</span>
+                    </div>
+                  ) : (
+                    <div style={{ color:C.textMuted }}>{h.detalle}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div style={{ padding:"8px 12px", borderBottom:`1px solid ${C.border}` }}>
+                <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
+                  placeholder="🔍 Buscar código o producto..."
+                  style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px", fontSize:12, boxSizing:"border-box" }}/>
               </div>
-            )}
-          </div>
+              <div style={{ overflowY:"auto", flex:1, maxHeight:480 }}>
+                {filtrados.length===0 ? (
+                  <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:12 }}>Sin resultados</div>
+                ) : filtrados.slice(0,150).map((p, i) => {
+                  const zi = ZONA_INFO[p.zona] || {};
+                  return (
+                    <div key={p.codigo} style={{ padding:"8px 12px", borderBottom:`1px solid ${C.border}`,
+                      background:p.esOverride?"#fffde7":i%2===0?"#f8fafc":C.white,
+                      display:"flex", alignItems:"flex-start", gap:8 }}>
+                      <span style={{ background:CLASE_COLOR[p.clase_rotacion]+"18", color:CLASE_COLOR[p.clase_rotacion],
+                        borderRadius:4, padding:"2px 6px", fontWeight:800, fontSize:10, flexShrink:0, marginTop:2 }}>
+                        {p.clase_rotacion}
+                      </span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                          <span style={{ fontFamily:"monospace", fontWeight:700, color:C.blue, fontSize:11 }}>{p.codigo}</span>
+                          {p.esOverride && <span style={{ fontSize:9, background:"#fff3e0", color:C.accent, borderRadius:3, padding:"1px 4px", fontWeight:700 }}>MANUAL</span>}
+                        </div>
+                        <div style={{ fontSize:11, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.descripcion}</div>
+                        <div style={{ fontSize:10, color:C.textMuted }}>{(p.unidades_vendidas||0).toLocaleString("es-CO")} uds · {p.num_facturas} facturas</div>
+                      </div>
+                      {/* Selector de zona manual */}
+                      <select value={p.zona}
+                        onChange={e => cambiarZona(p.codigo, p.descripcion, p.zona, e.target.value)}
+                        style={{ border:`1px solid ${zi.color}`, background:zi.bg, color:zi.color,
+                          borderRadius:5, padding:"2px 4px", fontSize:10, fontWeight:700, cursor:"pointer", flexShrink:0 }}>
+                        {Object.keys(ZONA_INFO).map(z => <option key={z} value={z}>Z{z}</option>)}
+                        {p.esOverride && <option value="auto">↩ Auto</option>}
+                      </select>
+                    </div>
+                  );
+                })}
+                {filtrados.length>150 && (
+                  <div style={{ textAlign:"center", padding:10, fontSize:11, color:C.textMuted }}>
+                    Mostrando 150 de {filtrados.length} — usa el buscador
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
