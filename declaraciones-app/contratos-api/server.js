@@ -527,6 +527,65 @@ app.get('/api/declaraciones/dia/:fecha', async (req, res) => {
   }
 });
 
+// ── GET /api/rotacion-bodega?meses=6 ─────────────────────────────────────────
+// Rotación de productos: cuántas unidades y veces se vendió cada ref en N meses
+app.get('/api/rotacion-bodega', async (req, res) => {
+  const meses = Math.min(parseInt(req.query.meses || '6'), 24);
+  try {
+    const [rows] = await getPool().query(`
+      SELECT
+        m.MCL_UPP_PDT_CODIGO                          AS codigo,
+        MAX(m.MCL_DESCRI)                             AS descripcion,
+        SUM(m.MCL_CANTIDAD)                           AS unidades_vendidas,
+        COUNT(DISTINCT m.MCL_DCL_NUMERO)              AS num_facturas,
+        MAX(m.MCL_FECHAHORA)                          AS ultima_venta,
+        MIN(m.MCL_FECHAHORA)                          AS primera_venta
+      FROM adn_movcli m
+      INNER JOIN adn_doccli d
+        ON d.DCL_NUMERO     = m.MCL_DCL_NUMERO
+        AND d.DCL_TDT_CODIGO = m.MCL_DCL_TDT_CODIGO
+      WHERE d.DCL_TDT_CODIGO IN ('FVELE','FVEP')
+        AND d.DCL_ACTIVO = 1
+        AND m.MCL_ACTIVO = 1
+        AND m.MCL_CANTIDAD > 0
+        AND d.DCL_FECHA >= DATE_SUB(NOW(), INTERVAL ? MONTH)
+      GROUP BY m.MCL_UPP_PDT_CODIGO
+      ORDER BY unidades_vendidas DESC
+    `, [meses]);
+
+    // Clasificación ABC por unidades vendidas
+    const total = rows.reduce((s, r) => s + parseFloat(r.unidades_vendidas || 0), 0);
+    let acum = 0;
+    const result = rows.map(r => {
+      const units = parseFloat(r.unidades_vendidas || 0);
+      acum += units;
+      const pct = total > 0 ? (acum / total) * 100 : 0;
+      const clase = pct <= 80 ? 'A' : pct <= 95 ? 'B' : 'C';
+      return {
+        codigo: r.codigo,
+        descripcion: r.descripcion,
+        unidades_vendidas: Math.round(units),
+        num_facturas: parseInt(r.num_facturas),
+        ultima_venta: r.ultima_venta,
+        clase_rotacion: clase,
+      };
+    });
+
+    res.json({
+      meses_analizados: meses,
+      total_referencias: result.length,
+      total_unidades: Math.round(total),
+      clase_A: result.filter(r => r.clase_rotacion === 'A').length,
+      clase_B: result.filter(r => r.clase_rotacion === 'B').length,
+      clase_C: result.filter(r => r.clase_rotacion === 'C').length,
+      productos: result,
+    });
+  } catch (err) {
+    console.error('Error /api/rotacion-bodega:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Alumar Contratos → http://localhost:${PORT}`);
   console.log(`API contrato:     http://localhost:${PORT}/api/contrato/19002`);
