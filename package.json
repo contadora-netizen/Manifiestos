@@ -1,0 +1,9 @@
+{
+  "name": "manifiestos",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd declaraciones-app/frontend && npm install && npm run build",
+    "start": "cd declaraciones-app/frontend && npx vite preview --host 0.0.0.0 --port $PORT"
+  },
+  "engines": { "node": ">=18" }
+}
