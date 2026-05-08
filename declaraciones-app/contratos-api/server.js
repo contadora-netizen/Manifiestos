@@ -427,10 +427,16 @@ app.get('/api/facturas/dia/:fecha/referencias', async (req, res) => {
   }
 });
 
-// ── GET /api/lista-cargue/:fecha - Todas las facturas del día para lista de cargue ──
-app.get('/api/lista-cargue/:fecha', async (req, res) => {
+// ── GET /api/lista-cargue - Facturas FVELE en rango de fechas para lista de cargue ──
+// Query params: desde (YYYY-MM-DD), hasta (YYYY-MM-DD), tipos (csv, default FVELE)
+app.get('/api/lista-cargue', async (req, res) => {
   try {
-    const fecha = req.params.fecha;
+    const { desde, hasta, tipos } = req.query;
+    if (!desde || !hasta) return res.status(400).json({ error: 'Parámetros desde y hasta requeridos' });
+
+    const tiposArr = tipos ? tipos.split(',').map(t => t.trim()).filter(Boolean) : ['FVELE'];
+    const placeholders = tiposArr.map(() => '?').join(',');
+
     const [rows] = await getPool().query(`
       SELECT
         d.DCL_NUMERO        AS factura_numero,
@@ -444,15 +450,18 @@ app.get('/api/lista-cargue/:fecha', async (req, res) => {
       FROM adn_doccli d
       LEFT JOIN adn_clientes c  ON d.DCL_CLT_CODIGO = c.CLT_CODIGO
       LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO  = cd.CDD_CODIGO
-      WHERE DATE(d.DCL_FECHA) = ?
+      WHERE DATE(d.DCL_FECHA) BETWEEN ? AND ?
+        AND d.DCL_TDT_CODIGO IN (${placeholders})
         AND d.DCL_ACTIVO = 1
-      ORDER BY CAST(d.DCL_NUMERO AS UNSIGNED) ASC
-    `, [fecha]);
+      ORDER BY d.DCL_FECHA ASC, CAST(d.DCL_NUMERO AS UNSIGNED) ASC
+    `, [desde, hasta, ...tiposArr]);
 
     const facturas = rows.map(r => ({
       factura_numero_raw: r.factura_numero,
-      factura: `${r.tipo_doc} ${String(r.factura_numero).replace(/^0+/,'')}`,
+      factura: `${r.tipo_doc} ${String(r.factura_numero).replace(/^0+/, '')}`,
+      factura_numero_corto: String(r.factura_numero).replace(/^0+/, ''),
       tipo_doc: r.tipo_doc,
+      fecha: r.fecha ? r.fecha.toISOString().slice(0, 10) : desde,
       cliente_codigo: r.cliente_codigo || '',
       nombre: r.nombre || '',
       ciudad: r.ciudad || '',
@@ -460,9 +469,46 @@ app.get('/api/lista-cargue/:fecha', async (req, res) => {
       bultos: parseFloat(r.bultos) || 0,
     }));
 
-    res.json({ fecha, total: facturas.length, facturas });
+    res.json({ desde, hasta, tipos: tiposArr, total: facturas.length, facturas });
   } catch (err) {
     console.error('Error /api/lista-cargue:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// mantener compatibilidad con ruta anterior
+app.get('/api/lista-cargue/:fecha', async (req, res) => {
+  req.query.desde = req.params.fecha;
+  req.query.hasta = req.params.fecha;
+  req.query.tipos = req.query.tipos || 'FVELE';
+  const { desde, hasta, tipos } = req.query;
+  try {
+    const tiposArr = tipos.split(',').map(t => t.trim()).filter(Boolean);
+    const placeholders = tiposArr.map(() => '?').join(',');
+    const [rows] = await getPool().query(`
+      SELECT d.DCL_NUMERO AS factura_numero, d.DCL_TDT_CODIGO AS tipo_doc, d.DCL_FECHA AS fecha,
+        d.DCL_CLT_CODIGO AS cliente_codigo, d.DCL_NETO AS valor_neto, d.DCL_BULTOS AS bultos,
+        c.CLT_NOMBRE AS nombre, cd.CDD_DESCRI AS ciudad
+      FROM adn_doccli d
+      LEFT JOIN adn_clientes c  ON d.DCL_CLT_CODIGO = c.CLT_CODIGO
+      LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO  = cd.CDD_CODIGO
+      WHERE DATE(d.DCL_FECHA) BETWEEN ? AND ? AND d.DCL_TDT_CODIGO IN (${placeholders}) AND d.DCL_ACTIVO = 1
+      ORDER BY CAST(d.DCL_NUMERO AS UNSIGNED) ASC
+    `, [desde, hasta, ...tiposArr]);
+    const facturas = rows.map(r => ({
+      factura_numero_raw: r.factura_numero,
+      factura: `${r.tipo_doc} ${String(r.factura_numero).replace(/^0+/, '')}`,
+      factura_numero_corto: String(r.factura_numero).replace(/^0+/, ''),
+      tipo_doc: r.tipo_doc,
+      fecha: r.fecha ? r.fecha.toISOString().slice(0, 10) : desde,
+      cliente_codigo: r.cliente_codigo || '',
+      nombre: r.nombre || '',
+      ciudad: r.ciudad || '',
+      valor_neto: parseFloat(r.valor_neto) || 0,
+      bultos: parseFloat(r.bultos) || 0,
+    }));
+    res.json({ desde, hasta, tipos: tiposArr, total: facturas.length, facturas });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

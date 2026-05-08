@@ -2311,37 +2311,45 @@ const LC_KEY = "alumar_listas_cargue";
 const lcGetAll = () => { try { return JSON.parse(localStorage.getItem(LC_KEY) || "[]"); } catch { return []; } };
 const lcSaveAll = (arr) => localStorage.setItem(LC_KEY, JSON.stringify(arr));
 
-function ListaCargueTab({ capiBase }) {
+// Parsea el campo "facturas" de un contrato y devuelve set de números cortos
+function parsarFacturasContrato(facturasStr) {
+  if (!facturasStr) return new Set();
+  return new Set(
+    String(facturasStr).split(/[-–,;\s]+/).map(s => s.trim().replace(/^0+/, '')).filter(s => /^\d+$/.test(s))
+  );
+}
+
+function ListaCargueTab({ capiBase, contratos = [] }) {
   const hoy = new Date().toISOString().slice(0, 10);
-  const [fecha, setFecha] = useState(hoy);
+  const [desde, setDesde] = useState(hoy);
+  const [hasta, setHasta] = useState(hoy);
   const [loading, setLoading] = useState(false);
-  const [filas, setFilas] = useState([]);
+  const [todasFacturas, setTodasFacturas] = useState([]); // todas las que trajo la BD
+  const [filas, setFilas] = useState([]);                 // las seleccionadas para este cargue
   const [consultado, setConsultado] = useState(false);
   const [guardadas, setGuardadas] = useState(() => lcGetAll());
-  const [guardando, setGuardando] = useState(false);
   const [msgGuardado, setMsgGuardado] = useState("");
-  const [vistaHistorial, setVistaHistorial] = useState(false);
+  const [ocultarAsignadas, setOcultarAsignadas] = useState(true);
+
+  // Números de factura ya usados en contratos existentes
+  const facturasEnContratos = new Set(
+    contratos.flatMap(c => [...parsarFacturasContrato(c.facturas)])
+  );
+
+  // Números de factura ya usados en listas de cargue guardadas
+  const facturasEnListas = new Set(
+    lcGetAll().flatMap(l => (l.filas || []).map(f => String(f.factura).split(' ').pop()))
+  );
 
   const consultar = async () => {
     setLoading(true);
     setConsultado(false);
-    setVistaHistorial(false);
+    setFilas([]);
     try {
       const base = (capiBase || "").replace(/\/api$/, "") || "http://localhost:3000";
-      const r = await fetch(`${base}/api/lista-cargue/${fecha}`);
+      const r = await fetch(`${base}/api/lista-cargue?desde=${desde}&hasta=${hasta}&tipos=FVELE`);
       const d = await r.json();
-      const facturas = d.facturas || [];
-      setFilas(facturas.map(f => ({
-        _id: f.factura_numero_raw,
-        num_cliente: "",
-        cliente_codigo: f.cliente_codigo,
-        nombre: f.nombre,
-        factura: f.factura,
-        ciudad: f.ciudad,
-        remesa: "",
-        transportadora: "",
-        bultos: "",
-      })));
+      setTodasFacturas(d.facturas || []);
       setConsultado(true);
     } catch {
       setConsultado(true);
@@ -2357,30 +2365,72 @@ function ListaCargueTab({ capiBase }) {
   const guardar = () => {
     setGuardando(true);
     const todas = lcGetAll();
-    const id = `${fecha}_${Date.now()}`;
+  const toggleFila = (raw) => {
+    const ya = filas.find(f => f._id === raw);
+    if (ya) {
+      setFilas(prev => prev.filter(f => f._id !== raw));
+    } else {
+      const src = todasFacturas.find(f => f.factura_numero_raw === raw);
+      if (!src) return;
+      setFilas(prev => [...prev, {
+        _id: src.factura_numero_raw,
+        num_cliente: "",
+        cliente_codigo: src.cliente_codigo,
+        nombre: src.nombre,
+        factura: src.factura,
+        ciudad: src.ciudad,
+        remesa: "",
+        transportadora: "",
+        bultos: "",
+      }]);
+    }
+  };
+
+  const seleccionarTodas = () => {
+    const visibles = todasFacturas.filter(f => {
+      const num = f.factura_numero_corto || String(f.factura_numero_raw).replace(/^0+/, '');
+      return !(ocultarAsignadas && (facturasEnContratos.has(num) || facturasEnListas.has(num)));
+    });
+    setFilas(visibles.map(f => ({
+      _id: f.factura_numero_raw,
+      num_cliente: "",
+      cliente_codigo: f.cliente_codigo,
+      nombre: f.nombre,
+      factura: f.factura,
+      ciudad: f.ciudad,
+      remesa: "",
+      transportadora: "",
+      bultos: "",
+    })));
+  };
+
+  const setFila = (id, campo, valor) => {
+    setFilas(prev => prev.map(f => f._id === id ? { ...f, [campo]: valor } : f));
+  };
+
+  const guardar = () => {
+    const todas = lcGetAll();
+    const id = `${desde}_${hasta}_${Date.now()}`;
     const nueva = {
       id,
-      fecha,
+      desde, hasta,
       guardadoEn: new Date().toLocaleString("es-CO"),
       totalFacturas: filas.length,
       totalBultos: filas.reduce((s, f) => s + (parseFloat(f.bultos) || 0), 0),
       filas,
     };
-    // Reemplazar si ya existe una del mismo día
-    const idx = todas.findIndex(l => l.fecha === fecha);
-    if (idx >= 0) todas[idx] = nueva; else todas.unshift(nueva);
+    todas.unshift(nueva);
     lcSaveAll(todas.slice(0, 60));
     setGuardadas(lcGetAll());
     setMsgGuardado("✓ Guardado");
     setTimeout(() => setMsgGuardado(""), 2500);
-    setGuardando(false);
   };
 
   const cargarGuardada = (lista) => {
-    setFecha(lista.fecha);
+    setDesde(lista.desde || lista.fecha || hoy);
+    setHasta(lista.hasta || lista.fecha || hoy);
     setFilas(lista.filas);
     setConsultado(true);
-    setVistaHistorial(false);
   };
 
   const eliminarGuardada = (id) => {
@@ -2390,87 +2440,131 @@ function ListaCargueTab({ capiBase }) {
   };
 
   const imprimir = () => {
-    const fechaFmt = new Date(fecha + "T12:00:00").toLocaleDateString("es-CO", { day:"2-digit", month:"long", year:"numeric" });
+    const rango = desde === hasta ? desde : `${desde} al ${hasta}`;
     const totalBultos = filas.reduce((s, f) => s + (parseFloat(f.bultos) || 0), 0);
     const filasTrs = filas.map(f => `
-      <tr>
-        <td>${f.num_cliente}</td><td>${f.cliente_codigo}</td><td>${f.nombre}</td>
-        <td>${f.factura}</td><td>${f.ciudad}</td><td>${f.remesa}</td>
-        <td>${f.transportadora}</td><td style="text-align:center;font-weight:700">${f.bultos}</td>
-      </tr>`).join("");
-    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
-<title>Lista de Cargue ${fecha}</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;font-size:9px;padding:10mm 12mm;color:#000}
-h2{font-size:13px;margin-bottom:2px}
-.sub{font-size:9px;color:#555;margin-bottom:8px}
-table{width:100%;border-collapse:collapse;margin-top:6px}
-th{background:#1255a4;color:#fff;padding:5px 4px;text-align:left;font-size:8.5px}
-td{border:1px solid #ccc;padding:4px;font-size:8.5px;vertical-align:middle}
-tr:nth-child(even) td{background:#f5f8fc}
-.tot{text-align:right;font-size:9px;margin-top:6px;font-weight:bold}
-@media print{body{padding:6mm}}
-</style></head><body>
+      <tr><td>${f.num_cliente}</td><td>${f.cliente_codigo}</td><td>${f.nombre}</td>
+      <td>${f.factura}</td><td>${f.ciudad}</td><td>${f.remesa}</td>
+      <td>${f.transportadora}</td><td style="text-align:center;font-weight:700">${f.bultos}</td></tr>`).join("");
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Lista Cargue</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:9px;padding:10mm 12mm;color:#000}
+h2{font-size:13px;margin-bottom:2px}.sub{font-size:9px;color:#555;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;margin-top:6px}th{background:#1255a4;color:#fff;padding:5px 4px;text-align:left;font-size:8.5px}
+td{border:1px solid #ccc;padding:4px;font-size:8.5px;vertical-align:middle}tr:nth-child(even) td{background:#f5f8fc}
+.tot{text-align:right;font-size:9px;margin-top:6px;font-weight:bold}@media print{body{padding:6mm}}</style></head><body>
 <h2>ALUMAR SAS — LISTA DE CARGUE</h2>
-<div class="sub">Fecha: ${fechaFmt} &nbsp;|&nbsp; Facturas: ${filas.length} &nbsp;|&nbsp; Total bultos: ${totalBultos}</div>
-<table>
-<tr><th>N° Cliente</th><th>Cód. Cliente</th><th>Nombre</th><th>Factura</th><th>Ciudad</th><th>Remesa</th><th>Transportadora</th><th>Bultos</th></tr>
-${filasTrs}
-</table>
-<div class="tot">Total bultos: ${totalBultos}</div>
-</body></html>`;
+<div class="sub">Período: ${rango} | Facturas: ${filas.length} | Total bultos: ${totalBultos}</div>
+<table><tr><th>N° Cliente</th><th>Cód. Cliente</th><th>Nombre</th><th>Factura</th><th>Ciudad</th><th>Remesa</th><th>Transportadora</th><th>Bultos</th></tr>
+${filasTrs}</table><div class="tot">Total bultos: ${totalBultos}</div></body></html>`;
     const w = window.open("", "_blank");
-    w.document.write(html);
-    w.document.close();
+    w.document.write(html); w.document.close();
     setTimeout(() => w.print(), 400);
   };
 
   const descargarCSV = () => {
     const cols = ["N° Cliente","Cód. Cliente","Nombre","Factura","Ciudad","Remesa","Transportadora","Bultos"];
     const rows = filas.map(f => [f.num_cliente, f.cliente_codigo, f.nombre, f.factura, f.ciudad, f.remesa, f.transportadora, f.bultos].map(v => `"${String(v).replace(/"/g,'""')}"`).join(","));
-    const csv = [cols.join(","), ...rows].join("\r\n");
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `lista_cargue_${fecha}.csv`;
-    a.click();
+    const blob = new Blob(["﻿" + [cols.join(","), ...rows].join("\r\n")], { type:"text/csv;charset=utf-8;" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = `lista_cargue_${desde}_${hasta}.csv`; a.click();
   };
 
   const inp = { border:`1px solid ${C.border}`, borderRadius:4, padding:"3px 6px", fontSize:11, width:"100%", color:C.text, outline:"none" };
   const COLS = [
-    { key:"num_cliente",    label:"N° Cliente",     w:90,  edit:true  },
-    { key:"cliente_codigo", label:"Cód. Cliente",   w:90,  edit:false },
-    { key:"nombre",         label:"Nombre",         w:180, edit:false },
-    { key:"factura",        label:"Factura",        w:110, edit:false },
-    { key:"ciudad",         label:"Ciudad",         w:120, edit:false },
-    { key:"remesa",         label:"Remesa",         w:100, edit:true  },
-    { key:"transportadora", label:"Transportadora", w:130, edit:true  },
-    { key:"bultos",         label:"Bultos",         w:70,  edit:true  },
+    { key:"num_cliente",    label:"N° Cliente",     w:80,  edit:true  },
+    { key:"cliente_codigo", label:"Cód. Cliente",   w:100, edit:false },
+    { key:"nombre",         label:"Nombre",         w:170, edit:false },
+    { key:"factura",        label:"Factura",        w:100, edit:false },
+    { key:"ciudad",         label:"Ciudad",         w:110, edit:false },
+    { key:"remesa",         label:"Remesa",         w:90,  edit:true  },
+    { key:"transportadora", label:"Transportadora", w:120, edit:true  },
+    { key:"bultos",         label:"Bultos",         w:65,  edit:true  },
   ];
 
+  // Facturas visibles en el selector (todas de la BD, con estado)
+  const facturasVisibles = todasFacturas.filter(f => {
+    const num = f.factura_numero_corto || String(f.factura_numero_raw).replace(/^0+/, '');
+    const asignada = facturasEnContratos.has(num) || facturasEnListas.has(num);
+    return !ocultarAsignadas || !asignada;
+  });
+  const asignadasCount = todasFacturas.length - facturasVisibles.length;
+
   return (
-    <div style={{ padding:"1.5rem", maxWidth:1200, display:"flex", gap:16, alignItems:"flex-start" }}>
-      {/* Panel principal */}
+    <div style={{ padding:"1.5rem", maxWidth:1300, display:"flex", gap:14, alignItems:"flex-start" }}>
+
+      {/* ── Selector de facturas BD ── */}
+      {consultado && todasFacturas.length > 0 && (
+        <div style={{ width:320, flexShrink:0 }}>
+          <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
+            <div style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, padding:"10px 14px", color:"#fff" }}>
+              <div style={{ fontWeight:700, fontSize:12 }}>Facturas FVELE — {desde}{desde!==hasta?` al ${hasta}`:""}</div>
+              <div style={{ fontSize:10, opacity:0.8, marginTop:2 }}>{todasFacturas.length} encontradas · {filas.length} seleccionadas</div>
+            </div>
+            <div style={{ padding:"8px 10px", borderBottom:`1px solid ${C.border}`, display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
+              <label style={{ fontSize:10, display:"flex", alignItems:"center", gap:4, cursor:"pointer", color:C.textMuted }}>
+                <input type="checkbox" checked={ocultarAsignadas} onChange={e => setOcultarAsignadas(e.target.checked)} />
+                Ocultar asignadas ({asignadasCount})
+              </label>
+              <button onClick={seleccionarTodas}
+                style={{ fontSize:10, background:"#e8f5e9", color:C.green, border:"1px solid #a5d6a7", borderRadius:4, padding:"2px 8px", cursor:"pointer", fontWeight:700, marginLeft:"auto" }}>
+                Todas
+              </button>
+              <button onClick={() => setFilas([])}
+                style={{ fontSize:10, background:"#ffeee8", color:C.red, border:"1px solid #ffab91", borderRadius:4, padding:"2px 8px", cursor:"pointer", fontWeight:700 }}>
+                Ninguna
+              </button>
+            </div>
+            <div style={{ maxHeight:500, overflowY:"auto" }}>
+              {facturasVisibles.map((f, i) => {
+                const num = f.factura_numero_corto || String(f.factura_numero_raw).replace(/^0+/, '');
+                const enContrato = facturasEnContratos.has(num);
+                const enLista = facturasEnListas.has(num);
+                const seleccionada = filas.some(r => r._id === f.factura_numero_raw);
+                return (
+                  <div key={f.factura_numero_raw} onClick={() => toggleFila(f.factura_numero_raw)}
+                    style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px", cursor:"pointer",
+                      background: seleccionada ? "#e3f2fd" : (i%2===0 ? "#f8fafc" : C.white),
+                      borderBottom:`1px solid #edf2f7`, opacity: (enContrato||enLista)?0.55:1 }}>
+                    <input type="checkbox" readOnly checked={seleccionada} style={{ accentColor:C.blue }} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:C.navy }}>{f.factura}</div>
+                      <div style={{ fontSize:10, color:C.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.nombre}</div>
+                      <div style={{ fontSize:9, color:C.blue }}>{f.ciudad}</div>
+                    </div>
+                    {enContrato && <span style={{ fontSize:8, background:"#fff3e0", color:"#e65100", borderRadius:3, padding:"1px 4px", fontWeight:700, whiteSpace:"nowrap" }}>Contrato</span>}
+                    {enLista && !enContrato && <span style={{ fontSize:8, background:"#f3e5f5", color:"#7b1fa2", borderRadius:3, padding:"1px 4px", fontWeight:700, whiteSpace:"nowrap" }}>En lista</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Panel principal ── */}
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ marginBottom:14 }}>
+        <div style={{ marginBottom:12 }}>
           <div style={{ fontSize:18, fontWeight:700, color:C.navy, marginBottom:2 }}>📦 Lista de Cargue</div>
-          <div style={{ fontSize:11, color:C.textMuted }}>Consulte las facturas, diligencie los campos amarillos y guarde la lista.</div>
+          <div style={{ fontSize:11, color:C.textMuted }}>Solo facturas FVELE. Seleccione del panel izquierdo, diligencie los campos amarillos y guarde.</div>
         </div>
 
-        {/* Barra de controles */}
-        <div style={{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap", marginBottom:14, background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 14px" }}>
+        {/* Controles */}
+        <div style={{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap", marginBottom:12, background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 14px" }}>
           <div>
-            <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:3 }}>FECHA</div>
-            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ ...inp, width:155 }} />
+            <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:3 }}>DESDE</div>
+            <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={{ ...inp, width:145 }} />
+          </div>
+          <div>
+            <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:3 }}>HASTA</div>
+            <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={{ ...inp, width:145 }} />
           </div>
           <button onClick={consultar} disabled={loading}
             style={{ background:C.blue, color:"#fff", border:"none", borderRadius:7, padding:"7px 16px", cursor:"pointer", fontSize:12, fontWeight:700, opacity:loading?0.6:1 }}>
             {loading ? "⏳..." : "🔍 Consultar BD"}
           </button>
           {filas.length > 0 && (<>
-            <button onClick={guardar} disabled={guardando}
-              style={{ background:"#e65100", color:"#fff", border:"none", borderRadius:7, padding:"7px 16px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
+            <button onClick={guardar}
+              style={{ background:"#e65100", color:"#fff", border:"none", borderRadius:7, padding:"7px 14px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
               💾 Guardar
             </button>
             {msgGuardado && <span style={{ fontSize:12, color:C.green, fontWeight:700 }}>{msgGuardado}</span>}
@@ -2488,9 +2582,15 @@ ${filasTrs}
           </>)}
         </div>
 
-        {consultado && filas.length === 0 && (
+        {consultado && todasFacturas.length === 0 && (
           <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:24, textAlign:"center", color:C.textMuted, fontSize:13 }}>
-            ⚠️ No se encontraron facturas para {fecha}.
+            ⚠️ No se encontraron facturas FVELE para el período seleccionado.
+          </div>
+        )}
+
+        {!consultado && (
+          <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:32, textAlign:"center", color:C.textMuted, fontSize:13 }}>
+            Seleccione el rango de fechas y consulte la BD para ver las facturas disponibles.
           </div>
         )}
 
@@ -2500,35 +2600,43 @@ ${filasTrs}
               <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                 <thead>
                   <tr style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})` }}>
+                    <th style={{ padding:"8px 6px", color:"#fff", fontSize:10, width:32 }}>#</th>
                     {COLS.map(col => (
                       <th key={col.key} style={{ padding:"8px", textAlign:"left", color:"#fff", fontWeight:700, fontSize:11, whiteSpace:"nowrap", minWidth:col.w }}>
                         {col.label}{col.edit && <span style={{ fontSize:8, opacity:0.65, marginLeft:3 }}>✏️</span>}
                       </th>
                     ))}
+                    <th style={{ padding:"8px", color:"#fff", fontSize:10, width:30 }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {filas.map((f, i) => (
                     <tr key={f._id} style={{ background: i%2===0 ? "#f8fafc" : C.white }}>
+                      <td style={{ padding:"5px 6px", borderBottom:`1px solid ${C.border}`, textAlign:"center", fontSize:10, color:C.textDim }}>{i+1}</td>
                       {COLS.map(col => (
                         <td key={col.key} style={{ padding:"5px 8px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle" }}>
                           {col.edit ? (
                             <input value={f[col.key]} onChange={e => setFila(f._id, col.key, e.target.value)}
                               style={{ ...inp, background:"#fffde7", borderColor:"#f9a825" }} />
                           ) : (
-                            <span style={{ color: col.key==="factura" ? C.blue : C.text, fontWeight: col.key==="factura" ? 700 : 400 }}>{f[col.key]}</span>
+                            <span style={{ color: col.key==="factura"?C.blue:C.text, fontWeight: col.key==="factura"?700:400 }}>{f[col.key]}</span>
                           )}
                         </td>
                       ))}
+                      <td style={{ padding:"4px 6px", borderBottom:`1px solid ${C.border}`, textAlign:"center" }}>
+                        <button onClick={() => setFilas(prev => prev.filter(r => r._id !== f._id))}
+                          style={{ background:"transparent", border:"none", cursor:"pointer", color:C.textDim, fontSize:14 }}>✕</button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr style={{ background:"#f0f4f8" }}>
-                    <td colSpan={7} style={{ padding:"8px", textAlign:"right", fontWeight:700, fontSize:12, color:C.navy }}>Total bultos:</td>
+                    <td colSpan={8} style={{ padding:"8px", textAlign:"right", fontWeight:700, fontSize:12, color:C.navy }}>Total bultos:</td>
                     <td style={{ padding:"8px", fontWeight:700, fontSize:13, color:C.green, textAlign:"center" }}>
                       {filas.reduce((s,f)=>s+(parseFloat(f.bultos)||0),0)}
                     </td>
+                    <td></td>
                   </tr>
                 </tfoot>
               </table>
@@ -2537,34 +2645,32 @@ ${filasTrs}
         )}
       </div>
 
-      {/* Panel historial guardadas */}
-      <div style={{ width:240, flexShrink:0 }}>
+      {/* ── Historial guardadas ── */}
+      <div style={{ width:210, flexShrink:0 }}>
         <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
           <div style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, padding:"10px 14px", color:"#fff", fontWeight:700, fontSize:12 }}>
-            📂 Listas guardadas ({guardadas.length})
+            📂 Guardadas ({guardadas.length})
           </div>
           {guardadas.length === 0 ? (
-            <div style={{ padding:16, fontSize:11, color:C.textMuted, textAlign:"center" }}>
-              Sin listas guardadas aún
-            </div>
+            <div style={{ padding:16, fontSize:11, color:C.textMuted, textAlign:"center" }}>Sin listas guardadas</div>
           ) : (
-            <div style={{ maxHeight:480, overflowY:"auto" }}>
+            <div style={{ maxHeight:500, overflowY:"auto" }}>
               {guardadas.map(l => (
-                <div key={l.id} style={{ borderBottom:`1px solid ${C.border}`, padding:"10px 12px" }}>
-                  <div style={{ fontWeight:700, fontSize:12, color:C.navy, marginBottom:2 }}>
-                    {new Date(l.fecha + "T12:00:00").toLocaleDateString("es-CO", { day:"2-digit", month:"short", year:"numeric" })}
+                <div key={l.id} style={{ borderBottom:`1px solid ${C.border}`, padding:"9px 12px" }}>
+                  <div style={{ fontWeight:700, fontSize:11, color:C.navy, marginBottom:1 }}>
+                    {l.desde === l.hasta ? l.desde : `${l.desde} → ${l.hasta}`}
                   </div>
-                  <div style={{ fontSize:10, color:C.textMuted, marginBottom:6 }}>
+                  <div style={{ fontSize:10, color:C.textMuted, marginBottom:5 }}>
                     {l.totalFacturas} fact. · {l.totalBultos} bultos<br/>
                     <span style={{ fontSize:9 }}>{l.guardadoEn}</span>
                   </div>
-                  <div style={{ display:"flex", gap:6 }}>
+                  <div style={{ display:"flex", gap:5 }}>
                     <button onClick={() => cargarGuardada(l)}
-                      style={{ flex:1, fontSize:10, background:C.blue, color:"#fff", border:"none", borderRadius:5, padding:"4px 0", cursor:"pointer", fontWeight:700 }}>
+                      style={{ flex:1, fontSize:10, background:C.blue, color:"#fff", border:"none", borderRadius:4, padding:"3px 0", cursor:"pointer", fontWeight:700 }}>
                       Cargar
                     </button>
                     <button onClick={() => eliminarGuardada(l.id)}
-                      style={{ fontSize:10, background:"#ffeee8", color:C.red, border:`1px solid #ffab91`, borderRadius:5, padding:"4px 8px", cursor:"pointer" }}>
+                      style={{ fontSize:10, background:"#ffeee8", color:C.red, border:`1px solid #ffab91`, borderRadius:4, padding:"3px 7px", cursor:"pointer" }}>
                       ✕
                     </button>
                   </div>
@@ -3499,7 +3605,7 @@ export default function App() {
         {tab === "bodega" && <BodegaTab capiBase={CAPI_BASE} />}
 
         {/* TAB: LISTA CARGUE */}
-        {tab === "lista-cargue" && <ListaCargueTab capiBase={CAPI_BASE} />}
+        {tab === "lista-cargue" && <ListaCargueTab capiBase={CAPI_BASE} contratos={contratos} />}
 
       </div>
 
