@@ -427,6 +427,46 @@ app.get('/api/facturas/dia/:fecha/referencias', async (req, res) => {
   }
 });
 
+// ── GET /api/lista-cargue/:fecha - Todas las facturas del día para lista de cargue ──
+app.get('/api/lista-cargue/:fecha', async (req, res) => {
+  try {
+    const fecha = req.params.fecha;
+    const [rows] = await getPool().query(`
+      SELECT
+        d.DCL_NUMERO        AS factura_numero,
+        d.DCL_TDT_CODIGO    AS tipo_doc,
+        d.DCL_FECHA         AS fecha,
+        d.DCL_CLT_CODIGO    AS cliente_codigo,
+        d.DCL_NETO          AS valor_neto,
+        d.DCL_BULTOS        AS bultos,
+        c.CLT_NOMBRE        AS nombre,
+        cd.CDD_DESCRI       AS ciudad
+      FROM adn_doccli d
+      LEFT JOIN adn_clientes c  ON d.DCL_CLT_CODIGO = c.CLT_CODIGO
+      LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO  = cd.CDD_CODIGO
+      WHERE DATE(d.DCL_FECHA) = ?
+        AND d.DCL_ACTIVO = 1
+      ORDER BY CAST(d.DCL_NUMERO AS UNSIGNED) ASC
+    `, [fecha]);
+
+    const facturas = rows.map(r => ({
+      factura_numero_raw: r.factura_numero,
+      factura: `${r.tipo_doc} ${String(r.factura_numero).replace(/^0+/,'')}`,
+      tipo_doc: r.tipo_doc,
+      cliente_codigo: r.cliente_codigo || '',
+      nombre: r.nombre || '',
+      ciudad: r.ciudad || '',
+      valor_neto: parseFloat(r.valor_neto) || 0,
+      bultos: parseFloat(r.bultos) || 0,
+    }));
+
+    res.json({ fecha, total: facturas.length, facturas });
+  } catch (err) {
+    console.error('Error /api/lista-cargue:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── GET /api/tablas - Explorar tablas disponibles en la BD ──
 app.get('/api/tablas', async (_req, res) => {
   try {

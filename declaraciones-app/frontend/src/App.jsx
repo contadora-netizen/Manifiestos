@@ -2319,16 +2319,16 @@ function ListaCargueTab({ capiBase }) {
     setConsultado(false);
     try {
       const base = (capiBase || "").replace(/\/api$/, "") || "http://localhost:3000";
-      const r = await fetch(`${base}/api/facturas/dia/${fecha}/referencias`);
+      const r = await fetch(`${base}/api/lista-cargue/${fecha}`);
       const d = await r.json();
       const facturas = d.facturas || [];
       setFilas(facturas.map(f => ({
-        _id: f.factura_numero_raw || f.factura_numero,
+        _id: f.factura_numero_raw,
         num_cliente: "",
-        cliente_codigo: f.cliente_codigo || "",
-        nombre: f.cliente || "",
-        factura: f.factura_label || f.factura_numero,
-        ciudad: f.ciudad || "",
+        cliente_codigo: f.cliente_codigo,
+        nombre: f.nombre,
+        factura: f.factura,
+        ciudad: f.ciudad,
         remesa: "",
         transportadora: "",
         bultos: f.bultos != null ? String(f.bultos) : "",
