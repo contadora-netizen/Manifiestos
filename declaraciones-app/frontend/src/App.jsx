@@ -2324,7 +2324,7 @@ function ListaCargueTab({ capiBase }) {
       const facturas = d.facturas || [];
       setFilas(facturas.map(f => ({
         _id: f.factura_numero_raw,
-        num_cliente: f.cliente_codigo ? String(parseInt(f.cliente_codigo, 10) || f.cliente_codigo) : "",
+        num_cliente: "",
         cliente_codigo: f.cliente_codigo,
         nombre: f.nombre,
         factura: f.factura,
