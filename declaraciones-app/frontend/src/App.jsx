@@ -1707,23 +1707,123 @@ function ContratoRow({ contrato, onEdit }) {
 
 // ── Bodega Tab ────────────────────────────────────────────────────────────────
 const ZONA_INFO = {
-  A: { label: "Zona A — 1° Piso",  color: "#1e7e34", bg: "#e8f5e9", desc: "Alta rotación · Pegada al alistamiento" },
-  E: { label: "Zona E — 1° Piso",  color: "#1255a4", bg: "#e3f2fd", desc: "Rotación media-alta · 1° piso" },
-  F: { label: "Zona F — 1° Piso",  color: "#d4780a", bg: "#fff3e0", desc: "Rotación media-baja · Fondo 1° piso" },
-  B: { label: "Zona B — 2° Piso",  color: "#6a1b9a", bg: "#f3e5f5", desc: "Baja rotación · Toca bajar a mano" },
-  D: { label: "Zona D — 2° Piso",  color: "#6a1b9a", bg: "#f3e5f5", desc: "Baja rotación · Toca bajar a mano" },
-  G: { label: "Zona G — 2° Piso",  color: "#6a1b9a", bg: "#f3e5f5", desc: "Baja rotación · Toca bajar a mano" },
-  H: { label: "Zona H — 2° Piso",  color: "#6a1b9a", bg: "#f3e5f5", desc: "Baja rotación · Toca bajar a mano" },
+  A: { label: "Zona A",  piso:"1° Piso", color: "#1e7e34", bg: "#e8f5e9", desc: "Alta rotación · Pegada al alistamiento" },
+  E: { label: "Zona E",  piso:"1° Piso", color: "#1255a4", bg: "#e3f2fd", desc: "Rotación media-alta" },
+  F: { label: "Zona F",  piso:"1° Piso", color: "#d4780a", bg: "#fff3e0", desc: "Rotación media-baja · Fondo 1° piso" },
+  B: { label: "Zona B",  piso:"2° Piso", color: "#6a1b9a", bg: "#f3e5f5", desc: "Baja rotación · 2° piso" },
+  D: { label: "Zona D",  piso:"2° Piso", color: "#7b1fa2", bg: "#f3e5f5", desc: "Baja rotación · 2° piso" },
+  G: { label: "Zona G",  piso:"2° Piso", color: "#4a148c", bg: "#ede7f6", desc: "Baja rotación · 2° piso" },
+  H: { label: "Zona H",  piso:"2° Piso", color: "#311b92", bg: "#ede7f6", desc: "Baja rotación · 2° piso" },
 };
 const CLASE_COLOR = { A: "#1e7e34", B: "#1255a4", C: "#888" };
 
+// ── Croquis SVG interactivo ───────────────────────────────────────────────────
+function CroquisBodega({ productos, zonaActiva, onZonaClick, piso }) {
+  const conteo = {};
+  Object.keys(ZONA_INFO).forEach(z => { conteo[z] = productos.filter(p => p.zona === z).length; });
+
+  const ZonaRect = ({ zona, x, y, w, h, label }) => {
+    const info   = ZONA_INFO[zona];
+    const activa = zonaActiva === zona;
+    const cnt    = conteo[zona] || 0;
+    return (
+      <g onClick={() => onZonaClick(zona)} style={{ cursor:"pointer" }}>
+        <rect x={x} y={y} width={w} height={h} rx={6}
+          fill={activa ? info.color : info.bg}
+          stroke={info.color} strokeWidth={activa ? 3 : 1.5}
+          opacity={zonaActiva && !activa ? 0.5 : 1}
+          style={{ transition:"all 0.2s" }}
+        />
+        <text x={x+w/2} y={y+h/2-10} textAnchor="middle" fontSize={16} fontWeight={900}
+          fill={activa ? "white" : info.color}>{label}</text>
+        <text x={x+w/2} y={y+h/2+8} textAnchor="middle" fontSize={11} fontWeight={700}
+          fill={activa ? "white" : info.color}>{cnt} refs</text>
+        {activa && (
+          <rect x={x+4} y={y+4} width={10} height={10} rx={2} fill="white" opacity={0.8}/>
+        )}
+      </g>
+    );
+  };
+
+  if (piso === 1) return (
+    <svg viewBox="0 0 700 320" style={{ width:"100%", borderRadius:10, border:`1px solid ${C.border}` }}>
+      {/* Fondo */}
+      <rect width={700} height={320} fill="#f8fafc" rx={10}/>
+      {/* Título */}
+      <text x={350} y={22} textAnchor="middle" fontSize={13} fontWeight={700} fill={C.navy}>PRIMER PISO</text>
+
+      {/* Área administrativa */}
+      <rect x={10} y={35} width={120} height={180} rx={6} fill="#eceff1" stroke="#90a4ae" strokeWidth={1.5}/>
+      <text x={70} y={100} textAnchor="middle" fontSize={10} fill="#546e7a" fontWeight={600}>Área</text>
+      <text x={70} y={114} textAnchor="middle" fontSize={10} fill="#546e7a" fontWeight={600}>Administrativa</text>
+      <text x={70} y={128} textAnchor="middle" fontSize={9} fill="#78909c">(Gerencia · Cartera)</text>
+      <text x={70} y={142} textAnchor="middle" fontSize={9} fill="#78909c">(Contabilidad · Rec.)</text>
+
+      {/* Zona de Carga */}
+      <rect x={10} y={225} width={120} height={70} rx={6} fill="#fff8e1" stroke="#f9a825" strokeWidth={2}/>
+      <text x={70} y={256} textAnchor="middle" fontSize={11} fontWeight={800} fill="#f57f17">🚛 ZONA DE</text>
+      <text x={70} y={272} textAnchor="middle" fontSize={11} fontWeight={800} fill="#f57f17">CARGA</text>
+
+      {/* Zona A — alta rotación, cerca del alistamiento */}
+      <ZonaRect zona="A" x={140} y={175} w={180} h={120} label="Zona A" />
+
+      {/* Zona E arriba */}
+      <ZonaRect zona="E" x={140} y={35}  w={320} h={130} label="Zona E" />
+
+      {/* Zona F — fondo derecho */}
+      <ZonaRect zona="F" x={330} y={175} w={180} h={120} label="Zona F" />
+
+      {/* Pasillos */}
+      <line x1={520} y1={35}  x2={520} y2={295} stroke="#b0bec5" strokeWidth={1} strokeDasharray="4,3"/>
+      <line x1={140} y1={170} x2={510} y2={170} stroke="#b0bec5" strokeWidth={1} strokeDasharray="4,3"/>
+
+      {/* Archivo / escaleras */}
+      <rect x={520} y={35} width={80} height={260} rx={6} fill="#eceff1" stroke="#90a4ae" strokeWidth={1.5}/>
+      <text x={560} y={160} textAnchor="middle" fontSize={10} fill="#546e7a" fontWeight={600}>Archivo /</text>
+      <text x={560} y={174} textAnchor="middle" fontSize={10} fill="#546e7a" fontWeight={600}>Escaleras</text>
+
+      {/* Oficina facturación */}
+      <rect x={610} y={35} width={80} height={260} rx={6} fill="#eceff1" stroke="#90a4ae" strokeWidth={1.5}/>
+      <text x={650} y={160} textAnchor="middle" fontSize={10} fill="#546e7a" fontWeight={600}>Of.</text>
+      <text x={650} y={174} textAnchor="middle" fontSize={10} fill="#546e7a" fontWeight={600}>Facturación</text>
+
+      {/* Leyenda */}
+      <text x={10} y={315} fontSize={9} fill="#90a4ae}>💡 Clic en una zona para ver sus productos</text>
+    </svg>
+  );
+
+  return (
+    <svg viewBox="0 0 700 280" style={{ width:"100%", borderRadius:10, border:`1px solid ${C.border}` }}>
+      <rect width={700} height={280} fill="#f8fafc" rx={10}/>
+      <text x={350} y={22} textAnchor="middle" fontSize={13} fontWeight={700} fill={C.navy}>SEGUNDO PISO</text>
+
+      {/* Zona D — arriba izquierda */}
+      <ZonaRect zona="D" x={10}  y={35}  w={180} h={110} label="Zona D" />
+      {/* Zona H — arriba derecha */}
+      <ZonaRect zona="H" x={380} y={35}  w={310} h={110} label="Zona H" />
+      {/* Zona B — abajo izquierda */}
+      <ZonaRect zona="B" x={10}  y={155} w={180} h={110} label="Zona B" />
+      {/* Zona G — abajo derecha */}
+      <ZonaRect zona="G" x={380} y={155} w={310} h={110} label="Zona G" />
+
+      {/* Pasillo central */}
+      <rect x={198} y={35} width={174} height={230} rx={4} fill="#e0e0e0" stroke="#bdbdbd" strokeWidth={1}/>
+      <text x={285} y={145} textAnchor="middle" fontSize={10} fill="#757575" fontWeight={600}>Pasillo /</text>
+      <text x={285} y={159} textAnchor="middle" fontSize={10} fill="#757575" fontWeight={600}>Escaleras</text>
+
+      <text x={10} y={275} fontSize={9} fill="#90a4ae">⚠ Todo lo de este piso toca bajarlo a mano — solo productos clase C</text>
+    </svg>
+  );
+}
+
 function BodegaTab({ capiBase }) {
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [meses, setMeses]     = useState(6);
+  const [data, setData]         = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [meses, setMeses]       = useState(6);
   const [busqueda, setBusqueda] = useState("");
-  const [filtroZona, setFiltroZona]   = useState("todas");
+  const [zonaActiva, setZonaActiva] = useState(null);
   const [filtroClase, setFiltroClase] = useState("todas");
+  const [pisoVista, setPisoVista]     = useState(1);
 
   const cargar = async () => {
     setLoading(true);
@@ -1731,52 +1831,64 @@ function BodegaTab({ capiBase }) {
       const r = await fetch(`${capiBase}/api/rotacion-bodega?meses=${meses}`);
       const d = await r.json();
       setData(d);
-    } catch (e) {
-      alert("Error cargando rotación: " + e.message);
-    } finally { setLoading(false); }
+    } catch (e) { alert("Error: " + e.message); }
+    finally { setLoading(false); }
   };
-
   useEffect(() => { cargar(); }, []);
 
   const descargarCSV = () => {
     if (!data) return;
     const filas = [
-      ["Rank", "Código", "Descripción", "Clase", "Zona", "Unidades vendidas", "N° facturas"],
-      ...data.productos.map(p => [p.rank, p.codigo, `"${p.descripcion}"`, p.clase_rotacion, p.zona, p.unidades_vendidas, p.num_facturas])
+      ["Rank","Código","Descripción","Clase","Zona","Piso","Unidades vendidas","N° facturas"],
+      ...data.productos.map(p => [
+        p.rank, p.codigo, `"${p.descripcion}"`, p.clase_rotacion,
+        `Zona ${p.zona}`, ZONA_INFO[p.zona]?.piso || "",
+        p.unidades_vendidas, p.num_facturas
+      ])
     ];
     const csv = filas.map(f => f.join(";")).join("\n");
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["﻿" + csv], { type:"text/csv;charset=utf-8;" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `ubicaciones_bodega_${meses}meses.csv`;
     a.click();
   };
 
+  const onZonaClick = (zona) => {
+    setZonaActiva(z => z === zona ? null : zona);
+    setPisoVista(["B","D","G","H"].includes(zona) ? 2 : 1);
+    setBusqueda("");
+    setFiltroClase("todas");
+  };
+
   const productos = data?.productos || [];
   const filtrados = productos.filter(p => {
     const txt = busqueda.toLowerCase();
-    const matchBus = !txt || p.codigo.toLowerCase().includes(txt) || (p.descripcion||"").toLowerCase().includes(txt);
-    const matchZona  = filtroZona  === "todas" || p.zona  === filtroZona;
+    const matchBus   = !txt || p.codigo.toLowerCase().includes(txt) || (p.descripcion||"").toLowerCase().includes(txt);
+    const matchZona  = !zonaActiva || p.zona === zonaActiva;
     const matchClase = filtroClase === "todas" || p.clase_rotacion === filtroClase;
     return matchBus && matchZona && matchClase;
   });
 
+  const zonaInfo = zonaActiva ? ZONA_INFO[zonaActiva] : null;
+
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+    <div style={{ maxWidth:1200, margin:"0 auto" }}>
+
       {/* Header */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
         <div>
           <div style={{ fontSize:18, fontWeight:800, color:C.navy }}>🏭 Organización de Bodega</div>
-          <div style={{ fontSize:12, color:C.textMuted }}>Ubicaciones por rotación ABC — basado en ventas reales</div>
+          <div style={{ fontSize:12, color:C.textMuted }}>Clic en una zona del croquis para ver sus productos</div>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-          <select value={meses} onChange={e => setMeses(Number(e.target.value))}
-            style={{ border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px", fontSize:12, color:C.text }}>
+          <select value={meses} onChange={e => { setMeses(Number(e.target.value)); }}
+            style={{ border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px", fontSize:12 }}>
             {[3,6,12,24].map(m => <option key={m} value={m}>Últimos {m} meses</option>)}
           </select>
           <button onClick={cargar} disabled={loading}
             style={{ background:C.blue, color:"white", border:"none", borderRadius:6, padding:"7px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-            {loading ? "Cargando..." : "🔄 Actualizar"}
+            {loading ? "⏳" : "🔄"} Actualizar
           </button>
           <button onClick={descargarCSV} disabled={!data}
             style={{ background:C.green, color:"white", border:"none", borderRadius:6, padding:"7px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
@@ -1785,117 +1897,129 @@ function BodegaTab({ capiBase }) {
         </div>
       </div>
 
-      {/* Resumen por zona */}
-      {data && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:8, marginBottom:20 }}>
-          {Object.entries(ZONA_INFO).map(([zona, info]) => {
-            const count = productos.filter(p => p.zona === zona).length;
-            return (
-              <div key={zona} onClick={() => setFiltroZona(filtroZona === zona ? "todas" : zona)}
-                style={{ background: filtroZona === zona ? info.bg : C.white, border:`2px solid ${filtroZona === zona ? info.color : C.border}`,
-                  borderRadius:10, padding:"10px 8px", textAlign:"center", cursor:"pointer", transition:"all 0.2s" }}>
-                <div style={{ fontSize:16, fontWeight:900, color:info.color }}>{zona}</div>
-                <div style={{ fontSize:10, color:C.textMuted, marginBottom:4 }}>{zona <= 'F' ? "1° Piso" : "2° Piso"}</div>
-                <div style={{ fontSize:18, fontWeight:800, color:C.text }}>{count}</div>
-                <div style={{ fontSize:9, color:C.textDim }}>referencias</div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* Layout: croquis + panel productos */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 380px", gap:16 }}>
 
-      {/* Resumen A/B/C */}
-      {data && (
-        <div style={{ display:"flex", gap:10, marginBottom:16 }}>
-          {[["A","Alta rotación",data.clase_A],["B","Media rotación",data.clase_B],["C","Baja rotación",data.clase_C]].map(([cls,lbl,cnt]) => (
-            <div key={cls} onClick={() => setFiltroClase(filtroClase === cls ? "todas" : cls)}
-              style={{ flex:1, background: filtroClase === cls ? CLASE_COLOR[cls]+"18" : C.white,
-                border:`2px solid ${filtroClase === cls ? CLASE_COLOR[cls] : C.border}`,
-                borderRadius:10, padding:"10px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
-              <span style={{ fontWeight:900, fontSize:20, color:CLASE_COLOR[cls] }}>{cls}</span>
-              <div>
-                <div style={{ fontWeight:700, fontSize:14, color:C.text }}>{cnt} referencias</div>
-                <div style={{ fontSize:11, color:C.textMuted }}>{lbl}</div>
-              </div>
-            </div>
-          ))}
-          <div style={{ flex:1, background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 14px", display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ fontWeight:900, fontSize:20, color:C.textDim }}>Σ</span>
-            <div>
-              <div style={{ fontWeight:700, fontSize:14, color:C.text }}>{data.total_referencias} refs</div>
-              <div style={{ fontSize:11, color:C.textMuted }}>{data.total_unidades?.toLocaleString("es-CO")} uds · {data.meses_analizados} meses</div>
-            </div>
+        {/* Croquis */}
+        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:16 }}>
+          {/* Selector piso */}
+          <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+            {[1,2].map(p => (
+              <button key={p} onClick={() => setPisoVista(p)}
+                style={{ flex:1, border:"none", borderRadius:8, padding:"8px 0", fontSize:13, fontWeight:700, cursor:"pointer",
+                  background: pisoVista === p ? C.navy : "#f0f4f8",
+                  color: pisoVista === p ? "white" : C.textMuted }}>
+                {p === 1 ? "🏢 Primer Piso" : "🏗 Segundo Piso"}
+              </button>
+            ))}
+            {zonaActiva && (
+              <button onClick={() => setZonaActiva(null)}
+                style={{ border:`1px solid ${C.border}`, borderRadius:8, padding:"8px 14px", fontSize:12, cursor:"pointer",
+                  background:"transparent", color:C.textMuted }}>
+                ✕ Ver todo
+              </button>
+            )}
           </div>
-        </div>
-      )}
 
-      {/* Buscador */}
-      <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-        <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
-          placeholder="🔍 Buscar por código o descripción..."
-          style={{ flex:1, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", fontSize:13, color:C.text }} />
-        {(busqueda || filtroZona !== "todas" || filtroClase !== "todas") && (
-          <button onClick={() => { setBusqueda(""); setFiltroZona("todas"); setFiltroClase("todas"); }}
-            style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 14px", fontSize:12, color:C.textMuted, cursor:"pointer" }}>
-            ✕ Limpiar
-          </button>
-        )}
-        <div style={{ fontSize:12, color:C.textMuted, display:"flex", alignItems:"center" }}>
-          {filtrados.length} de {productos.length}
+          {loading ? (
+            <div style={{ textAlign:"center", padding:"3rem", color:C.textMuted }}>
+              <Spinner size={24}/><div style={{ marginTop:12 }}>Consultando BD...</div>
+            </div>
+          ) : (
+            <CroquisBodega productos={productos} zonaActiva={zonaActiva} onZonaClick={onZonaClick} piso={pisoVista} />
+          )}
+
+          {/* Leyenda A/B/C */}
+          {data && (
+            <div style={{ display:"flex", gap:8, marginTop:12 }}>
+              {[["A","Alta rotación · 1° piso zona A/E",data.clase_A],
+                ["B","Media rotación · 1° piso zona E/F",data.clase_B],
+                ["C","Baja rotación · 2° piso",data.clase_C]].map(([cls,lbl,cnt]) => (
+                <div key={cls} onClick={() => setFiltroClase(fc => fc===cls?"todas":cls)}
+                  style={{ flex:1, border:`2px solid ${filtroClase===cls ? CLASE_COLOR[cls] : C.border}`,
+                    background: filtroClase===cls ? CLASE_COLOR[cls]+"14" : "#f8fafc",
+                    borderRadius:8, padding:"8px 10px", cursor:"pointer", textAlign:"center" }}>
+                  <div style={{ fontWeight:900, color:CLASE_COLOR[cls], fontSize:16 }}>{cls}</div>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.text }}>{cnt} refs</div>
+                  <div style={{ fontSize:9, color:C.textMuted }}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Panel lateral: productos de la zona */}
+        <div style={{ background:C.white, border:`1px solid ${zonaInfo ? zonaInfo.color : C.border}`,
+          borderRadius:12, overflow:"hidden", display:"flex", flexDirection:"column" }}>
+
+          {/* Header panel */}
+          <div style={{ padding:"12px 14px", background: zonaInfo ? zonaInfo.color : C.navy,
+            color:"white", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div>
+              <div style={{ fontWeight:800, fontSize:14 }}>
+                {zonaActiva ? `Zona ${zonaActiva} — ${ZONA_INFO[zonaActiva]?.piso}` : "Todas las zonas"}
+              </div>
+              <div style={{ fontSize:11, opacity:0.85 }}>
+                {zonaActiva ? ZONA_INFO[zonaActiva]?.desc : `${productos.length} referencias totales`}
+              </div>
+            </div>
+            <div style={{ fontWeight:900, fontSize:22 }}>{filtrados.length}</div>
+          </div>
+
+          {/* Buscador */}
+          <div style={{ padding:"10px 12px", borderBottom:`1px solid ${C.border}` }}>
+            <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
+              placeholder="🔍 Buscar código o producto..."
+              style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:6,
+                padding:"6px 10px", fontSize:12, boxSizing:"border-box" }} />
+          </div>
+
+          {/* Lista productos */}
+          <div style={{ overflowY:"auto", flex:1, maxHeight:480 }}>
+            {filtrados.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:12 }}>
+                {zonaActiva ? `Sin productos en Zona ${zonaActiva}` : "Sin resultados"}
+              </div>
+            ) : (
+              filtrados.slice(0,150).map((p, i) => {
+                const zi = ZONA_INFO[p.zona] || {};
+                return (
+                  <div key={p.codigo} style={{
+                    padding:"8px 12px", borderBottom:`1px solid ${C.border}`,
+                    background: i%2===0 ? "#f8fafc" : C.white,
+                    display:"flex", alignItems:"flex-start", gap:8
+                  }}>
+                    <span style={{ background:CLASE_COLOR[p.clase_rotacion]+"18", color:CLASE_COLOR[p.clase_rotacion],
+                      borderRadius:4, padding:"2px 6px", fontWeight:800, fontSize:10, flexShrink:0, marginTop:2 }}>
+                      {p.clase_rotacion}
+                    </span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontFamily:"monospace", fontWeight:700, color:C.blue, fontSize:11 }}>{p.codigo}</div>
+                      <div style={{ fontSize:11, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {p.descripcion}
+                      </div>
+                      <div style={{ fontSize:10, color:C.textMuted }}>
+                        {(p.unidades_vendidas||0).toLocaleString("es-CO")} uds · {p.num_facturas} facturas
+                      </div>
+                    </div>
+                    {!zonaActiva && (
+                      <span style={{ background:zi.bg, color:zi.color, borderRadius:4,
+                        padding:"2px 6px", fontSize:10, fontWeight:700, flexShrink:0 }}>
+                        Z{p.zona}
+                      </span>
+                    )}
+                  </div>
+                );
+              })
+            )}
+            {filtrados.length > 150 && (
+              <div style={{ textAlign:"center", padding:10, fontSize:11, color:C.textMuted }}>
+                Mostrando 150 de {filtrados.length} — usa el buscador
+              </div>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Tabla */}
-      {loading ? (
-        <div style={{ textAlign:"center", padding:"3rem", color:C.textMuted }}>
-          <Spinner size={24}/><div style={{ marginTop:12 }}>Consultando rotación en base de datos...</div>
-        </div>
-      ) : (
-        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"50px 120px 1fr 60px 120px 100px 90px",
-            background:C.navy, color:"white", padding:"10px 14px", fontSize:11, fontWeight:700, letterSpacing:"0.05em" }}>
-            <div>#</div><div>CÓDIGO</div><div>DESCRIPCIÓN</div><div>CLASE</div><div>ZONA</div><div>UNIDADES</div><div>FACTURAS</div>
-          </div>
-          <div style={{ maxHeight:520, overflowY:"auto" }}>
-            {filtrados.slice(0, 200).map((p, i) => {
-              const zi = ZONA_INFO[p.zona] || {};
-              return (
-                <div key={p.codigo} style={{
-                  display:"grid", gridTemplateColumns:"50px 120px 1fr 60px 120px 100px 90px",
-                  padding:"8px 14px", fontSize:12, color:C.text,
-                  background: i % 2 === 0 ? "#f8fafc" : C.white,
-                  borderBottom:`1px solid ${C.border}`, alignItems:"center"
-                }}>
-                  <div style={{ color:C.textDim, fontSize:11 }}>{p.rank}</div>
-                  <div style={{ fontFamily:"monospace", fontWeight:700, color:C.blue, fontSize:11 }}>{p.codigo}</div>
-                  <div style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.descripcion}</div>
-                  <div>
-                    <span style={{ background:CLASE_COLOR[p.clase_rotacion]+"18", color:CLASE_COLOR[p.clase_rotacion],
-                      borderRadius:4, padding:"2px 8px", fontWeight:800, fontSize:11 }}>{p.clase_rotacion}</span>
-                  </div>
-                  <div>
-                    <span style={{ background:zi.bg, color:zi.color, borderRadius:5, padding:"3px 8px", fontWeight:700, fontSize:11 }}>
-                      Zona {p.zona}
-                    </span>
-                  </div>
-                  <div style={{ fontWeight:600 }}>{(p.unidades_vendidas||0).toLocaleString("es-CO")}</div>
-                  <div style={{ color:C.textMuted }}>{p.num_facturas}</div>
-                </div>
-              );
-            })}
-            {filtrados.length > 200 && (
-              <div style={{ textAlign:"center", padding:"12px", color:C.textMuted, fontSize:12 }}>
-                Mostrando 200 de {filtrados.length} — usa el buscador para filtrar
-              </div>
-            )}
-            {filtrados.length === 0 && (
-              <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:13 }}>
-                Sin resultados para "{busqueda}"
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
