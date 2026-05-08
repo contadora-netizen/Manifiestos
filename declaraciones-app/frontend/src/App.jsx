@@ -1244,7 +1244,7 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                 </div>
                 <div style={{ maxHeight:200, overflowY:"auto", border:"1px solid #c9dcf0", borderRadius:7, background:"#fff" }}>
                   {bdFacturasLista.map((f, i) => {
-                    const key = f.factura_numero_raw || f.factura_numero;
+                    const key = f.factura_numero_raw;
                     const sel = bdSeleccionadas.has(key);
                     return (
                       <div key={i} onClick={() => toggleSeleccionBD(key)}
@@ -1252,10 +1252,9 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                           background: sel ? "#e3f2fd" : (i%2===0 ? "#f8fafc" : "#fff"),
                           borderBottom:"1px solid #edf2f7", transition:"background 0.1s" }}>
                         <input type="checkbox" readOnly checked={sel} style={{ accentColor:C.blue, width:14, height:14 }} />
-                        <span style={{ fontSize:11, fontWeight:700, color:C.navy, minWidth:80 }}>{f.factura_label || f.factura_numero}</span>
-                        <span style={{ fontSize:11, color:C.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.cliente || "—"}</span>
+                        <span style={{ fontSize:11, fontWeight:700, color:C.navy, minWidth:90 }}>{f.factura}</span>
+                        <span style={{ fontSize:11, color:C.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.nombre || "—"}</span>
                         <span style={{ fontSize:10, color:C.blue, whiteSpace:"nowrap" }}>{f.ciudad || ""}</span>
-                        <span style={{ fontSize:10, color:C.textDim, whiteSpace:"nowrap" }}>{f.referencias?.length || 0} ref(s)</span>
                       </div>
                     );
                   })}
