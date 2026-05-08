@@ -1,0 +1,7 @@
+[build]
+builder = "nixpacks"
+buildCommand = "cd declaraciones-app/frontend && npm install && npm run build"
+
+[deploy]
+startCommand = "cd declaraciones-app/frontend && npm run preview"
+restartPolicyType = "on_failure"
