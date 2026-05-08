@@ -1705,6 +1705,201 @@ function ContratoRow({ contrato, onEdit }) {
   );
 }
 
+// ── Bodega Tab ────────────────────────────────────────────────────────────────
+const ZONA_INFO = {
+  A: { label: "Zona A — 1° Piso",  color: "#1e7e34", bg: "#e8f5e9", desc: "Alta rotación · Pegada al alistamiento" },
+  E: { label: "Zona E — 1° Piso",  color: "#1255a4", bg: "#e3f2fd", desc: "Rotación media-alta · 1° piso" },
+  F: { label: "Zona F — 1° Piso",  color: "#d4780a", bg: "#fff3e0", desc: "Rotación media-baja · Fondo 1° piso" },
+  B: { label: "Zona B — 2° Piso",  color: "#6a1b9a", bg: "#f3e5f5", desc: "Baja rotación · Toca bajar a mano" },
+  D: { label: "Zona D — 2° Piso",  color: "#6a1b9a", bg: "#f3e5f5", desc: "Baja rotación · Toca bajar a mano" },
+  G: { label: "Zona G — 2° Piso",  color: "#6a1b9a", bg: "#f3e5f5", desc: "Baja rotación · Toca bajar a mano" },
+  H: { label: "Zona H — 2° Piso",  color: "#6a1b9a", bg: "#f3e5f5", desc: "Baja rotación · Toca bajar a mano" },
+};
+const CLASE_COLOR = { A: "#1e7e34", B: "#1255a4", C: "#888" };
+
+function BodegaTab({ capiBase }) {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [meses, setMeses]     = useState(6);
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroZona, setFiltroZona]   = useState("todas");
+  const [filtroClase, setFiltroClase] = useState("todas");
+
+  const cargar = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${capiBase}/api/rotacion-bodega?meses=${meses}`);
+      const d = await r.json();
+      setData(d);
+    } catch (e) {
+      alert("Error cargando rotación: " + e.message);
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { cargar(); }, []);
+
+  const descargarCSV = () => {
+    if (!data) return;
+    const filas = [
+      ["Rank", "Código", "Descripción", "Clase", "Zona", "Unidades vendidas", "N° facturas"],
+      ...data.productos.map(p => [p.rank, p.codigo, `"${p.descripcion}"`, p.clase_rotacion, p.zona, p.unidades_vendidas, p.num_facturas])
+    ];
+    const csv = filas.map(f => f.join(";")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `ubicaciones_bodega_${meses}meses.csv`;
+    a.click();
+  };
+
+  const productos = data?.productos || [];
+  const filtrados = productos.filter(p => {
+    const txt = busqueda.toLowerCase();
+    const matchBus = !txt || p.codigo.toLowerCase().includes(txt) || (p.descripcion||"").toLowerCase().includes(txt);
+    const matchZona  = filtroZona  === "todas" || p.zona  === filtroZona;
+    const matchClase = filtroClase === "todas" || p.clase_rotacion === filtroClase;
+    return matchBus && matchZona && matchClase;
+  });
+
+  return (
+    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+        <div>
+          <div style={{ fontSize:18, fontWeight:800, color:C.navy }}>🏭 Organización de Bodega</div>
+          <div style={{ fontSize:12, color:C.textMuted }}>Ubicaciones por rotación ABC — basado en ventas reales</div>
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <select value={meses} onChange={e => setMeses(Number(e.target.value))}
+            style={{ border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px", fontSize:12, color:C.text }}>
+            {[3,6,12,24].map(m => <option key={m} value={m}>Últimos {m} meses</option>)}
+          </select>
+          <button onClick={cargar} disabled={loading}
+            style={{ background:C.blue, color:"white", border:"none", borderRadius:6, padding:"7px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            {loading ? "Cargando..." : "🔄 Actualizar"}
+          </button>
+          <button onClick={descargarCSV} disabled={!data}
+            style={{ background:C.green, color:"white", border:"none", borderRadius:6, padding:"7px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            ⬇ Excel CSV
+          </button>
+        </div>
+      </div>
+
+      {/* Resumen por zona */}
+      {data && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:8, marginBottom:20 }}>
+          {Object.entries(ZONA_INFO).map(([zona, info]) => {
+            const count = productos.filter(p => p.zona === zona).length;
+            return (
+              <div key={zona} onClick={() => setFiltroZona(filtroZona === zona ? "todas" : zona)}
+                style={{ background: filtroZona === zona ? info.bg : C.white, border:`2px solid ${filtroZona === zona ? info.color : C.border}`,
+                  borderRadius:10, padding:"10px 8px", textAlign:"center", cursor:"pointer", transition:"all 0.2s" }}>
+                <div style={{ fontSize:16, fontWeight:900, color:info.color }}>{zona}</div>
+                <div style={{ fontSize:10, color:C.textMuted, marginBottom:4 }}>{zona <= 'F' ? "1° Piso" : "2° Piso"}</div>
+                <div style={{ fontSize:18, fontWeight:800, color:C.text }}>{count}</div>
+                <div style={{ fontSize:9, color:C.textDim }}>referencias</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Resumen A/B/C */}
+      {data && (
+        <div style={{ display:"flex", gap:10, marginBottom:16 }}>
+          {[["A","Alta rotación",data.clase_A],["B","Media rotación",data.clase_B],["C","Baja rotación",data.clase_C]].map(([cls,lbl,cnt]) => (
+            <div key={cls} onClick={() => setFiltroClase(filtroClase === cls ? "todas" : cls)}
+              style={{ flex:1, background: filtroClase === cls ? CLASE_COLOR[cls]+"18" : C.white,
+                border:`2px solid ${filtroClase === cls ? CLASE_COLOR[cls] : C.border}`,
+                borderRadius:10, padding:"10px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontWeight:900, fontSize:20, color:CLASE_COLOR[cls] }}>{cls}</span>
+              <div>
+                <div style={{ fontWeight:700, fontSize:14, color:C.text }}>{cnt} referencias</div>
+                <div style={{ fontSize:11, color:C.textMuted }}>{lbl}</div>
+              </div>
+            </div>
+          ))}
+          <div style={{ flex:1, background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 14px", display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontWeight:900, fontSize:20, color:C.textDim }}>Σ</span>
+            <div>
+              <div style={{ fontWeight:700, fontSize:14, color:C.text }}>{data.total_referencias} refs</div>
+              <div style={{ fontSize:11, color:C.textMuted }}>{data.total_unidades?.toLocaleString("es-CO")} uds · {data.meses_analizados} meses</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Buscador */}
+      <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+        <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
+          placeholder="🔍 Buscar por código o descripción..."
+          style={{ flex:1, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", fontSize:13, color:C.text }} />
+        {(busqueda || filtroZona !== "todas" || filtroClase !== "todas") && (
+          <button onClick={() => { setBusqueda(""); setFiltroZona("todas"); setFiltroClase("todas"); }}
+            style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 14px", fontSize:12, color:C.textMuted, cursor:"pointer" }}>
+            ✕ Limpiar
+          </button>
+        )}
+        <div style={{ fontSize:12, color:C.textMuted, display:"flex", alignItems:"center" }}>
+          {filtrados.length} de {productos.length}
+        </div>
+      </div>
+
+      {/* Tabla */}
+      {loading ? (
+        <div style={{ textAlign:"center", padding:"3rem", color:C.textMuted }}>
+          <Spinner size={24}/><div style={{ marginTop:12 }}>Consultando rotación en base de datos...</div>
+        </div>
+      ) : (
+        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"50px 120px 1fr 60px 120px 100px 90px",
+            background:C.navy, color:"white", padding:"10px 14px", fontSize:11, fontWeight:700, letterSpacing:"0.05em" }}>
+            <div>#</div><div>CÓDIGO</div><div>DESCRIPCIÓN</div><div>CLASE</div><div>ZONA</div><div>UNIDADES</div><div>FACTURAS</div>
+          </div>
+          <div style={{ maxHeight:520, overflowY:"auto" }}>
+            {filtrados.slice(0, 200).map((p, i) => {
+              const zi = ZONA_INFO[p.zona] || {};
+              return (
+                <div key={p.codigo} style={{
+                  display:"grid", gridTemplateColumns:"50px 120px 1fr 60px 120px 100px 90px",
+                  padding:"8px 14px", fontSize:12, color:C.text,
+                  background: i % 2 === 0 ? "#f8fafc" : C.white,
+                  borderBottom:`1px solid ${C.border}`, alignItems:"center"
+                }}>
+                  <div style={{ color:C.textDim, fontSize:11 }}>{p.rank}</div>
+                  <div style={{ fontFamily:"monospace", fontWeight:700, color:C.blue, fontSize:11 }}>{p.codigo}</div>
+                  <div style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.descripcion}</div>
+                  <div>
+                    <span style={{ background:CLASE_COLOR[p.clase_rotacion]+"18", color:CLASE_COLOR[p.clase_rotacion],
+                      borderRadius:4, padding:"2px 8px", fontWeight:800, fontSize:11 }}>{p.clase_rotacion}</span>
+                  </div>
+                  <div>
+                    <span style={{ background:zi.bg, color:zi.color, borderRadius:5, padding:"3px 8px", fontWeight:700, fontSize:11 }}>
+                      Zona {p.zona}
+                    </span>
+                  </div>
+                  <div style={{ fontWeight:600 }}>{(p.unidades_vendidas||0).toLocaleString("es-CO")}</div>
+                  <div style={{ color:C.textMuted }}>{p.num_facturas}</div>
+                </div>
+              );
+            })}
+            {filtrados.length > 200 && (
+              <div style={{ textAlign:"center", padding:"12px", color:C.textMuted, fontSize:12 }}>
+                Mostrando 200 de {filtrados.length} — usa el buscador para filtrar
+              </div>
+            )}
+            {filtrados.length === 0 && (
+              <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:13 }}>
+                Sin resultados para "{busqueda}"
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [queue, setQueue] = useState([]);
@@ -2166,7 +2361,7 @@ export default function App() {
 
       {/* TABS */}
       <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "0 2rem", display: "flex" }}>
-        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["dashboard", "📊 Dashboard"], ["guias-ctt", "📄 Guías CTT"], ["contratos", `🚛 Contratos (${contratos.length})`], ["conductores", `👤 Conductores (${conductores.length})`]].map(([key, label]) => (
+        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["dashboard", "📊 Dashboard"], ["guias-ctt", "📄 Guías CTT"], ["contratos", `🚛 Contratos (${contratos.length})`], ["conductores", `👤 Conductores (${conductores.length})`], ["bodega", "🏭 Bodega"]].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
             background: "transparent", border: "none",
             borderBottom: tab === key ? `3px solid ${C.blue}` : "3px solid transparent",
@@ -2621,6 +2816,9 @@ export default function App() {
             capiBase={CAPI_BASE}
           />
         )}
+
+        {/* TAB: BODEGA */}
+        {tab === "bodega" && <BodegaTab capiBase={CAPI_BASE} />}
 
       </div>
 

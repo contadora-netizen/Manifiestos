@@ -527,6 +527,21 @@ app.get('/api/declaraciones/dia/:fecha', async (req, res) => {
   }
 });
 
+// ── Lógica de asignación de zona ─────────────────────────────────────────────
+function asignarZona(clase, rank) {
+  if (clase === 'A') {
+    return rank <= 50 ? 'A' : 'E';
+  }
+  if (clase === 'B') {
+    return rank <= 200 ? 'E' : 'F';
+  }
+  // Clase C → segundo piso distribuido en 4 zonas
+  if (rank <= 375)  return 'B';
+  if (rank <= 750)  return 'D';
+  if (rank <= 1125) return 'G';
+  return 'H';
+}
+
 // ── GET /api/rotacion-bodega?meses=6 ─────────────────────────────────────────
 // Rotación de productos: cuántas unidades y veces se vendió cada ref en N meses
 app.get('/api/rotacion-bodega', async (req, res) => {
@@ -571,14 +586,23 @@ app.get('/api/rotacion-bodega', async (req, res) => {
       };
     });
 
+    // Asignar zona y rank global
+    let rankC = 0;
+    const resultConZona = result.map((r, idx) => {
+      const rank = idx + 1;
+      if (r.clase_rotacion === 'C') rankC++;
+      const zona = asignarZona(r.clase_rotacion, r.clase_rotacion === 'C' ? rankC : rank);
+      return { ...r, rank, zona };
+    });
+
     res.json({
       meses_analizados: meses,
-      total_referencias: result.length,
+      total_referencias: resultConZona.length,
       total_unidades: Math.round(total),
-      clase_A: result.filter(r => r.clase_rotacion === 'A').length,
-      clase_B: result.filter(r => r.clase_rotacion === 'B').length,
-      clase_C: result.filter(r => r.clase_rotacion === 'C').length,
-      productos: result,
+      clase_A: resultConZona.filter(r => r.clase_rotacion === 'A').length,
+      clase_B: resultConZona.filter(r => r.clase_rotacion === 'B').length,
+      clase_C: resultConZona.filter(r => r.clase_rotacion === 'C').length,
+      productos: resultConZona,
     });
   } catch (err) {
     console.error('Error /api/rotacion-bodega:', err.message);
