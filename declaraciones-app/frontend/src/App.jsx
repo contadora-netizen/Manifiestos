@@ -899,8 +899,10 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   const [rutaHistorica, setRutaHistorica] = useState("");
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // ── Selector facturas BD ──────────────────────────────────────────────────
-  const [bdFechaContrato, setBdFechaContrato] = useState(new Date().toISOString().slice(0,10));
+  // ── Selector facturas BD (rango desde/hasta, solo FVELE) ─────────────────
+  const hoyContrato = new Date().toISOString().slice(0,10);
+  const [bdDesde, setBdDesde] = useState(hoyContrato);
+  const [bdHasta, setBdHasta] = useState(hoyContrato);
   const [bdFacturasLista, setBdFacturasLista] = useState([]);
   const [bdSeleccionadas, setBdSeleccionadas] = useState(new Set());
   const [bdLoading, setBdLoading] = useState(false);
@@ -912,11 +914,11 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     setBdSeleccionadas(new Set());
     try {
       const capiBase = (typeof CAPI_BASE !== "undefined" ? CAPI_BASE : "").replace(/\/api$/, "") || "http://localhost:3000";
-      const r = await fetch(`${capiBase}/api/facturas/dia/${bdFechaContrato}/referencias`);
+      const r = await fetch(`${capiBase}/api/lista-cargue?desde=${bdDesde}&hasta=${bdHasta}&tipos=FVELE`);
       const d = await r.json();
       setBdFacturasLista(d.facturas || []);
       setBdConsultado(true);
-    } catch (e) {
+    } catch {
       setBdFacturasLista([]);
       setBdConsultado(true);
     } finally {
@@ -924,32 +926,29 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     }
   };
 
-  const toggleSeleccionBD = (num) => {
+  const toggleSeleccionBD = (raw) => {
     setBdSeleccionadas(prev => {
       const s = new Set(prev);
-      s.has(num) ? s.delete(num) : s.add(num);
+      s.has(raw) ? s.delete(raw) : s.add(raw);
       return s;
     });
   };
 
   const aplicarFacturasBD = () => {
     if (!bdSeleccionadas.size) return;
-    const seleccionadas = bdFacturasLista.filter(f => bdSeleccionadas.has(f.factura_numero_raw || f.factura_numero));
-    // Números de factura: últimos 4-5 dígitos separados por " - "
-    const nums = seleccionadas.map(f => {
-      const n = String(f.factura_numero_raw || f.factura_numero);
-      return n.length > 5 ? n.slice(-5) : n;
-    });
+    const sels = bdFacturasLista.filter(f => bdSeleccionadas.has(f.factura_numero_raw));
+    const nums = sels.map(f => f.factura_numero_corto || String(f.factura_numero_raw).replace(/^0+/,''));
     set("facturas", nums.join(" - "));
-    // Destinos únicos
-    const destinos = [...new Set(seleccionadas.map(f => f.ciudad).filter(Boolean))];
-    if (destinos.length > 0) set("destino", destinos.join(" - "));
+    const destinos = [...new Set(sels.map(f => f.ciudad).filter(Boolean))];
+    if (destinos.length) set("destino", destinos.join(" - "));
+    // Guardar las facturas seleccionadas para crear lista de cargue al guardar
+    set("_facturasSeleccionadas", sels);
   };
 
   useEffect(() => {
-    const total = (Number(form.valor_contrato)||0) + (Number(form.valor_pelete)||0) + (Number(form.valor_palencia)||0);
+    const total = Number(form.valor_contrato) || 0;
     if (total > 0) setForm(f => ({ ...f, valor_total: total }));
-  }, [form.valor_contrato, form.valor_pelete, form.valor_palencia]);
+  }, [form.valor_contrato]);
 
   useEffect(() => {
     const base   = Number(form.valor_total)  || 0;
@@ -978,17 +977,29 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   const infoconductor = conductorHistorico ? CONDUCTORES_INFO[conductorHistorico] : null;
   const vehiculosDelConductor = infoconductor?.vehiculos || [];
 
-  const aplicarConductor = (nombreConductor, vehiculo) => {
+  const aplicarConductor = async (nombreConductor, vehiculo) => {
     const info = CONDUCTORES_INFO[nombreConductor];
-    if (!info) return;
+    // Buscar info adicional en la BD
+    let bdInfo = {};
+    try {
+      const capiBase = (typeof CAPI_BASE !== "undefined" ? CAPI_BASE : "").replace(/\/api$/, "") || "http://localhost:3000";
+      const r = await fetch(`${capiBase}/api/conductor-info?nombre=${encodeURIComponent(nombreConductor)}`);
+      const d = await r.json();
+      if (d.encontrado) bdInfo = d;
+    } catch {}
+
     setForm(f => ({
       ...f,
-      conductor_nombre: f.conductor_nombre || nombreConductor,
-      contratista_nombre: f.contratista_nombre || nombreConductor,
-      contratista_cc: f.contratista_cc || info.cc || "",
-      eps: info.eps || f.eps || "",
-      arl: info.arl || f.arl || "",
-      licencia_categoria: info.licencia_categoria || f.licencia_categoria || "",
+      conductor_nombre: nombreConductor,
+      contratista_nombre: nombreConductor,
+      contratista_cc: info?.cc || bdInfo.cc || f.contratista_cc || "",
+      contratista_telefono: bdInfo.telefono || f.contratista_telefono || "",
+      contratista_domicilio: bdInfo.direccion || f.contratista_domicilio || "",
+      contratista_ciudad: bdInfo.ciudad || f.contratista_ciudad || "",
+      conductor_celular: bdInfo.telefono || f.conductor_celular || "",
+      eps: info?.eps || f.eps || "",
+      arl: info?.arl || f.arl || "",
+      licencia_categoria: info?.licencia_categoria || f.licencia_categoria || "",
       ...(vehiculo ? {
         vehiculo_placas: vehiculo.placas || f.vehiculo_placas || "",
         vehiculo_marca: vehiculo.tipo || f.vehiculo_marca || "",
@@ -1004,12 +1015,23 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   const lbl = { fontSize: 10, color: C.textMuted, fontWeight: 600, marginBottom: 3, display: "block" };
   const inp = { width: "100%", border: `1px solid ${C.border}`, borderRadius: 5, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none", background: C.white };
   const Sec = ({ t }) => <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", margin: "16px 0 8px", paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>{t}</div>;
-  const F = ({ label, k, type="text", span=1, placeholder="" }) => (
-    <div style={{ gridColumn: `span ${span}` }}>
-      <label style={lbl}>{label}</label>
-      <input type={type} value={form[k]||""} onChange={e => set(k, e.target.value)} placeholder={placeholder} style={inp} />
-    </div>
-  );
+  const REQUIRED_FIELDS = new Set(["contratista_nombre","contratista_cc","contratista_telefono","contratista_domicilio","contratista_ciudad","conductor_nombre","conductor_celular","vehiculo_placas"]);
+  const F = ({ label, k, type="text", span=1, placeholder="", onEditClick }) => {
+    const isEmpty = REQUIRED_FIELDS.has(k) && !form[k];
+    return (
+      <div style={{ gridColumn: `span ${span}` }}>
+        <label style={{ ...lbl, color: isEmpty ? C.red : C.textMuted }}>{label}{isEmpty && " *"}</label>
+        <div style={{ position:"relative" }}>
+          <input type={type} value={form[k]||""} onChange={e => set(k, e.target.value)} placeholder={placeholder}
+            style={{ ...inp, borderColor: isEmpty ? C.red : C.border, background: isEmpty ? "#fff5f5" : C.white }} />
+          {isEmpty && onEditClick && (
+            <button onClick={onEditClick} title="Editar ficha conductor"
+              style={{ position:"absolute", right:4, top:"50%", transform:"translateY(-50%)", background:"transparent", border:"none", cursor:"pointer", color:C.red, fontSize:12 }}>✏️</button>
+          )}
+        </div>
+      </div>
+    );
+  };
   const g = (cols) => ({ display: "grid", gridTemplateColumns: `repeat(${cols},1fr)`, gap: 10 });
 
   return (
@@ -1147,50 +1169,17 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
 
           <Sec t="CONTRATISTA (TRANSPORTADOR)" />
           <div style={g(4)}>
-            <F label="Nombre completo" k="contratista_nombre" span={2} />
-            <F label="C.C." k="contratista_cc" />
-            <F label="Teléfono" k="contratista_telefono" />
-            <F label="Domicilio" k="contratista_domicilio" span={2} />
-            <F label="Ciudad" k="contratista_ciudad" />
+            <F label="Nombre completo" k="contratista_nombre" span={2} onEditClick={() => { onCancel(); }} />
+            <F label="C.C." k="contratista_cc" onEditClick={() => { onCancel(); }} />
+            <F label="Teléfono" k="contratista_telefono" onEditClick={() => { onCancel(); }} />
+            <F label="Domicilio" k="contratista_domicilio" span={2} onEditClick={() => { onCancel(); }} />
+            <F label="Ciudad" k="contratista_ciudad" onEditClick={() => { onCancel(); }} />
           </div>
 
           <Sec t="CONDUCTOR" />
-          {conductoresList.length > 0 && (
-            <div style={{ marginBottom:10 }}>
-              <label style={lbl}>Seleccionar conductor guardado (opcional)</label>
-              <select onChange={e => {
-                const c = conductoresList.find(x => x.id === e.target.value);
-                if (!c) return;
-                setForm(f => ({
-                  ...f,
-                  conductor_nombre: c.nombre || f.conductor_nombre,
-                  conductor_celular: c.celular || f.conductor_celular,
-                  contratista_nombre: c.nombre || f.contratista_nombre,
-                  contratista_cc: c.cc || f.contratista_cc,
-                  contratista_telefono: c.celular || f.contratista_telefono,
-                  contratista_domicilio: c.direccion || f.contratista_domicilio,
-                  contratista_ciudad: c.ciudad || f.contratista_ciudad,
-                  vehiculo_marca: c.vehiculo_marca || f.vehiculo_marca,
-                  vehiculo_placas: c.vehiculo_placas || f.vehiculo_placas,
-                  vehiculo_licencia: c.vehiculo_licencia || f.vehiculo_licencia,
-                  vehiculo_soat: c.soat || f.vehiculo_soat,
-                  tecnicomecanica: c.tecnicomecanica || f.tecnicomecanica,
-                  vehiculo_propietario: c.vehiculo_propietario || f.vehiculo_propietario,
-                  aseguradora: c.aseguradora || f.aseguradora,
-                  capacidad: c.capacidad || f.capacidad,
-                  medidas: c.medidas || f.medidas,
-                }));
-              }} defaultValue="" style={{ ...inp, cursor:"pointer" }}>
-                <option value="">— Elegir conductor —</option>
-                {conductoresList.map(c => (
-                  <option key={c.id} value={c.id}>{c.nombre}{c.vehiculo_placas ? ` · ${c.vehiculo_placas}` : ""}</option>
-                ))}
-              </select>
-            </div>
-          )}
           <div style={g(4)}>
-            <F label="Nombre conductor" k="conductor_nombre" span={2} />
-            <F label="Celular" k="conductor_celular" />
+            <F label="Nombre conductor" k="conductor_nombre" span={2} onEditClick={() => { onCancel(); }} />
+            <F label="Celular" k="conductor_celular" onEditClick={() => { onCancel(); }} />
           </div>
 
           <Sec t="VEHÍCULO" />
@@ -1214,9 +1203,13 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
               🗄️ SELECCIONAR FACTURAS DESDE BASE DE DATOS
             </div>
             <div style={{ display:"flex", gap:10, alignItems:"flex-end", marginBottom:10 }}>
-              <div style={{ flex:1 }}>
-                <label style={lbl}>Fecha del cargue</label>
-                <input type="date" value={bdFechaContrato} onChange={e => setBdFechaContrato(e.target.value)} style={{ ...inp, maxWidth:200 }} />
+              <div>
+                <label style={lbl}>Desde</label>
+                <input type="date" value={bdDesde} onChange={e => setBdDesde(e.target.value)} style={{ ...inp, maxWidth:160 }} />
+              </div>
+              <div>
+                <label style={lbl}>Hasta</label>
+                <input type="date" value={bdHasta} onChange={e => setBdHasta(e.target.value)} style={{ ...inp, maxWidth:160 }} />
               </div>
               <button onClick={consultarFacturasBD} disabled={bdLoading}
                 style={{ background:C.blue, color:"#fff", border:"none", borderRadius:7, padding:"7px 18px", cursor:"pointer", fontSize:12, fontWeight:700, whiteSpace:"nowrap", opacity:bdLoading?0.6:1 }}>
@@ -1277,12 +1270,11 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
               <input value={form.facturas||""} onChange={e => set("facturas",e.target.value)}
                 placeholder="Ej: 53741 - 742 - 743 - 744 - 745" style={inp} />
             </div>
-            <div style={{ gridColumn:"span 2" }}>
+            <div style={{ gridColumn:"span 3" }}>
               <label style={lbl}>Destino (ciudades)</label>
               <input value={form.destino||""} onChange={e => set("destino",e.target.value)}
                 placeholder="Ej: MEDELLÍN - SINCELEJO - AGUACHICA - OCAÑA" style={inp} />
             </div>
-            <F label="Devoluciones N°" k="devoluciones" />
             <div>
               <label style={lbl}>Valor total mercancía $</label>
               <input type="number" value={form.valor_mercancia||""} onChange={e => set("valor_mercancia",e.target.value)} style={inp} />
@@ -1291,20 +1283,12 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
 
           <Sec t="VALORES DEL CONTRATO" />
           <div style={g(4)}>
-            <div>
+            <div style={{ gridColumn:"span 2" }}>
               <label style={lbl}>Valor contrato $</label>
               <input type="number" value={form.valor_contrato||""} onChange={e => set("valor_contrato",e.target.value)} style={inp} />
             </div>
-            <div>
-              <label style={lbl}>Pelete $</label>
-              <input type="number" value={form.valor_pelete||""} onChange={e => set("valor_pelete",e.target.value)} style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>Palencia $</label>
-              <input type="number" value={form.valor_palencia||""} onChange={e => set("valor_palencia",e.target.value)} style={inp} />
-            </div>
-            <div>
-              <label style={lbl}>SS Total $ (automático)</label>
+            <div style={{ gridColumn:"span 2" }}>
+              <label style={lbl}>Total $ (automático)</label>
               <input readOnly value={form.valor_total ? `$${Number(form.valor_total).toLocaleString("es-CO")}` : ""}
                 style={{ ...inp, background:"#f0f4f8", fontWeight:700, color:C.green }} />
             </div>
@@ -1366,7 +1350,35 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
           <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:20, paddingTop:16, borderTop:`1px solid ${C.border}` }}>
             <button onClick={onCancel} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:7, padding:"9px 20px", cursor:"pointer", color:C.textMuted, fontSize:12 }}>Cancelar</button>
             <button onClick={() => generateContratoPDF(form)} style={{ background:C.blue, color:"white", border:"none", borderRadius:7, padding:"9px 20px", cursor:"pointer", fontWeight:700, fontSize:12 }}>🖨 Vista previa / Imprimir</button>
-            <button onClick={() => onSave(form)} style={{ background:`linear-gradient(135deg,${C.accent},${C.gold})`, color:"white", border:"none", borderRadius:7, padding:"9px 20px", cursor:"pointer", fontWeight:700, fontSize:12 }}>💾 Guardar contrato</button>
+            <button onClick={() => {
+              onSave(form);
+              // Crear lista de cargue automáticamente si hay facturas seleccionadas
+              const sels = form._facturasSeleccionadas;
+              if (sels && sels.length > 0) {
+                const todas = lcGetAll();
+                const id = `contrato_${form.numero}_${Date.now()}`;
+                const nuevaLista = {
+                  id,
+                  desde: bdDesde, hasta: bdHasta,
+                  guardadoEn: new Date().toLocaleString("es-CO"),
+                  totalFacturas: sels.length,
+                  totalBultos: 0,
+                  filas: sels.map(f => ({
+                    _id: f.factura_numero_raw,
+                    num_cliente: "",
+                    cliente_codigo: f.cliente_codigo || "",
+                    nombre: f.nombre || "",
+                    factura: f.factura || "",
+                    ciudad: f.ciudad || "",
+                    remesa: "",
+                    transportadora: "",
+                    bultos: "",
+                  })),
+                };
+                todas.unshift(nuevaLista);
+                lcSaveAll(todas.slice(0, 60));
+              }
+            }} style={{ background:`linear-gradient(135deg,${C.accent},${C.gold})`, color:"white", border:"none", borderRadius:7, padding:"9px 20px", cursor:"pointer", fontWeight:700, fontSize:12 }}>💾 Guardar contrato</button>
           </div>
         </div>
       </div>
