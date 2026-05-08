@@ -363,6 +363,9 @@ app.get('/api/facturas/dia/:fecha/referencias', async (req, res) => {
         d.DCL_NUMERO          AS factura_numero,
         d.DCL_TDT_CODIGO      AS tipo_doc,
         d.DCL_FECHA           AS fecha,
+        d.DCL_CLT_CODIGO      AS cliente_codigo,
+        d.DCL_NETO            AS valor_neto,
+        d.DCL_BULTOS          AS bultos_factura,
         c.CLT_NOMBRE          AS cliente,
         cd.CDD_DESCRI         AS ciudad,
         m.MCL_UPP_PDT_CODIGO  AS referencia,
@@ -391,12 +394,15 @@ app.get('/api/facturas/dia/:fecha/referencias', async (req, res) => {
         const num = key.replace(/^0+/, '') || '0';
         facturaMap.set(key, {
           factura_numero: num,
-          factura_label: `${row.tipo_doc} ${num}`,   // ej: "FVELE 54089"
+          factura_label: `${row.tipo_doc} ${num}`,
           tipo_doc: row.tipo_doc,
           factura_numero_raw: key,
           fecha: row.fecha,
+          cliente_codigo: row.cliente_codigo || '',
           cliente: row.cliente || '',
           ciudad: row.ciudad || '',
+          valor_neto: parseFloat(row.valor_neto) || 0,
+          bultos: parseFloat(row.bultos_factura) || 0,
           referencias: [],
           lineas_raw: 0,
         });

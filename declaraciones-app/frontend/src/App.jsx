@@ -2306,6 +2306,194 @@ function BodegaTab({ capiBase }) {
   );
 }
 
+// ── Lista de Cargue ──────────────────────────────────────────────────────────
+function ListaCargueTab({ capiBase }) {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const [fecha, setFecha] = useState(hoy);
+  const [loading, setLoading] = useState(false);
+  const [filas, setFilas] = useState([]);
+  const [consultado, setConsultado] = useState(false);
+
+  const consultar = async () => {
+    setLoading(true);
+    setConsultado(false);
+    try {
+      const base = (capiBase || "").replace(/\/api$/, "") || "http://localhost:3000";
+      const r = await fetch(`${base}/api/facturas/dia/${fecha}/referencias`);
+      const d = await r.json();
+      const facturas = d.facturas || [];
+      setFilas(facturas.map(f => ({
+        _id: f.factura_numero_raw || f.factura_numero,
+        num_cliente: "",
+        cliente_codigo: f.cliente_codigo || "",
+        nombre: f.cliente || "",
+        factura: f.factura_label || f.factura_numero,
+        ciudad: f.ciudad || "",
+        remesa: "",
+        transportadora: "",
+        bultos: f.bultos != null ? String(f.bultos) : "",
+      })));
+      setConsultado(true);
+    } catch {
+      setConsultado(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setFila = (id, campo, valor) => {
+    setFilas(prev => prev.map(f => f._id === id ? { ...f, [campo]: valor } : f));
+  };
+
+  const imprimir = () => {
+    const fechaFmt = new Date(fecha + "T12:00:00").toLocaleDateString("es-CO", { day:"2-digit", month:"long", year:"numeric" });
+    const filasTrs = filas.map(f => `
+      <tr>
+        <td>${f.num_cliente}</td>
+        <td>${f.cliente_codigo}</td>
+        <td>${f.nombre}</td>
+        <td>${f.factura}</td>
+        <td>${f.ciudad}</td>
+        <td>${f.remesa}</td>
+        <td>${f.transportadora}</td>
+        <td style="text-align:center;font-weight:700">${f.bultos}</td>
+      </tr>`).join("");
+    const totalBultos = filas.reduce((s, f) => s + (parseFloat(f.bultos) || 0), 0);
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>Lista de Cargue ${fecha}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:9px;padding:10mm 12mm;color:#000}
+h2{font-size:13px;margin-bottom:2px}
+.sub{font-size:9px;color:#555;margin-bottom:8px}
+table{width:100%;border-collapse:collapse;margin-top:6px}
+th{background:#1255a4;color:#fff;padding:5px 4px;text-align:left;font-size:8.5px}
+td{border:1px solid #ccc;padding:4px;font-size:8.5px;vertical-align:middle}
+tr:nth-child(even) td{background:#f5f8fc}
+.tot{text-align:right;font-size:9px;margin-top:6px;font-weight:bold}
+@media print{body{padding:6mm}}
+</style></head><body>
+<h2>ALUMAR SAS — LISTA DE CARGUE</h2>
+<div class="sub">Fecha: ${fechaFmt} &nbsp;|&nbsp; Total facturas: ${filas.length} &nbsp;|&nbsp; Total bultos: ${totalBultos}</div>
+<table>
+<tr><th>N° Cliente</th><th>Cód. Cliente</th><th>Nombre</th><th>Factura</th><th>Ciudad</th><th>Remesa</th><th>Transportadora</th><th>Bultos</th></tr>
+${filasTrs}
+</table>
+<div class="tot">Total bultos: ${totalBultos}</div>
+</body></html>`;
+    const w = window.open("", "_blank");
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 400);
+  };
+
+  const descargarCSV = () => {
+    const cols = ["N° Cliente","Cód. Cliente","Nombre","Factura","Ciudad","Remesa","Transportadora","Bultos"];
+    const rows = filas.map(f => [f.num_cliente, f.cliente_codigo, f.nombre, f.factura, f.ciudad, f.remesa, f.transportadora, f.bultos].map(v => `"${String(v).replace(/"/g,'""')}"`).join(","));
+    const csv = [cols.join(","), ...rows].join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `lista_cargue_${fecha}.csv`;
+    a.click();
+  };
+
+  const inp = { border:`1px solid ${C.border}`, borderRadius:4, padding:"3px 6px", fontSize:11, width:"100%", color:C.text, outline:"none" };
+  const COLS = [
+    { key:"num_cliente",    label:"N° Cliente",     w:90,  edit:true  },
+    { key:"cliente_codigo", label:"Cód. Cliente",   w:90,  edit:false },
+    { key:"nombre",         label:"Nombre",         w:180, edit:false },
+    { key:"factura",        label:"Factura",        w:110, edit:false },
+    { key:"ciudad",         label:"Ciudad",         w:120, edit:false },
+    { key:"remesa",         label:"Remesa",         w:100, edit:true  },
+    { key:"transportadora", label:"Transportadora", w:130, edit:true  },
+    { key:"bultos",         label:"Bultos",         w:70,  edit:true  },
+  ];
+
+  return (
+    <div style={{ padding:"1.5rem", maxWidth:1100 }}>
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontSize:18, fontWeight:700, color:C.navy, marginBottom:4 }}>📦 Lista de Cargue</div>
+        <div style={{ fontSize:12, color:C.textMuted }}>Consulte las facturas del día, complete los datos editables e imprima la lista para el personal de bodega.</div>
+      </div>
+
+      {/* Controles */}
+      <div style={{ display:"flex", gap:10, alignItems:"flex-end", marginBottom:16, background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" }}>
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:4 }}>FECHA</div>
+          <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
+            style={{ ...inp, width:160 }} />
+        </div>
+        <button onClick={consultar} disabled={loading}
+          style={{ background:C.blue, color:"#fff", border:"none", borderRadius:7, padding:"8px 20px", cursor:"pointer", fontSize:12, fontWeight:700, opacity:loading?0.6:1 }}>
+          {loading ? "⏳ Consultando..." : "🔍 Consultar BD"}
+        </button>
+        {filas.length > 0 && (<>
+          <button onClick={imprimir}
+            style={{ background:C.navy, color:"#fff", border:"none", borderRadius:7, padding:"8px 18px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
+            🖨️ Imprimir
+          </button>
+          <button onClick={descargarCSV}
+            style={{ background:C.green, color:"#fff", border:"none", borderRadius:7, padding:"8px 18px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
+            📥 Descargar CSV
+          </button>
+          <span style={{ marginLeft:"auto", fontSize:12, color:C.textMuted, alignSelf:"center" }}>
+            {filas.length} factura(s) · {filas.reduce((s,f)=>s+(parseFloat(f.bultos)||0),0)} bultos total
+          </span>
+        </>)}
+      </div>
+
+      {consultado && filas.length === 0 && (
+        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:24, textAlign:"center", color:C.textMuted, fontSize:13 }}>
+          ⚠️ No se encontraron facturas para {fecha}.
+        </div>
+      )}
+
+      {filas.length > 0 && (
+        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+              <thead>
+                <tr style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})` }}>
+                  {COLS.map(col => (
+                    <th key={col.key} style={{ padding:"9px 8px", textAlign:"left", color:"#fff", fontWeight:700, fontSize:11, whiteSpace:"nowrap", minWidth:col.w }}>
+                      {col.label}{col.edit && <span style={{ fontSize:8, opacity:0.7, marginLeft:3 }}>✏️</span>}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filas.map((f, i) => (
+                  <tr key={f._id} style={{ background: i%2===0 ? "#f8fafc" : C.white }}>
+                    {COLS.map(col => (
+                      <td key={col.key} style={{ padding:"6px 8px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle" }}>
+                        {col.edit ? (
+                          <input value={f[col.key]} onChange={e => setFila(f._id, col.key, e.target.value)}
+                            style={{ ...inp, background: "#fffde7", borderColor:"#f9a825" }} />
+                        ) : (
+                          <span style={{ color: col.key === "factura" ? C.blue : C.text, fontWeight: col.key === "factura" ? 700 : 400 }}>{f[col.key]}</span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ background:"#f0f4f8" }}>
+                  <td colSpan={7} style={{ padding:"8px", textAlign:"right", fontWeight:700, fontSize:12, color:C.navy }}>Total bultos:</td>
+                  <td style={{ padding:"8px", fontWeight:700, fontSize:13, color:C.green, textAlign:"center" }}>
+                    {filas.reduce((s,f)=>s+(parseFloat(f.bultos)||0),0)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [queue, setQueue] = useState([]);
@@ -2767,7 +2955,7 @@ export default function App() {
 
       {/* TABS */}
       <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "0 2rem", display: "flex" }}>
-        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["dashboard", "📊 Dashboard"], ["guias-ctt", "📄 Guías CTT"], ["contratos", `🚛 Contratos (${contratos.length})`], ["conductores", `👤 Conductores (${conductores.length})`], ["bodega", "🏭 Bodega"]].map(([key, label]) => (
+        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["dashboard", "📊 Dashboard"], ["guias-ctt", "📄 Guías CTT"], ["contratos", `🚛 Contratos (${contratos.length})`], ["conductores", `👤 Conductores (${conductores.length})`], ["bodega", "🏭 Bodega"], ["lista-cargue", "📦 Lista Cargue"]].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
             background: "transparent", border: "none",
             borderBottom: tab === key ? `3px solid ${C.blue}` : "3px solid transparent",
@@ -3225,6 +3413,9 @@ export default function App() {
 
         {/* TAB: BODEGA */}
         {tab === "bodega" && <BodegaTab capiBase={CAPI_BASE} />}
+
+        {/* TAB: LISTA CARGUE */}
+        {tab === "lista-cargue" && <ListaCargueTab capiBase={CAPI_BASE} />}
 
       </div>
 
