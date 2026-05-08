@@ -292,22 +292,33 @@ function Step({ n, label, active, done }) {
 function InvoiceRow({ item, onRemove, onPreview }) {
   const statusColor = { pending: C.textDim, processing: C.blue, done: C.green, error: C.red }[item.status];
   const statusLabel = { pending: "En espera", processing: "Procesando...", done: "✓ Listo", error: "✗ Error" }[item.status];
+  const displayName = item.isAuto ? item.label : item.file?.name;
+  const displaySub  = item.isAuto
+    ? `${item.cliente || ""}${item.ciudad ? ` · ${item.ciudad}` : ""} · ${item.refs?.length || 0} refs`
+    : `${(item.file?.size / 1024).toFixed(0)} KB`;
+  const noMatchFile = item.isAuto
+    ? `no-match_${item.label}.txt`
+    : `no-match_${(item.file?.name || "").replace(".pdf","")}.txt`;
 
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 10,
       padding: "8px 10px", borderRadius: 7,
       background: item.status === "processing" ? "#1255a408" : "#f8fafc",
-      border: `1px solid ${item.status === "processing" ? C.blue + "44" : C.border}`,
+      border: `1px solid ${item.status === "processing" ? C.blue + "44" : item.isAuto ? "#1e7e3444" : C.border}`,
       marginBottom: 6, transition: "all 0.2s"
     }}>
-      <div style={{ fontSize: 18 }}>📄</div>
+      <div style={{ fontSize: 18 }}>{item.isAuto ? "🤖" : "📄"}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {item.file.name}
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {displayName}
+          </div>
+          {item.isAuto && (
+            <span style={{ fontSize:9, background:"#e8f5e9", color:C.green, borderRadius:3, padding:"1px 5px", fontWeight:700, flexShrink:0 }}>BD AUTO</span>
+          )}
         </div>
-        <div style={{ fontSize: 10, color: C.textMuted }}>{(item.file.size / 1024).toFixed(0)} KB</div>
-        {/* Referencias no encontradas */}
+        <div style={{ fontSize: 10, color: C.textMuted }}>{displaySub}</div>
         {item.notFound?.length > 0 && (
           <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
             <span style={{ fontSize: 9, color: C.red, fontWeight: 700 }}>Sin declaración: </span>
@@ -330,7 +341,7 @@ function InvoiceRow({ item, onRemove, onPreview }) {
             ⬇
           </a>
           {item.reportUrl && (
-            <a href={item.reportUrl} download={`no-match_${item.file.name.replace(".pdf","")}.txt`}
+            <a href={item.reportUrl} download={noMatchFile}
               title="Descargar reporte de referencias sin declaración"
               style={{ fontSize: 11, background: C.accent, color: "white", borderRadius: 5, padding: "4px 10px", textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center" }}>
               📋
@@ -1715,6 +1726,13 @@ export default function App() {
   const [procesadosLoading, setProcesadosLoading] = useState(false);
   const [gsLoading, setGsLoading] = useState(true);
   const [gsError, setGsError] = useState(null);
+  // ── Auto-BD ────────────────────────────────────────────────────────────────
+  const [autoEnabled, setAutoEnabled] = useState(false);
+  const [autoProcessing, setAutoProcessing] = useState(false);
+  const [autoStatus, setAutoStatus] = useState({ totalHoy: 0, ultimaRevision: null, proxima: null });
+  const autoProcessedRef = useRef(new Set());   // números de factura ya encolados
+  const autoIntervalRef  = useRef(null);
+  // ──────────────────────────────────────────────────────────────────────────
   const fileRef = useRef();
   const logRef = useRef();
 
@@ -1747,6 +1765,98 @@ export default function App() {
 
   const addLog = (msg) => setActiveLog(prev => [...prev, { ts: new Date().toLocaleTimeString(), msg }]);
 
+  // ── Auto-BD: procesar items desde BD (sin archivo físico) ─────────────────
+  const processAutoItems = async (items) => {
+    if (!items.length) return;
+    setAutoProcessing(true);
+    for (const item of items) {
+      setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "processing" } : i));
+      addLog(`🤖 [Auto] ${item.label} · ${item.refs.length} referencia${item.refs.length !== 1 ? "s" : ""}...`);
+      try {
+        const res = await fetch(`${API}/api/process-refs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ referencias: item.refs, factura_nombre: item.label, cache_hints: getProductCache() }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          addLog(`  ✗ ${item.label}: ${err.error || `HTTP ${res.status}`}`);
+          setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
+          continue;
+        }
+        const resumen  = JSON.parse(res.headers.get("X-Resumen")        || "[]");
+        const notFound = JSON.parse(res.headers.get("X-No-Encontrados") || "[]");
+        const cacheUpd = res.headers.get("X-Cache-Update");
+        if (cacheUpd) { try { saveProductCache({ ...getProductCache(), ...JSON.parse(cacheUpd) }); } catch {} }
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        const filename = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `dec_${item.label}.pdf`;
+        resumen.forEach(r => addLog(`  ✓ ${r.proveedor}: ${r.archivo} (${r.paginas_incluidas} págs.)`));
+        if (notFound.length) addLog(`  ⚠ Sin dec.: ${notFound.slice(0, 4).join(", ")}${notFound.length > 4 ? ` +${notFound.length - 4}` : ""}`);
+        setQueue(prev => prev.map(i =>
+          i.id === item.id ? { ...i, status: "done", resultUrl: url, resultFilename: filename, notFound, date: todayStr() } : i
+        ));
+        saveHistory({ id: item.id, date: new Date().toISOString(), invoiceName: item.label, matches: resumen, notFound, pdfFilename: filename });
+        await savePdfToStorage(item.id, blob);
+      } catch (e) {
+        addLog(`  ✗ ${item.label}: ${e.message}`);
+        setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
+      }
+    }
+    setAutoProcessing(false);
+    addLog("─── Auto-BD completado ───");
+  };
+
+  // ── Auto-BD: revisar facturas nuevas de hoy ───────────────────────────────
+  const runAutoCheck = useCallback(async () => {
+    const hoy = new Date().toISOString().slice(0, 10);
+    const ahora = new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+    const proxStr = new Date(Date.now() + 5 * 60 * 1000).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+    setAutoStatus(s => ({ ...s, ultimaRevision: ahora, proxima: proxStr }));
+    try {
+      const r = await fetch(`${CAPI_BASE}/api/facturas/dia/${hoy}/referencias`);
+      const d = await r.json();
+      const facturas = d.facturas || [];
+      setAutoStatus(s => ({ ...s, totalHoy: facturas.length }));
+      const nuevas = facturas.filter(f =>
+        f.referencias.length > 0 &&
+        !autoProcessedRef.current.has(f.factura_numero_raw)
+      );
+      if (!nuevas.length) return;
+      addLog(`🤖 Auto-BD: ${nuevas.length} factura${nuevas.length !== 1 ? "s" : ""} nueva${nuevas.length !== 1 ? "s" : ""} detectada${nuevas.length !== 1 ? "s" : ""}`);
+      nuevas.forEach(f => autoProcessedRef.current.add(f.factura_numero_raw));
+      const items = nuevas.map(f => ({
+        id: crypto.randomUUID(),
+        isAuto: true,
+        label: f.factura_label || f.factura_numero,
+        factura_numero: f.factura_numero,
+        factura_numero_raw: f.factura_numero_raw,
+        cliente: f.cliente || "",
+        ciudad: f.ciudad || "",
+        refs: f.referencias,
+        status: "pending",
+        resultUrl: null, resultFilename: null,
+        notFound: [], reportUrl: null, date: todayStr(),
+      }));
+      setQueue(prev => [...prev, ...items]);
+      processAutoItems(items);
+    } catch (e) {
+      console.warn("[Auto-BD] Error:", e.message);
+    }
+  }, []);
+
+  // ── Intervalo cada 5 minutos ──────────────────────────────────────────────
+  useEffect(() => {
+    if (autoEnabled) {
+      runAutoCheck();
+      autoIntervalRef.current = setInterval(runAutoCheck, 5 * 60 * 1000);
+    } else {
+      if (autoIntervalRef.current) { clearInterval(autoIntervalRef.current); autoIntervalRef.current = null; }
+      setAutoStatus(s => ({ ...s, proxima: null }));
+    }
+    return () => { if (autoIntervalRef.current) clearInterval(autoIntervalRef.current); };
+  }, [autoEnabled]);
+
   const addFiles = useCallback((files) => {
     const pdfs = Array.from(files).filter(f => f.name.toLowerCase().endsWith(".pdf"));
     if (!pdfs.length) return;
@@ -1774,6 +1884,44 @@ export default function App() {
 
     for (const item of pending) {
       setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "processing" } : i));
+
+      // Items auto-BD usan /api/process-refs en lugar de /api/process
+      if (item.isAuto) {
+        addLog(`⏳ [Auto] ${item.label}...`);
+        try {
+          const res = await fetch(`${API}/api/process-refs`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ referencias: item.refs, factura_nombre: item.label, cache_hints: getProductCache() }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            addLog(`✗ ${item.label}: ${err.error || "Error"}`);
+            setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
+            saveHistory({ id: item.id, date: new Date().toISOString(), invoiceName: item.label, matches: [], notFound: [] });
+            continue;
+          }
+          const resumen  = JSON.parse(res.headers.get("X-Resumen")        || "[]");
+          const notFound = JSON.parse(res.headers.get("X-No-Encontrados") || "[]");
+          const cacheUpd = res.headers.get("X-Cache-Update");
+          if (cacheUpd) { try { saveProductCache(JSON.parse(cacheUpd)); } catch {} }
+          const blob = await res.blob();
+          const url  = URL.createObjectURL(blob);
+          const filename = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `dec_${item.label}.pdf`;
+          resumen.forEach(r => addLog(`✓ ${r.proveedor}: ${r.archivo} (${r.paginas_incluidas} págs.)`));
+          if (notFound.length) addLog(`⚠ Sin declaración: ${notFound.join(", ")}`);
+          addLog(`✓ PDF listo — ${resumen.reduce((a, r) => a + r.paginas_incluidas, 0)} páginas`);
+          setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "done", resultUrl: url, resultFilename: filename, notFound, date: todayStr() } : i));
+          saveHistory({ id: item.id, date: new Date().toISOString(), invoiceName: item.label, matches: resumen, notFound, pdfFilename: filename });
+          await savePdfToStorage(item.id, blob);
+          setPdfModal({ url, filename });
+        } catch (e) {
+          addLog(`✗ ${item.label}: ${e.message}`);
+          setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
+        }
+        continue;
+      }
+
       addLog(`⏳ Procesando ${item.file.name}...`);
 
       const fd = new FormData();
@@ -1966,7 +2114,7 @@ export default function App() {
 
       {/* TABS */}
       <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "0 2rem", display: "flex" }}>
-        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["dashboard", "📊 Dashboard"], ["guias-ctt", "📄 Guías CTT"], ["contratos", `🚛 Contratos (${contratos.length})`], ["conductores", `👤 Conductores (${conductores.length})`], ["procesados", `📂 Procesados${procesados.length > 0 ? ` (${procesados.length})` : ""}`]].map(([key, label]) => (
+        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["dashboard", "📊 Dashboard"], ["guias-ctt", "📄 Guías CTT"], ["contratos", `🚛 Contratos (${contratos.length})`], ["conductores", `👤 Conductores (${conductores.length})`]].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
             background: "transparent", border: "none",
             borderBottom: tab === key ? `3px solid ${C.blue}` : "3px solid transparent",
@@ -1993,6 +2141,71 @@ export default function App() {
                   <Step n="1" label="Agregar facturas PDF" active={!queue.length} done={queue.length > 0} />
                   <Step n="2" label="Generar declaraciones" active={queue.length > 0 && !processing} done={doneCount > 0} />
                 </div>
+              </div>
+
+              {/* Auto-BD */}
+              <div style={{ background: C.white, border: `1px solid ${autoEnabled ? "#1e7e3466" : C.border}`, borderRadius: 12, padding: "1.25rem", boxShadow: C.shadow, transition:"border-color 0.3s" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 12 }}>AUTOMÁTICO DESDE BD</div>
+
+                {/* Toggle */}
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: autoEnabled ? C.green : C.text }}>
+                      {autoEnabled ? "🟢 Activo" : "⚫ Inactivo"}
+                    </div>
+                    <div style={{ fontSize: 10, color: C.textMuted }}>Revisa cada 5 min</div>
+                  </div>
+                  <button
+                    onClick={() => setAutoEnabled(v => !v)}
+                    style={{
+                      width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
+                      background: autoEnabled ? C.green : C.border,
+                      position: "relative", transition: "background 0.25s"
+                    }}>
+                    <span style={{
+                      position:"absolute", top: 3, left: autoEnabled ? 22 : 2,
+                      width: 18, height: 18, borderRadius: "50%", background: "white",
+                      transition: "left 0.25s", boxShadow:"0 1px 3px rgba(0,0,0,0.2)"
+                    }} />
+                  </button>
+                </div>
+
+                {/* Status */}
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:11 }}>
+                    <span style={{ color:C.textMuted }}>Facturas hoy</span>
+                    <span style={{ fontWeight:700, color:C.text }}>{autoStatus.totalHoy}</span>
+                  </div>
+                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:11 }}>
+                    <span style={{ color:C.textMuted }}>Encoladas</span>
+                    <span style={{ fontWeight:700, color:C.green }}>{queue.filter(q => q.isAuto).length}</span>
+                  </div>
+                  {autoStatus.ultimaRevision && (
+                    <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, color:C.textMuted, borderTop:`1px solid ${C.border}`, paddingTop:6, marginTop:2 }}>
+                      <span>Última revisión</span>
+                      <span>{autoStatus.ultimaRevision}</span>
+                    </div>
+                  )}
+                  {autoStatus.proxima && (
+                    <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, color:C.textMuted }}>
+                      <span>Próxima</span>
+                      <span>{autoStatus.proxima}</span>
+                    </div>
+                  )}
+                  {autoProcessing && (
+                    <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:11, color:C.green, marginTop:4 }}>
+                      <Spinner size={10}/> Procesando automáticamente...
+                    </div>
+                  )}
+                </div>
+
+                {/* Botón verificar ahora */}
+                {autoEnabled && (
+                  <button onClick={runAutoCheck} disabled={autoProcessing}
+                    style={{ marginTop:12, width:"100%", background:"#f0f4f8", border:`1px solid ${C.border}`, borderRadius:6, padding:"7px 0", fontSize:11, color:C.textMuted, cursor:"pointer", fontWeight:600 }}>
+                    🔄 Verificar ahora
+                  </button>
+                )}
               </div>
 
               {/* Drop zone */}
