@@ -2127,33 +2127,33 @@ export default function App() {
 
       {/* HEADER */}
       <div style={{
-        background: `linear-gradient(135deg, ${C.navy} 0%, ${C.navyMid} 100%)`,
-        borderBottom: "3px solid #d4780a",
-        padding: "0 2rem", height: 62,
+        background: "#ffffff",
+        borderBottom: "3px solid #cc1111",
+        padding: "0 2rem", height: 68,
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        boxShadow: "0 2px 16px rgba(10,31,60,0.25)"
+        boxShadow: "0 2px 12px rgba(0,0,0,0.10)"
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ background: "#ffffff", border: "2px solid #2a2a2a", borderRadius: 4, padding: "4px 10px", lineHeight: 1, boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }}>
-            <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 22, color: "#cc1111", letterSpacing: "-0.5px", lineHeight: 1 }}>alumar</div>
-            <div style={{ fontSize: 7.5, color: "#2a2a2a", letterSpacing: "0.04em", fontWeight: 500, textAlign: "center", marginTop: 2 }}>International Housewares</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+          <div style={{ background: "#ffffff", border: "2px solid #2a2a2a", borderRadius: 5, padding: "6px 14px", lineHeight: 1, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+            <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 30, color: "#cc1111", letterSpacing: "-0.5px", lineHeight: 1 }}>alumar</div>
+            <div style={{ fontSize: 8.5, color: "#2a2a2a", letterSpacing: "0.04em", fontWeight: 500, textAlign: "center", marginTop: 3 }}>International Housewares</div>
           </div>
-          <div style={{ width: 1, height: 36, background: "#ffffff22" }} />
-          <div style={{ fontSize: 10, color: "#a0b8d0", letterSpacing: "0.06em" }}>
-            DECLARACIONES DE IMPORTACIÓN<br />
-            <span style={{ color: "#6a8fb0" }}>Generador automático DIAN</span>
+          <div style={{ width: 1, height: 42, background: "#e0e0e0" }} />
+          <div style={{ fontSize: 11, color: "#cc1111", letterSpacing: "0.06em", fontWeight: 700 }}>
+            LOGÍSTICA Y DESPACHOS<br />
+            <span style={{ color: "#888", fontWeight: 400, fontSize: 10 }}>Sistema de gestión Alumar</span>
           </div>
         </div>
-        <div style={{ fontSize: 10, color: "#6a8fb0", textAlign: "right" }}>
+        <div style={{ fontSize: 10, color: C.textMuted, textAlign: "right" }}>
           <div style={{ display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
             {gsLoading
-              ? <><Spinner size={10}/><span style={{ color:"#8faec8" }}>Conectando Google Sheets...</span></>
+              ? <><Spinner size={10}/><span style={{ color:C.textMuted }}>Conectando Google Sheets...</span></>
               : gsError
-              ? <span style={{ color:"#ff8a80" }}>⚠ Sin conexión GS</span>
-              : <span style={{ color:"#69f0ae" }}>● Google Sheets</span>
+              ? <span style={{ color:C.red }}>⚠ Sin conexión GS</span>
+              : <span style={{ color:C.green }}>● Google Sheets</span>
             }
           </div>
-          <div style={{ color: "#8faec8" }}>{new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</div>
+          <div style={{ color: C.textDim }}>{new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</div>
         </div>
       </div>
 
