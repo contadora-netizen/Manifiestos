@@ -1788,7 +1788,7 @@ function CroquisBodega({ productos, zonaActiva, onZonaClick, piso }) {
       <text x={650} y={174} textAnchor="middle" fontSize={10} fill="#546e7a" fontWeight={600}>Facturación</text>
 
       {/* Leyenda */}
-      <text x={10} y={315} fontSize={9} fill="#90a4ae}>💡 Clic en una zona para ver sus productos</text>
+      <text x={10} y={315} fontSize={9} fill="#90a4ae">💡 Clic en una zona para ver sus productos</text>
     </svg>
   );
 
