@@ -361,8 +361,8 @@ app.get('/api/facturas/dia/:fecha/referencias', async (req, res) => {
     const [lineas] = await getPool().query(`
       SELECT
         d.DCL_NUMERO          AS factura_numero,
-        d.DCL_FECHA           AS fecha,
         d.DCL_TDT_CODIGO      AS tipo_doc,
+        d.DCL_FECHA           AS fecha,
         c.CLT_NOMBRE          AS cliente,
         cd.CDD_DESCRI         AS ciudad,
         m.MCL_UPP_PDT_CODIGO  AS referencia,
@@ -374,7 +374,9 @@ app.get('/api/facturas/dia/:fecha/referencias', async (req, res) => {
       LEFT JOIN adn_movcli      m  ON m.MCL_DCL_NUMERO  = d.DCL_NUMERO
                                    AND m.MCL_DCL_TDT_CODIGO = d.DCL_TDT_CODIGO
       WHERE DATE(d.DCL_FECHA) = ?
-      ORDER BY d.DCL_NUMERO ASC, m.MCL_UPP_PDT_CODIGO ASC
+        AND d.DCL_TDT_CODIGO IN ('FVELE','FVEP')
+        AND d.DCL_ACTIVO = 1
+      ORDER BY d.DCL_TDT_CODIGO, CAST(d.DCL_NUMERO AS UNSIGNED) ASC, m.MCL_UPP_PDT_CODIGO ASC
     `, [fecha]);
 
     if (!lineas.length) {
@@ -386,8 +388,11 @@ app.get('/api/facturas/dia/:fecha/referencias', async (req, res) => {
     for (const row of lineas) {
       const key = row.factura_numero;
       if (!facturaMap.has(key)) {
+        const num = key.replace(/^0+/, '') || '0';
         facturaMap.set(key, {
-          factura_numero: key.replace(/^0+/, ''),
+          factura_numero: num,
+          factura_label: `${row.tipo_doc} ${num}`,   // ej: "FVELE 54089"
+          tipo_doc: row.tipo_doc,
           factura_numero_raw: key,
           fecha: row.fecha,
           cliente: row.cliente || '',
@@ -399,7 +404,6 @@ app.get('/api/facturas/dia/:fecha/referencias', async (req, res) => {
       const entry = facturaMap.get(key);
       entry.lineas_raw++;
       const ref = (row.referencia || '').trim();
-      // Incluir solo referencias con formato alfanumérico válido (ej: DM-420, AATI-007293)
       if (ref && ref.length >= 2 && !entry.referencias.includes(ref)) {
         entry.referencias.push(ref);
       }
@@ -455,17 +459,19 @@ app.get('/api/tabla/:nombre/muestra', async (req, res) => {
   }
 });
 
-// ── GET /api/declaraciones/dia/:fecha - Facturas del día directo de adn_doccli ──
+// ── GET /api/declaraciones/dia/:fecha - Facturas del día (solo FVE) ──────────
 app.get('/api/declaraciones/dia/:fecha', async (req, res) => {
   try {
     const fecha = req.params.fecha; // formato YYYY-MM-DD
 
+    // Solo facturas de venta electrónica (FVELE) y en papel (FVEP)
+    // Se usa subquery para evitar duplicados del JOIN con guías
     const [facturas] = await getPool().query(`
       SELECT
-        d.DCL_NUMERO        AS factura_numero,
+        d.DCL_NUMERO        AS factura_numero_raw,
+        d.DCL_TDT_CODIGO    AS tipo_doc,
         d.DCL_FECHA         AS fecha_factura,
         d.DCL_NUMGUIA       AS guia_numero,
-        d.DCL_TDT_CODIGO    AS tipo_doc,
         d.DCL_NETO          AS neto,
         d.DCL_BRUTO         AS bruto,
         d.DCL_BULTOS        AS bultos,
@@ -474,19 +480,15 @@ app.get('/api/declaraciones/dia/:fecha', async (req, res) => {
         c.CLT_NOMBRE        AS cliente_nombre,
         c.CLT_DIRECCION1    AS cliente_direccion,
         c.CLT_TELEFONO1     AS cliente_telefono,
-        cd.CDD_DESCRI       AS ciudad,
-        g.DCG_RUTA          AS ruta,
-        t.TRA_NOMBRE        AS transportista_nombre,
-        t.TRA_APELLIDO      AS transportista_apellido,
-        v.VEH_PLACA         AS placa
+        cd.CDD_DESCRI       AS ciudad
       FROM adn_doccli d
-      LEFT JOIN adn_clientes    c  ON d.DCL_CLT_CODIGO  = c.CLT_CODIGO
-      LEFT JOIN adn_ciudades    cd ON c.CLT_CDD_CODIGO  = cd.CDD_CODIGO
-      LEFT JOIN adn_doccliguia  g  ON d.DCL_NUMGUIA     = g.DCG_NUMERO
-      LEFT JOIN adn_transportistas t ON g.DCG_TRA_CODIGO = t.TRA_CODIGO
-      LEFT JOIN adn_vehiculos   v  ON g.DCG_VEH_PLACA   = v.VEH_PLACA
+      LEFT JOIN adn_clientes c  ON d.DCL_CLT_CODIGO = c.CLT_CODIGO
+      LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO = cd.CDD_CODIGO
       WHERE DATE(d.DCL_FECHA) = ?
-      ORDER BY d.DCL_NUMERO ASC
+        AND d.DCL_TDT_CODIGO IN ('FVELE','FVEP')
+        AND d.DCL_ACTIVO = 1
+      GROUP BY d.DCL_NUMERO, d.DCL_TDT_CODIGO
+      ORDER BY d.DCL_TDT_CODIGO, CAST(d.DCL_NUMERO AS UNSIGNED) ASC
     `, [fecha]);
 
     if (!facturas.length) {
@@ -509,11 +511,15 @@ app.get('/api/declaraciones/dia/:fecha', async (req, res) => {
       },
       ciudades,
       guias,
-      facturas: facturas.map(f => ({
-        ...f,
-        factura_numero: (f.factura_numero || '').replace(/^0+/, ''),
-        guia_numero:    (f.guia_numero    || '').replace(/^0+/, ''),
-      })),
+      facturas: facturas.map(f => {
+        const num = (f.factura_numero_raw || '').replace(/^0+/, '') || '0';
+        return {
+          ...f,
+          factura_numero: num,
+          factura_label: `${f.tipo_doc} ${num}`,   // ej: "FVELE 54089"
+          guia_numero: (f.guia_numero || '').replace(/^0+/, ''),
+        };
+      }),
     });
   } catch (err) {
     console.error('Error /api/declaraciones/dia/:fecha:', err.message);

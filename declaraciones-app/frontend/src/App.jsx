@@ -1319,6 +1319,7 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
       // Inicializar items para mostrar el progreso
       setDriveItems(facturas.map(f => ({
         factura: f.factura_numero,
+        factura_label: f.factura_label || f.factura_numero,
         cliente: f.cliente || "",
         ciudad: f.ciudad || "",
         refs: f.referencias || [],
@@ -1477,23 +1478,24 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
             ) : (
               <>
                 <div style={{ border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
-                  <div style={{ display:"grid", gridTemplateColumns:"80px 2fr 1.5fr 1fr 90px 90px 80px", gap:6, padding:"9px 12px", background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, fontSize:9, fontWeight:700, color:"#8faec8", letterSpacing:"0.07em" }}>
-                    <div>FACTURA N°</div><div>CLIENTE</div><div>CIUDAD</div><div>GUÍA CTT</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"130px 2fr 1.5fr 1fr 90px 90px 80px", gap:6, padding:"9px 12px", background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, fontSize:9, fontWeight:700, color:"#8faec8", letterSpacing:"0.07em" }}>
+                    <div>N° FACTURA</div><div>CLIENTE</div><div>CIUDAD</div><div>GUÍA CTT</div>
                     <div style={{ textAlign:"right" }}>NETO</div><div style={{ textAlign:"right" }}>BULTOS</div><div style={{ textAlign:"right" }}>PESO</div>
                   </div>
                   {bdResumen.facturas.map((f, i) => (
                     <div key={i} style={{
-                      display:"grid", gridTemplateColumns:"80px 2fr 1.5fr 1fr 90px 90px 80px", gap:6,
+                      display:"grid", gridTemplateColumns:"130px 2fr 1.5fr 1fr 90px 90px 80px", gap:6,
                       padding:"8px 12px", alignItems:"center",
                       borderBottom: i < bdResumen.facturas.length-1 ? `1px solid ${C.border}` : "none",
                       background: i%2===0 ? C.white : "#f8fafc"
                     }}>
-                      <div style={{ fontWeight:800, color:C.blue, fontFamily:"monospace", fontSize:12 }}>{f.factura_numero}</div>
+                      <div>
+                        <div style={{ fontWeight:800, color:C.blue, fontFamily:"monospace", fontSize:12 }}>
+                          {f.factura_label || `${f.tipo_doc||""} ${f.factura_numero}`}
+                        </div>
+                      </div>
                       <div>
                         <div style={{ fontSize:11, fontWeight:600, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.cliente_nombre||"—"}</div>
-                        {f.transportista_nombre && (
-                          <div style={{ fontSize:9, color:C.textMuted }}>{f.transportista_nombre} {f.transportista_apellido||""} · {f.placa||""}</div>
-                        )}
                       </div>
                       <div style={{ fontSize:11, color:C.text }}>{f.ciudad||"—"}</div>
                       <div>
@@ -1580,7 +1582,7 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
                   <div key={item.factura} style={{ border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 14px", background: item.status === "processing" ? "#f0f8ff" : C.white }}>
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: item.resumen.length > 0 ? 8 : 0 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                        <span style={{ fontFamily:"monospace", fontWeight:800, color:C.blue, fontSize:13 }}>{item.factura}</span>
+                        <span style={{ fontFamily:"monospace", fontWeight:800, color:C.blue, fontSize:13 }}>{item.factura_label || item.factura}</span>
                         <span style={{ fontSize:11, color:C.text }}>{item.cliente}</span>
                         {item.ciudad && <span style={{ fontSize:10, color:C.textMuted }}>— {item.ciudad}</span>}
                         {item.refs.length > 0 && <span style={{ fontSize:9, color:C.textDim, background:"#f0f4f8", borderRadius:3, padding:"1px 5px" }}>{item.refs.length} refs</span>}
