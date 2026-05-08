@@ -527,6 +527,26 @@ app.get('/api/declaraciones/dia/:fecha', async (req, res) => {
   }
 });
 
+// ── GET /api/almacenes ────────────────────────────────────────────────────────
+app.get('/api/almacenes', async (_req, res) => {
+  try {
+    const [rows] = await getPool().query(`
+      SELECT
+        m.MCL_AMC_CODIGO        AS codigo,
+        COUNT(DISTINCT m.MCL_UPP_PDT_CODIGO) AS referencias,
+        SUM(m.MCL_CANTIDAD)     AS unidades_totales,
+        COUNT(DISTINCT m.MCL_DCL_NUMERO) AS num_movimientos
+      FROM adn_movcli m
+      WHERE m.MCL_ACTIVO = 1
+      GROUP BY m.MCL_AMC_CODIGO
+      ORDER BY unidades_totales DESC
+    `);
+    res.json({ almacenes: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Lógica de asignación de zona ─────────────────────────────────────────────
 function asignarZona(clase, rank) {
   if (clase === 'A') {
