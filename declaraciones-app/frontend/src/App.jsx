@@ -1768,46 +1768,53 @@ export default function App() {
 
   const addLog = (msg) => setActiveLog(prev => [...prev, { ts: new Date().toLocaleTimeString(), msg }]);
 
-  // ── Auto-BD: procesar items desde BD (sin archivo físico) ─────────────────
+  // ── Auto-BD: procesar un item individual ─────────────────────────────────
+  const processSingleAutoItem = async (item) => {
+    setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "processing" } : i));
+    addLog(`🤖 [Auto] ${item.label} · ${item.refs.length} ref${item.refs.length !== 1 ? "s" : ""}...`);
+    try {
+      const res = await fetch(`${API}/api/process-refs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ referencias: item.refs, factura_nombre: item.label, cache_hints: getProductCache() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        addLog(`  ✗ ${item.label}: ${err.error || `HTTP ${res.status}`}`);
+        setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
+        return;
+      }
+      const resumen  = JSON.parse(res.headers.get("X-Resumen")        || "[]");
+      const notFound = JSON.parse(res.headers.get("X-No-Encontrados") || "[]");
+      const cacheUpd = res.headers.get("X-Cache-Update");
+      if (cacheUpd) { try { saveProductCache({ ...getProductCache(), ...JSON.parse(cacheUpd) }); } catch {} }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const filename = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `dec_${item.label}.pdf`;
+      resumen.forEach(r => addLog(`  ✓ ${item.label} → ${r.proveedor} (${r.paginas_incluidas} págs.)`));
+      if (notFound.length) addLog(`  ⚠ ${item.label}: sin dec. ${notFound.slice(0,3).join(", ")}${notFound.length > 3 ? ` +${notFound.length-3}` : ""}`);
+      setQueue(prev => prev.map(i =>
+        i.id === item.id ? { ...i, status: "done", resultUrl: url, resultFilename: filename, notFound, date: todayStr() } : i
+      ));
+      saveHistory({ id: item.id, date: new Date().toISOString(), invoiceName: item.label, matches: resumen, notFound, pdfFilename: filename });
+      await savePdfToStorage(item.id, blob);
+    } catch (e) {
+      addLog(`  ✗ ${item.label}: ${e.message}`);
+      setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
+    }
+  };
+
+  // ── Auto-BD: procesar items en paralelo (lotes de 5) ─────────────────────
   const processAutoItems = async (items) => {
     if (!items.length) return;
     setAutoProcessing(true);
-    for (const item of items) {
-      setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "processing" } : i));
-      addLog(`🤖 [Auto] ${item.label} · ${item.refs.length} referencia${item.refs.length !== 1 ? "s" : ""}...`);
-      try {
-        const res = await fetch(`${API}/api/process-refs`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ referencias: item.refs, factura_nombre: item.label, cache_hints: getProductCache() }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          addLog(`  ✗ ${item.label}: ${err.error || `HTTP ${res.status}`}`);
-          setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
-          continue;
-        }
-        const resumen  = JSON.parse(res.headers.get("X-Resumen")        || "[]");
-        const notFound = JSON.parse(res.headers.get("X-No-Encontrados") || "[]");
-        const cacheUpd = res.headers.get("X-Cache-Update");
-        if (cacheUpd) { try { saveProductCache({ ...getProductCache(), ...JSON.parse(cacheUpd) }); } catch {} }
-        const blob = await res.blob();
-        const url  = URL.createObjectURL(blob);
-        const filename = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || `dec_${item.label}.pdf`;
-        resumen.forEach(r => addLog(`  ✓ ${r.proveedor}: ${r.archivo} (${r.paginas_incluidas} págs.)`));
-        if (notFound.length) addLog(`  ⚠ Sin dec.: ${notFound.slice(0, 4).join(", ")}${notFound.length > 4 ? ` +${notFound.length - 4}` : ""}`);
-        setQueue(prev => prev.map(i =>
-          i.id === item.id ? { ...i, status: "done", resultUrl: url, resultFilename: filename, notFound, date: todayStr() } : i
-        ));
-        saveHistory({ id: item.id, date: new Date().toISOString(), invoiceName: item.label, matches: resumen, notFound, pdfFilename: filename });
-        await savePdfToStorage(item.id, blob);
-      } catch (e) {
-        addLog(`  ✗ ${item.label}: ${e.message}`);
-        setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
-      }
+    const BATCH = 5;
+    for (let i = 0; i < items.length; i += BATCH) {
+      const lote = items.slice(i, i + BATCH);
+      await Promise.all(lote.map(item => processSingleAutoItem(item)));
     }
     setAutoProcessing(false);
-    addLog("─── Auto-BD completado ───");
+    addLog(`─── Auto-BD completado: ${items.length} factura${items.length !== 1 ? "s" : ""} ───`);
   };
 
   // ── Auto-BD: revisar facturas nuevas de hoy ───────────────────────────────
