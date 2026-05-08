@@ -899,6 +899,53 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   const [rutaHistorica, setRutaHistorica] = useState("");
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  // ── Selector facturas BD ──────────────────────────────────────────────────
+  const [bdFechaContrato, setBdFechaContrato] = useState(new Date().toISOString().slice(0,10));
+  const [bdFacturasLista, setBdFacturasLista] = useState([]);
+  const [bdSeleccionadas, setBdSeleccionadas] = useState(new Set());
+  const [bdLoading, setBdLoading] = useState(false);
+  const [bdConsultado, setBdConsultado] = useState(false);
+
+  const consultarFacturasBD = async () => {
+    setBdLoading(true);
+    setBdConsultado(false);
+    setBdSeleccionadas(new Set());
+    try {
+      const capiBase = (typeof CAPI_BASE !== "undefined" ? CAPI_BASE : "").replace(/\/api$/, "") || "http://localhost:3000";
+      const r = await fetch(`${capiBase}/api/facturas/dia/${bdFechaContrato}/referencias`);
+      const d = await r.json();
+      setBdFacturasLista(d.facturas || []);
+      setBdConsultado(true);
+    } catch (e) {
+      setBdFacturasLista([]);
+      setBdConsultado(true);
+    } finally {
+      setBdLoading(false);
+    }
+  };
+
+  const toggleSeleccionBD = (num) => {
+    setBdSeleccionadas(prev => {
+      const s = new Set(prev);
+      s.has(num) ? s.delete(num) : s.add(num);
+      return s;
+    });
+  };
+
+  const aplicarFacturasBD = () => {
+    if (!bdSeleccionadas.size) return;
+    const seleccionadas = bdFacturasLista.filter(f => bdSeleccionadas.has(f.factura_numero_raw || f.factura_numero));
+    // Números de factura: últimos 4-5 dígitos separados por " - "
+    const nums = seleccionadas.map(f => {
+      const n = String(f.factura_numero_raw || f.factura_numero);
+      return n.length > 5 ? n.slice(-5) : n;
+    });
+    set("facturas", nums.join(" - "));
+    // Destinos únicos
+    const destinos = [...new Set(seleccionadas.map(f => f.ciudad).filter(Boolean))];
+    if (destinos.length > 0) set("destino", destinos.join(" - "));
+  };
+
   useEffect(() => {
     const total = (Number(form.valor_contrato)||0) + (Number(form.valor_pelete)||0) + (Number(form.valor_palencia)||0);
     if (total > 0) setForm(f => ({ ...f, valor_total: total }));
@@ -1160,6 +1207,70 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
           </div>
 
           <Sec t="CARGA A MOVILIZAR" />
+
+          {/* ── Selector facturas desde BD ──────────────────────────── */}
+          <div style={{ background:"#f0f7ff", border:"1px solid #90b8e8", borderRadius:10, padding:"14px 16px", marginBottom:14 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:C.blue, letterSpacing:"0.1em", marginBottom:10 }}>
+              🗄️ SELECCIONAR FACTURAS DESDE BASE DE DATOS
+            </div>
+            <div style={{ display:"flex", gap:10, alignItems:"flex-end", marginBottom:10 }}>
+              <div style={{ flex:1 }}>
+                <label style={lbl}>Fecha del cargue</label>
+                <input type="date" value={bdFechaContrato} onChange={e => setBdFechaContrato(e.target.value)} style={{ ...inp, maxWidth:200 }} />
+              </div>
+              <button onClick={consultarFacturasBD} disabled={bdLoading}
+                style={{ background:C.blue, color:"#fff", border:"none", borderRadius:7, padding:"7px 18px", cursor:"pointer", fontSize:12, fontWeight:700, whiteSpace:"nowrap", opacity:bdLoading?0.6:1 }}>
+                {bdLoading ? "⏳ Consultando..." : "🔍 Consultar BD"}
+              </button>
+            </div>
+
+            {bdConsultado && bdFacturasLista.length === 0 && (
+              <div style={{ fontSize:12, color:C.textMuted, padding:"8px 0" }}>
+                ⚠️ No se encontraron facturas para esa fecha.
+              </div>
+            )}
+
+            {bdFacturasLista.length > 0 && (
+              <>
+                <div style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
+                  <span style={{ fontSize:11, color:C.textMuted }}>{bdFacturasLista.length} factura(s) encontrada(s)</span>
+                  <button onClick={() => setBdSeleccionadas(new Set(bdFacturasLista.map(f => f.factura_numero_raw || f.factura_numero)))}
+                    style={{ fontSize:10, background:"#e8f5e9", color:C.green, border:"1px solid #a5d6a7", borderRadius:5, padding:"3px 9px", cursor:"pointer", fontWeight:700 }}>
+                    ✓ Todas
+                  </button>
+                  <button onClick={() => setBdSeleccionadas(new Set())}
+                    style={{ fontSize:10, background:"#ffeee8", color:C.red, border:"1px solid #ffab91", borderRadius:5, padding:"3px 9px", cursor:"pointer", fontWeight:700 }}>
+                    ✗ Ninguna
+                  </button>
+                  {bdSeleccionadas.size > 0 && (
+                    <button onClick={aplicarFacturasBD}
+                      style={{ fontSize:10, background:C.navy, color:"#fff", border:"none", borderRadius:5, padding:"3px 12px", cursor:"pointer", fontWeight:700, marginLeft:"auto" }}>
+                      ➕ Agregar {bdSeleccionadas.size} seleccionada(s) al contrato
+                    </button>
+                  )}
+                </div>
+                <div style={{ maxHeight:200, overflowY:"auto", border:"1px solid #c9dcf0", borderRadius:7, background:"#fff" }}>
+                  {bdFacturasLista.map((f, i) => {
+                    const key = f.factura_numero_raw || f.factura_numero;
+                    const sel = bdSeleccionadas.has(key);
+                    return (
+                      <div key={i} onClick={() => toggleSeleccionBD(key)}
+                        style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 12px", cursor:"pointer",
+                          background: sel ? "#e3f2fd" : (i%2===0 ? "#f8fafc" : "#fff"),
+                          borderBottom:"1px solid #edf2f7", transition:"background 0.1s" }}>
+                        <input type="checkbox" readOnly checked={sel} style={{ accentColor:C.blue, width:14, height:14 }} />
+                        <span style={{ fontSize:11, fontWeight:700, color:C.navy, minWidth:80 }}>{f.factura_label || f.factura_numero}</span>
+                        <span style={{ fontSize:11, color:C.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.cliente || "—"}</span>
+                        <span style={{ fontSize:10, color:C.blue, whiteSpace:"nowrap" }}>{f.ciudad || ""}</span>
+                        <span style={{ fontSize:10, color:C.textDim, whiteSpace:"nowrap" }}>{f.referencias?.length || 0} ref(s)</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
           <div style={{ ...g(4), marginBottom:10 }}>
             <div style={{ gridColumn:"span 4" }}>
               <label style={lbl}>Facturas N° (separadas por guión)</label>
