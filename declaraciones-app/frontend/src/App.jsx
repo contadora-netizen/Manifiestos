@@ -2307,16 +2307,25 @@ function BodegaTab({ capiBase }) {
 }
 
 // ── Lista de Cargue ──────────────────────────────────────────────────────────
+const LC_KEY = "alumar_listas_cargue";
+const lcGetAll = () => { try { return JSON.parse(localStorage.getItem(LC_KEY) || "[]"); } catch { return []; } };
+const lcSaveAll = (arr) => localStorage.setItem(LC_KEY, JSON.stringify(arr));
+
 function ListaCargueTab({ capiBase }) {
   const hoy = new Date().toISOString().slice(0, 10);
   const [fecha, setFecha] = useState(hoy);
   const [loading, setLoading] = useState(false);
   const [filas, setFilas] = useState([]);
   const [consultado, setConsultado] = useState(false);
+  const [guardadas, setGuardadas] = useState(() => lcGetAll());
+  const [guardando, setGuardando] = useState(false);
+  const [msgGuardado, setMsgGuardado] = useState("");
+  const [vistaHistorial, setVistaHistorial] = useState(false);
 
   const consultar = async () => {
     setLoading(true);
     setConsultado(false);
+    setVistaHistorial(false);
     try {
       const base = (capiBase || "").replace(/\/api$/, "") || "http://localhost:3000";
       const r = await fetch(`${base}/api/lista-cargue/${fecha}`);
@@ -2331,7 +2340,7 @@ function ListaCargueTab({ capiBase }) {
         ciudad: f.ciudad,
         remesa: "",
         transportadora: "",
-        bultos: f.bultos != null ? String(f.bultos) : "",
+        bultos: "",
       })));
       setConsultado(true);
     } catch {
@@ -2345,20 +2354,50 @@ function ListaCargueTab({ capiBase }) {
     setFilas(prev => prev.map(f => f._id === id ? { ...f, [campo]: valor } : f));
   };
 
+  const guardar = () => {
+    setGuardando(true);
+    const todas = lcGetAll();
+    const id = `${fecha}_${Date.now()}`;
+    const nueva = {
+      id,
+      fecha,
+      guardadoEn: new Date().toLocaleString("es-CO"),
+      totalFacturas: filas.length,
+      totalBultos: filas.reduce((s, f) => s + (parseFloat(f.bultos) || 0), 0),
+      filas,
+    };
+    // Reemplazar si ya existe una del mismo día
+    const idx = todas.findIndex(l => l.fecha === fecha);
+    if (idx >= 0) todas[idx] = nueva; else todas.unshift(nueva);
+    lcSaveAll(todas.slice(0, 60));
+    setGuardadas(lcGetAll());
+    setMsgGuardado("✓ Guardado");
+    setTimeout(() => setMsgGuardado(""), 2500);
+    setGuardando(false);
+  };
+
+  const cargarGuardada = (lista) => {
+    setFecha(lista.fecha);
+    setFilas(lista.filas);
+    setConsultado(true);
+    setVistaHistorial(false);
+  };
+
+  const eliminarGuardada = (id) => {
+    const nuevas = lcGetAll().filter(l => l.id !== id);
+    lcSaveAll(nuevas);
+    setGuardadas(nuevas);
+  };
+
   const imprimir = () => {
     const fechaFmt = new Date(fecha + "T12:00:00").toLocaleDateString("es-CO", { day:"2-digit", month:"long", year:"numeric" });
+    const totalBultos = filas.reduce((s, f) => s + (parseFloat(f.bultos) || 0), 0);
     const filasTrs = filas.map(f => `
       <tr>
-        <td>${f.num_cliente}</td>
-        <td>${f.cliente_codigo}</td>
-        <td>${f.nombre}</td>
-        <td>${f.factura}</td>
-        <td>${f.ciudad}</td>
-        <td>${f.remesa}</td>
-        <td>${f.transportadora}</td>
-        <td style="text-align:center;font-weight:700">${f.bultos}</td>
+        <td>${f.num_cliente}</td><td>${f.cliente_codigo}</td><td>${f.nombre}</td>
+        <td>${f.factura}</td><td>${f.ciudad}</td><td>${f.remesa}</td>
+        <td>${f.transportadora}</td><td style="text-align:center;font-weight:700">${f.bultos}</td>
       </tr>`).join("");
-    const totalBultos = filas.reduce((s, f) => s + (parseFloat(f.bultos) || 0), 0);
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
 <title>Lista de Cargue ${fecha}</title>
 <style>
@@ -2374,7 +2413,7 @@ tr:nth-child(even) td{background:#f5f8fc}
 @media print{body{padding:6mm}}
 </style></head><body>
 <h2>ALUMAR SAS — LISTA DE CARGUE</h2>
-<div class="sub">Fecha: ${fechaFmt} &nbsp;|&nbsp; Total facturas: ${filas.length} &nbsp;|&nbsp; Total bultos: ${totalBultos}</div>
+<div class="sub">Fecha: ${fechaFmt} &nbsp;|&nbsp; Facturas: ${filas.length} &nbsp;|&nbsp; Total bultos: ${totalBultos}</div>
 <table>
 <tr><th>N° Cliente</th><th>Cód. Cliente</th><th>Nombre</th><th>Factura</th><th>Ciudad</th><th>Remesa</th><th>Transportadora</th><th>Bultos</th></tr>
 ${filasTrs}
@@ -2411,85 +2450,130 @@ ${filasTrs}
   ];
 
   return (
-    <div style={{ padding:"1.5rem", maxWidth:1100 }}>
-      <div style={{ marginBottom:16 }}>
-        <div style={{ fontSize:18, fontWeight:700, color:C.navy, marginBottom:4 }}>📦 Lista de Cargue</div>
-        <div style={{ fontSize:12, color:C.textMuted }}>Consulte las facturas del día, complete los datos editables e imprima la lista para el personal de bodega.</div>
-      </div>
-
-      {/* Controles */}
-      <div style={{ display:"flex", gap:10, alignItems:"flex-end", marginBottom:16, background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" }}>
-        <div>
-          <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:4 }}>FECHA</div>
-          <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
-            style={{ ...inp, width:160 }} />
+    <div style={{ padding:"1.5rem", maxWidth:1200, display:"flex", gap:16, alignItems:"flex-start" }}>
+      {/* Panel principal */}
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:18, fontWeight:700, color:C.navy, marginBottom:2 }}>📦 Lista de Cargue</div>
+          <div style={{ fontSize:11, color:C.textMuted }}>Consulte las facturas, diligencie los campos amarillos y guarde la lista.</div>
         </div>
-        <button onClick={consultar} disabled={loading}
-          style={{ background:C.blue, color:"#fff", border:"none", borderRadius:7, padding:"8px 20px", cursor:"pointer", fontSize:12, fontWeight:700, opacity:loading?0.6:1 }}>
-          {loading ? "⏳ Consultando..." : "🔍 Consultar BD"}
-        </button>
-        {filas.length > 0 && (<>
-          <button onClick={imprimir}
-            style={{ background:C.navy, color:"#fff", border:"none", borderRadius:7, padding:"8px 18px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
-            🖨️ Imprimir
-          </button>
-          <button onClick={descargarCSV}
-            style={{ background:C.green, color:"#fff", border:"none", borderRadius:7, padding:"8px 18px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
-            📥 Descargar CSV
-          </button>
-          <span style={{ marginLeft:"auto", fontSize:12, color:C.textMuted, alignSelf:"center" }}>
-            {filas.length} factura(s) · {filas.reduce((s,f)=>s+(parseFloat(f.bultos)||0),0)} bultos total
-          </span>
-        </>)}
-      </div>
 
-      {consultado && filas.length === 0 && (
-        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:24, textAlign:"center", color:C.textMuted, fontSize:13 }}>
-          ⚠️ No se encontraron facturas para {fecha}.
+        {/* Barra de controles */}
+        <div style={{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap", marginBottom:14, background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 14px" }}>
+          <div>
+            <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:3 }}>FECHA</div>
+            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} style={{ ...inp, width:155 }} />
+          </div>
+          <button onClick={consultar} disabled={loading}
+            style={{ background:C.blue, color:"#fff", border:"none", borderRadius:7, padding:"7px 16px", cursor:"pointer", fontSize:12, fontWeight:700, opacity:loading?0.6:1 }}>
+            {loading ? "⏳..." : "🔍 Consultar BD"}
+          </button>
+          {filas.length > 0 && (<>
+            <button onClick={guardar} disabled={guardando}
+              style={{ background:"#e65100", color:"#fff", border:"none", borderRadius:7, padding:"7px 16px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
+              💾 Guardar
+            </button>
+            {msgGuardado && <span style={{ fontSize:12, color:C.green, fontWeight:700 }}>{msgGuardado}</span>}
+            <button onClick={imprimir}
+              style={{ background:C.navy, color:"#fff", border:"none", borderRadius:7, padding:"7px 14px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
+              🖨️ Imprimir
+            </button>
+            <button onClick={descargarCSV}
+              style={{ background:C.green, color:"#fff", border:"none", borderRadius:7, padding:"7px 14px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
+              📥 CSV
+            </button>
+            <span style={{ marginLeft:"auto", fontSize:12, color:C.textMuted, alignSelf:"center", whiteSpace:"nowrap" }}>
+              {filas.length} fact. · <b>{filas.reduce((s,f)=>s+(parseFloat(f.bultos)||0),0)}</b> bultos
+            </span>
+          </>)}
         </div>
-      )}
 
-      {filas.length > 0 && (
-        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
-          <div style={{ overflowX:"auto" }}>
-            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-              <thead>
-                <tr style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})` }}>
-                  {COLS.map(col => (
-                    <th key={col.key} style={{ padding:"9px 8px", textAlign:"left", color:"#fff", fontWeight:700, fontSize:11, whiteSpace:"nowrap", minWidth:col.w }}>
-                      {col.label}{col.edit && <span style={{ fontSize:8, opacity:0.7, marginLeft:3 }}>✏️</span>}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filas.map((f, i) => (
-                  <tr key={f._id} style={{ background: i%2===0 ? "#f8fafc" : C.white }}>
+        {consultado && filas.length === 0 && (
+          <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:24, textAlign:"center", color:C.textMuted, fontSize:13 }}>
+            ⚠️ No se encontraron facturas para {fecha}.
+          </div>
+        )}
+
+        {filas.length > 0 && (
+          <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                <thead>
+                  <tr style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})` }}>
                     {COLS.map(col => (
-                      <td key={col.key} style={{ padding:"6px 8px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle" }}>
-                        {col.edit ? (
-                          <input value={f[col.key]} onChange={e => setFila(f._id, col.key, e.target.value)}
-                            style={{ ...inp, background: "#fffde7", borderColor:"#f9a825" }} />
-                        ) : (
-                          <span style={{ color: col.key === "factura" ? C.blue : C.text, fontWeight: col.key === "factura" ? 700 : 400 }}>{f[col.key]}</span>
-                        )}
-                      </td>
+                      <th key={col.key} style={{ padding:"8px", textAlign:"left", color:"#fff", fontWeight:700, fontSize:11, whiteSpace:"nowrap", minWidth:col.w }}>
+                        {col.label}{col.edit && <span style={{ fontSize:8, opacity:0.65, marginLeft:3 }}>✏️</span>}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{ background:"#f0f4f8" }}>
-                  <td colSpan={7} style={{ padding:"8px", textAlign:"right", fontWeight:700, fontSize:12, color:C.navy }}>Total bultos:</td>
-                  <td style={{ padding:"8px", fontWeight:700, fontSize:13, color:C.green, textAlign:"center" }}>
-                    {filas.reduce((s,f)=>s+(parseFloat(f.bultos)||0),0)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+                </thead>
+                <tbody>
+                  {filas.map((f, i) => (
+                    <tr key={f._id} style={{ background: i%2===0 ? "#f8fafc" : C.white }}>
+                      {COLS.map(col => (
+                        <td key={col.key} style={{ padding:"5px 8px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle" }}>
+                          {col.edit ? (
+                            <input value={f[col.key]} onChange={e => setFila(f._id, col.key, e.target.value)}
+                              style={{ ...inp, background:"#fffde7", borderColor:"#f9a825" }} />
+                          ) : (
+                            <span style={{ color: col.key==="factura" ? C.blue : C.text, fontWeight: col.key==="factura" ? 700 : 400 }}>{f[col.key]}</span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background:"#f0f4f8" }}>
+                    <td colSpan={7} style={{ padding:"8px", textAlign:"right", fontWeight:700, fontSize:12, color:C.navy }}>Total bultos:</td>
+                    <td style={{ padding:"8px", fontWeight:700, fontSize:13, color:C.green, textAlign:"center" }}>
+                      {filas.reduce((s,f)=>s+(parseFloat(f.bultos)||0),0)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* Panel historial guardadas */}
+      <div style={{ width:240, flexShrink:0 }}>
+        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
+          <div style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, padding:"10px 14px", color:"#fff", fontWeight:700, fontSize:12 }}>
+            📂 Listas guardadas ({guardadas.length})
+          </div>
+          {guardadas.length === 0 ? (
+            <div style={{ padding:16, fontSize:11, color:C.textMuted, textAlign:"center" }}>
+              Sin listas guardadas aún
+            </div>
+          ) : (
+            <div style={{ maxHeight:480, overflowY:"auto" }}>
+              {guardadas.map(l => (
+                <div key={l.id} style={{ borderBottom:`1px solid ${C.border}`, padding:"10px 12px" }}>
+                  <div style={{ fontWeight:700, fontSize:12, color:C.navy, marginBottom:2 }}>
+                    {new Date(l.fecha + "T12:00:00").toLocaleDateString("es-CO", { day:"2-digit", month:"short", year:"numeric" })}
+                  </div>
+                  <div style={{ fontSize:10, color:C.textMuted, marginBottom:6 }}>
+                    {l.totalFacturas} fact. · {l.totalBultos} bultos<br/>
+                    <span style={{ fontSize:9 }}>{l.guardadoEn}</span>
+                  </div>
+                  <div style={{ display:"flex", gap:6 }}>
+                    <button onClick={() => cargarGuardada(l)}
+                      style={{ flex:1, fontSize:10, background:C.blue, color:"#fff", border:"none", borderRadius:5, padding:"4px 0", cursor:"pointer", fontWeight:700 }}>
+                      Cargar
+                    </button>
+                    <button onClick={() => eliminarGuardada(l.id)}
+                      style={{ fontSize:10, background:"#ffeee8", color:C.red, border:`1px solid #ffab91`, borderRadius:5, padding:"4px 8px", cursor:"pointer" }}>
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
