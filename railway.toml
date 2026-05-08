@@ -3,5 +3,5 @@ builder = "nixpacks"
 buildCommand = "cd declaraciones-app/frontend && npm install && npm run build"
 
 [deploy]
-startCommand = "cd declaraciones-app/frontend && npm run preview"
+startCommand = "cd declaraciones-app/frontend && npx vite preview --host 0.0.0.0 --port ${PORT:-4173}"
 restartPolicyType = "on_failure"

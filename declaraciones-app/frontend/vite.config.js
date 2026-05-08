@@ -14,7 +14,7 @@ export default defineConfig({
   },
   preview: {
     host: '0.0.0.0',
-    port: 4173,
-    allowedHosts: ['manifiestos-production.up.railway.app']
+    port: parseInt(process.env.PORT) || 4173,
+    allowedHosts: ['manifiestos-production.up.railway.app', 'all']
   }
 })
