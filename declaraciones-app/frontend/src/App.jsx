@@ -1732,6 +1732,9 @@ export default function App() {
   const [autoStatus, setAutoStatus] = useState({ totalHoy: 0, ultimaRevision: null, proxima: null });
   const autoProcessedRef = useRef(new Set());   // números de factura ya encolados
   const autoIntervalRef  = useRef(null);
+  const [consultaFecha, setConsultaFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [consultaLoading, setConsultaLoading] = useState(false);
+  const [consultaResultado, setConsultaResultado] = useState(null); // { total, nuevas, fecha }
   // ──────────────────────────────────────────────────────────────────────────
   const fileRef = useRef();
   const logRef = useRef();
@@ -1844,6 +1847,48 @@ export default function App() {
       console.warn("[Auto-BD] Error:", e.message);
     }
   }, []);
+
+  // ── Consultar facturas de una fecha específica ────────────────────────────
+  const consultarFecha = async () => {
+    if (!consultaFecha) return;
+    setConsultaLoading(true);
+    setConsultaResultado(null);
+    try {
+      const r = await fetch(`${CAPI_BASE}/api/facturas/dia/${consultaFecha}/referencias`);
+      const d = await r.json();
+      const facturas = d.facturas || [];
+      const nuevas = facturas.filter(f =>
+        f.referencias.length > 0 &&
+        !autoProcessedRef.current.has(f.factura_numero_raw)
+      );
+      setConsultaResultado({ total: facturas.length, nuevas: nuevas.length, fecha: consultaFecha });
+      if (!nuevas.length) {
+        addLog(`📅 ${consultaFecha}: ${facturas.length} factura(s) encontrada(s), todas ya procesadas o sin referencias.`);
+        return;
+      }
+      addLog(`📅 ${consultaFecha}: ${nuevas.length} factura(s) nueva(s) para procesar`);
+      nuevas.forEach(f => autoProcessedRef.current.add(f.factura_numero_raw));
+      const items = nuevas.map(f => ({
+        id: crypto.randomUUID(),
+        isAuto: true,
+        label: f.factura_label || f.factura_numero,
+        factura_numero: f.factura_numero,
+        factura_numero_raw: f.factura_numero_raw,
+        cliente: f.cliente || "",
+        ciudad: f.ciudad || "",
+        refs: f.referencias,
+        status: "pending",
+        resultUrl: null, resultFilename: null,
+        notFound: [], reportUrl: null, date: todayStr(),
+      }));
+      setQueue(prev => [...prev, ...items]);
+      processAutoItems(items);
+    } catch (e) {
+      addLog(`❌ Error consultando ${consultaFecha}: ${e.message}`);
+    } finally {
+      setConsultaLoading(false);
+    }
+  };
 
   // ── Intervalo cada 5 minutos ──────────────────────────────────────────────
   useEffect(() => {
@@ -2206,6 +2251,38 @@ export default function App() {
                     🔄 Verificar ahora
                   </button>
                 )}
+              </div>
+
+              {/* Consulta por fecha */}
+              <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "1.25rem", boxShadow: C.shadow }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", marginBottom: 10 }}>CONSULTAR OTRO DÍA</div>
+                <input
+                  type="date"
+                  value={consultaFecha}
+                  onChange={e => { setConsultaFecha(e.target.value); setConsultaResultado(null); }}
+                  max={new Date().toISOString().slice(0, 10)}
+                  style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, color: C.text, marginBottom: 8, boxSizing: "border-box" }}
+                />
+                {consultaResultado && (
+                  <div style={{ fontSize: 11, marginBottom: 8, padding: "6px 8px", borderRadius: 6,
+                    background: consultaResultado.nuevas > 0 ? "#e8f5e9" : "#f0f4f8",
+                    color: consultaResultado.nuevas > 0 ? C.green : C.textMuted, fontWeight: 600 }}>
+                    {consultaResultado.nuevas > 0
+                      ? `✓ ${consultaResultado.nuevas} factura(s) encolada(s) de ${consultaResultado.total} del día`
+                      : `ℹ ${consultaResultado.total} factura(s) encontradas — ya procesadas o sin referencias`}
+                  </div>
+                )}
+                <button
+                  onClick={consultarFecha}
+                  disabled={consultaLoading || autoProcessing || !consultaFecha}
+                  style={{
+                    width: "100%", border: "none", borderRadius: 6, padding: "7px 0",
+                    fontSize: 11, fontWeight: 700, cursor: consultaLoading ? "wait" : "pointer",
+                    background: consultaLoading ? C.border : `linear-gradient(135deg,${C.blue},${C.blueLight})`,
+                    color: consultaLoading ? C.textMuted : "white", transition: "background 0.2s"
+                  }}>
+                  {consultaLoading ? <><Spinner size={10}/> Consultando...</> : "📅 Procesar facturas del día"}
+                </button>
               </div>
 
               {/* Drop zone */}
