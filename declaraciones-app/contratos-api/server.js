@@ -378,7 +378,6 @@ app.get('/api/facturas/dia/:fecha/referencias', async (req, res) => {
                                    AND m.MCL_DCL_TDT_CODIGO = d.DCL_TDT_CODIGO
       WHERE DATE(d.DCL_FECHA) = ?
         AND d.DCL_TDT_CODIGO IN ('FVELE','FVEP')
-        AND (d.DCL_ACTIVO IS NULL OR d.DCL_ACTIVO != 0)
       ORDER BY d.DCL_TDT_CODIGO, CAST(d.DCL_NUMERO AS UNSIGNED) ASC, m.MCL_UPP_PDT_CODIGO ASC
     `, [fecha]);
 
@@ -452,7 +451,6 @@ app.get('/api/lista-cargue', async (req, res) => {
       LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO  = cd.CDD_CODIGO
       WHERE DATE(d.DCL_FECHA) BETWEEN ? AND ?
         AND d.DCL_TDT_CODIGO IN (${placeholders})
-        AND (d.DCL_ACTIVO IS NULL OR d.DCL_ACTIVO != 0)
       ORDER BY d.DCL_FECHA ASC, CAST(d.DCL_NUMERO AS UNSIGNED) ASC
     `, [desde, hasta, ...tiposArr]);
 
@@ -620,7 +618,6 @@ app.get('/api/declaraciones/dia/:fecha', async (req, res) => {
       LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO = cd.CDD_CODIGO
       WHERE DATE(d.DCL_FECHA) = ?
         AND d.DCL_TDT_CODIGO IN ('FVELE','FVEP')
-        AND (d.DCL_ACTIVO IS NULL OR d.DCL_ACTIVO != 0)
       GROUP BY d.DCL_NUMERO, d.DCL_TDT_CODIGO
       ORDER BY d.DCL_TDT_CODIGO, CAST(d.DCL_NUMERO AS UNSIGNED) ASC
     `, [fecha]);
