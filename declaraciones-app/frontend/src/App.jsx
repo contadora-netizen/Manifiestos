@@ -2373,9 +2373,6 @@ function ListaCargueTab({ capiBase, contratos = [] }) {
     setFilas(prev => prev.map(f => f._id === id ? { ...f, [campo]: valor } : f));
   };
 
-  const guardar = () => {
-    setGuardando(true);
-    const todas = lcGetAll();
   const toggleFila = (raw) => {
     const ya = filas.find(f => f._id === raw);
     if (ya) {
@@ -2413,10 +2410,6 @@ function ListaCargueTab({ capiBase, contratos = [] }) {
       transportadora: "",
       bultos: "",
     })));
-  };
-
-  const setFila = (id, campo, valor) => {
-    setFilas(prev => prev.map(f => f._id === id ? { ...f, [campo]: valor } : f));
   };
 
   const guardar = () => {
