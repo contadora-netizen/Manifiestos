@@ -474,6 +474,22 @@ app.get('/api/lista-cargue', async (req, res) => {
   }
 });
 
+// ── GET /api/debug/fvele-recientes - Últimas FVELE sin filtro de fecha ──
+app.get('/api/debug/fvele-recientes', async (req, res) => {
+  try {
+    const [rows] = await getPool().query(`
+      SELECT DCL_NUMERO, DCL_TDT_CODIGO, DCL_FECHA, DCL_ACTIVO, DCL_CLT_CODIGO, DCL_NETO
+      FROM adn_doccli
+      WHERE DCL_TDT_CODIGO = 'FVELE'
+      ORDER BY CAST(DCL_NUMERO AS UNSIGNED) DESC
+      LIMIT 10
+    `);
+    res.json({ total: rows.length, registros: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // mantener compatibilidad con ruta anterior
 app.get('/api/lista-cargue/:fecha', async (req, res) => {
   req.query.desde = req.params.fecha;
