@@ -911,15 +911,24 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   const consultarFacturasBD = async () => {
     setBdLoading(true);
     setBdConsultado(false);
-    setBdSeleccionadas(new Set());
     try {
       const capiBase = (typeof CAPI_BASE !== "undefined" ? CAPI_BASE : "").replace(/\/api$/, "") || "http://localhost:3000";
       const r = await fetch(`${capiBase}/api/lista-cargue?desde=${bdDesde}&hasta=${bdHasta}&tipos=FVELE`);
       const d = await r.json();
-      setBdFacturasLista(d.facturas || []);
+      const lista = d.facturas || [];
+      setBdFacturasLista(lista);
+      // Pre-marcar las que ya fueron agregadas al contrato
+      const yaAgregadas = new Set(
+        (form._facturasSeleccionadas || []).map(f => f.factura_numero_raw)
+      );
+      const presel = yaAgregadas.size
+        ? new Set(lista.filter(f => yaAgregadas.has(f.factura_numero_raw)).map(f => f.factura_numero_raw))
+        : new Set();
+      setBdSeleccionadas(presel);
       setBdConsultado(true);
     } catch {
       setBdFacturasLista([]);
+      setBdSeleccionadas(new Set());
       setBdConsultado(true);
     } finally {
       setBdLoading(false);
@@ -1258,15 +1267,17 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                   {bdFacturasLista.map((f, i) => {
                     const key = f.factura_numero_raw;
                     const sel = bdSeleccionadas.has(key);
+                    const yaEn = (form._facturasSeleccionadas || []).some(x => x.factura_numero_raw === key);
                     return (
                       <div key={i} onClick={() => toggleSeleccionBD(key)}
                         style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 12px", cursor:"pointer",
-                          background: sel ? "#e3f2fd" : (i%2===0 ? "#f8fafc" : "#fff"),
+                          background: yaEn ? "#e8f5e9" : sel ? "#e3f2fd" : (i%2===0 ? "#f8fafc" : "#fff"),
                           borderBottom:"1px solid #edf2f7", transition:"background 0.1s" }}>
-                        <input type="checkbox" readOnly checked={sel} style={{ accentColor:C.blue, width:14, height:14 }} />
-                        <span style={{ fontSize:11, fontWeight:700, color:C.navy, minWidth:90 }}>{f.factura}</span>
+                        <input type="checkbox" readOnly checked={sel} style={{ accentColor: yaEn ? C.green : C.blue, width:14, height:14 }} />
+                        <span style={{ fontSize:11, fontWeight:700, color: yaEn ? C.green : C.navy, minWidth:90 }}>{f.factura}</span>
                         <span style={{ fontSize:11, color:C.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.nombre || "—"}</span>
                         <span style={{ fontSize:10, color:C.blue, whiteSpace:"nowrap" }}>{f.ciudad || ""}</span>
+                        {yaEn && <span style={{ fontSize:9, color:C.green, fontWeight:700, whiteSpace:"nowrap" }}>✓ ya agregada</span>}
                       </div>
                     );
                   })}
