@@ -962,7 +962,9 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   const [filtroCiudad, setFiltroCiudad] = useState("");
   const [filtroAnio, setFiltroAnio] = useState("");
   const conductoresHistoricos = Object.keys(RUTAS_HISTORICAS).sort();
-  const todasLasRutas = conductorHistorico ? RUTAS_HISTORICAS[conductorHistorico] || [] : [];
+  const todasLasRutas = conductorHistorico
+    ? rhMezclar(conductorHistorico, RUTAS_HISTORICAS[conductorHistorico] || [])
+    : [];
   // Años disponibles a partir de ultima_fecha (únicas, descendentes)
   const aniosDisponibles = [...new Set(
     todasLasRutas.map(r => r.ultima_fecha ? r.ultima_fecha.slice(0,4) : null).filter(Boolean)
@@ -1158,6 +1160,11 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                 ].filter(Boolean).join(" · ")} autocompletados. Puedes ajustar los campos abajo.
               </div>
             )}
+            {rutaSeleccionada && form.valor_contrato && Number(form.valor_contrato) !== rutaSeleccionada.valor_promedio && (
+              <div style={{ marginTop:6, fontSize:11, color:"#e67e00", fontWeight:600, background:"#fff8e1", border:"1px solid #ffe082", borderRadius:6, padding:"5px 10px" }}>
+                ⚠️ Valor modificado: histórico ${rutaSeleccionada.valor_promedio.toLocaleString("es-CO")} → nuevo ${Number(form.valor_contrato).toLocaleString("es-CO")} · Al guardar se creará nueva entrada histórica para esta ruta.
+              </div>
+            )}
           </div>
 
           <Sec t="INFORMACIÓN GENERAL" />
@@ -1351,6 +1358,10 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
             <button onClick={() => generateContratoPDF(form)} style={{ background:C.blue, color:"white", border:"none", borderRadius:7, padding:"9px 20px", cursor:"pointer", fontWeight:700, fontSize:12 }}>🖨 Vista previa / Imprimir</button>
             <button onClick={() => {
               onSave(form);
+              // Guardar ruta histórica si hay conductor + destino + valor
+              if (conductorHistorico && form.destino && form.valor_contrato) {
+                rhGuardarRuta(conductorHistorico, form.destino, form.valor_contrato);
+              }
               // Crear lista de cargue automáticamente si hay facturas seleccionadas
               const sels = form._facturasSeleccionadas;
               if (sels && sels.length > 0) {
@@ -2315,6 +2326,47 @@ function BodegaTab({ capiBase }) {
       </div>
     </div>
   );
+}
+
+// ── Rutas históricas locales (complement to static rutasHistoricas.json) ────
+const RH_KEY = "alumar_rutas_local";
+const rhGetAll = () => { try { return JSON.parse(localStorage.getItem(RH_KEY) || "{}"); } catch { return {}; } };
+const rhSaveAll = (obj) => localStorage.setItem(RH_KEY, JSON.stringify(obj));
+
+/** Guarda o actualiza una ruta local para un conductor.
+ *  Si ya existe (misma ruta), recalcula promedio e incrementa viajes.
+ *  Si es nueva, la inserta al inicio. */
+function rhGuardarRuta(conductor, ruta, valor) {
+  if (!conductor || !ruta || !valor) return;
+  const todas = rhGetAll();
+  const lista = todas[conductor] ? [...todas[conductor]] : [];
+  const hoy = new Date().toISOString().slice(0, 10);
+  const idx = lista.findIndex(r => r.ruta.toUpperCase() === ruta.toUpperCase());
+  if (idx >= 0) {
+    const prev = lista[idx];
+    const totalViajes = (prev.viajes || 1) + 1;
+    const nuevoPromedio = Math.round(((prev.valor_promedio * (prev.viajes || 1)) + Number(valor)) / totalViajes);
+    lista[idx] = { ...prev, valor_promedio: nuevoPromedio, viajes: totalViajes, ultima_fecha: hoy };
+  } else {
+    lista.unshift({ ruta, valor_promedio: Number(valor), viajes: 1, ultima_fecha: hoy });
+  }
+  todas[conductor] = lista;
+  rhSaveAll(todas);
+}
+
+/** Mezcla rutas estáticas (JSON) con rutas locales (localStorage).
+ *  Las locales tienen prioridad (aparecen primero y sobreescriben si misma ruta). */
+function rhMezclar(conductor, rutasEstaticas = []) {
+  const locales = rhGetAll()[conductor] || [];
+  const mapa = new Map();
+  rutasEstaticas.forEach(r => mapa.set(r.ruta.toUpperCase(), r));
+  locales.forEach(r => mapa.set(r.ruta.toUpperCase(), r)); // locales sobreescriben
+  // Locales al inicio, luego estáticas que no estén en locales
+  const localKeys = new Set(locales.map(r => r.ruta.toUpperCase()));
+  return [
+    ...locales,
+    ...rutasEstaticas.filter(r => !localKeys.has(r.ruta.toUpperCase())),
+  ];
 }
 
 // ── Lista de Cargue ──────────────────────────────────────────────────────────
