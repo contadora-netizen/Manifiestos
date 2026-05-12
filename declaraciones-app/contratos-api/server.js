@@ -490,6 +490,26 @@ app.get('/api/debug/fvele-recientes', async (req, res) => {
   }
 });
 
+// ── GET /api/debug/buscar/:numero - Busca un numero de factura sin ningun filtro ──
+app.get('/api/debug/buscar/:numero', async (req, res) => {
+  try {
+    const num = req.params.numero.padStart(10, '0');
+    const [rows] = await getPool().query(`
+      SELECT DCL_NUMERO, DCL_TDT_CODIGO, DCL_FECHA, DCL_ACTIVO, DCL_CLT_CODIGO, DCL_NETO
+      FROM adn_doccli
+      WHERE DCL_NUMERO = ? OR DCL_NUMERO = ?
+    `, [num, req.params.numero]);
+    const [maxFVELE] = await getPool().query(`
+      SELECT MAX(CAST(DCL_NUMERO AS UNSIGNED)) as max_fvele,
+             MAX(DCL_FECHA) as ultima_fecha_fvele
+      FROM adn_doccli WHERE DCL_TDT_CODIGO = 'FVELE'
+    `);
+    res.json({ buscado: req.params.numero, encontrado: rows, max_fvele: maxFVELE[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── GET /api/debug/hoy - Todo lo que hay en adn_doccli para hoy sin filtros ──
 app.get('/api/debug/hoy', async (req, res) => {
   try {
