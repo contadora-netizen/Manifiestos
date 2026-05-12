@@ -580,16 +580,36 @@ app.get('/api/lista-cargue/:fecha', async (req, res) => {
   }
 });
 
-// ── GET /api/conductor-info - Busca info de conductor en transportistas y clientes ──
+// ── GET /api/conductor-info - Busca info de conductor priorizando adn_clientes ──
 app.get('/api/conductor-info', async (req, res) => {
   try {
     const nombre = (req.query.nombre || '').trim();
     if (!nombre) return res.json({ encontrado: false });
 
-    // Buscar en adn_transportistas por nombre completo
     const palabras = nombre.split(/\s+/).filter(Boolean);
+
+    // 1. Buscar primero en adn_clientes (tiene info más actualizada)
+    const like = `%${palabras.slice(0, 2).join('%')}%`;
+    const [clts] = await getPool().query(`
+      SELECT c.CLT_CODIGO AS codigo, c.CLT_NOMBRE AS nombre,
+             COALESCE(NULLIF(c.CLT_CELULAR,''), NULLIF(c.CLT_TELEFONO1,'')) AS telefono,
+             c.CLT_DIRECCION1 AS direccion, cd.CDD_DESCRI AS ciudad
+      FROM adn_clientes c
+      LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO = cd.CDD_CODIGO
+      WHERE c.CLT_NOMBRE LIKE ?
+      ORDER BY
+        CASE WHEN c.CLT_CELULAR IS NOT NULL AND c.CLT_CELULAR != '' THEN 0 ELSE 1 END,
+        c.CLT_NOMBRE
+      LIMIT 1
+    `, [like]);
+
+    if (clts.length && (clts[0].telefono || clts[0].direccion)) {
+      return res.json({ encontrado: true, fuente: 'clientes', ...clts[0] });
+    }
+
+    // 2. Fallback: buscar en adn_transportistas
     const [tras] = await getPool().query(`
-      SELECT TRA_CEDULA AS cc, TRA_NOMBRE AS nombre, TRA_APELLIDO AS apellido,
+      SELECT TRA_CEDULA AS cc, CONCAT(TRA_NOMBRE,' ',TRA_APELLIDO) AS nombre,
              TRA_TELEFONO AS telefono, TRA_DIRECCION AS direccion
       FROM adn_transportistas
       WHERE TRA_ACTIVO = 1
@@ -597,21 +617,11 @@ app.get('/api/conductor-info', async (req, res) => {
       LIMIT 1
     `, [`%${nombre}%`, `%${nombre}%`]);
 
-    if (tras.length && (tras[0].telefono || tras[0].direccion)) {
+    if (tras.length) {
       return res.json({ encontrado: true, fuente: 'transportistas', ...tras[0] });
     }
 
-    // Buscar en adn_clientes por nombre
-    const like = `%${palabras.slice(0, 2).join('%')}%`;
-    const [clts] = await getPool().query(`
-      SELECT c.CLT_RIF AS cc, c.CLT_NOMBRE AS nombre, c.CLT_CELULAR AS telefono,
-             c.CLT_DIRECCION1 AS direccion, cd.CDD_DESCRI AS ciudad
-      FROM adn_clientes c
-      LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO = cd.CDD_CODIGO
-      WHERE c.CLT_ACTIVO = 1 AND c.CLT_NOMBRE LIKE ?
-      LIMIT 1
-    `, [like]);
-
+    // 3. Si encontró en clientes pero sin teléfono/dirección, devolver lo que hay
     if (clts.length) {
       return res.json({ encontrado: true, fuente: 'clientes', ...clts[0] });
     }
