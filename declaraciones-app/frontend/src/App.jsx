@@ -209,6 +209,7 @@ ${c.observaciones ? `<div style="margin-top:6px;font-size:8.5px"><strong>Observa
   <div class="firma-box"><div class="firma-line">DEPTO. DE TRÁFICO<br>ALUMAR S.A.S</div></div>
   <div class="firma-box"><div class="firma-line">EL CONTRATISTA</div></div>
   <div class="firma-box"><div class="firma-line">EL CONDUCTOR</div></div>
+  <div class="firma-box"><div class="firma-line">REVISADO POR</div></div>
 </div>
 </body></html>`;
   const w = window.open("", "_blank");
