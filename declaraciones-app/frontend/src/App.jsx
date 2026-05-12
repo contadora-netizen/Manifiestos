@@ -172,9 +172,8 @@ body{font-family:Arial,sans-serif;font-size:9.5px;padding:12mm 14mm;color:#000}
 <div class="sec">CARGA A MOVILIZAR</div>
 <div class="grid4">
   <div class="cell span4"><span class="lbl">Facturas N°</span><span class="val">${c.facturas||""}</span></div>
-  <div class="cell"><span class="lbl">Devoluciones N°</span><span class="val">${c.devoluciones||""}</span></div>
   <div class="cell span3"><span class="lbl">Destino (ciudades)</span><span class="val">${c.destino||""}</span></div>
-  <div class="cell span2"><span class="lbl">Valor total de la mercancía</span><span class="val">${fmt(c.valor_mercancia)}</span></div>
+  <div class="cell span1"><span class="lbl">Valor total de la mercancía</span><span class="val" style="font-weight:700">${fmt(c.valor_mercancia)}</span></div>
 </div>
 
 <div class="grid4" style="margin-top:4px;border:1px solid #000;padding:6px;border-radius:4px">
@@ -939,14 +938,16 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     if (!bdSeleccionadas.size) return;
     const sels = bdFacturasLista.filter(f => bdSeleccionadas.has(f.factura_numero_raw));
     const nums = sels.map(f => f.factura_numero_corto || String(f.factura_numero_raw).replace(/^0+/,''));
-    set("facturas", nums.join(" - "));
     const destinos = [...new Set(sels.map(f => f.ciudad).filter(Boolean))];
-    if (destinos.length) set("destino", destinos.join(" - "));
-    // Sumar valor_neto de todas las facturas seleccionadas
     const totalMercancia = sels.reduce((sum, f) => sum + (Number(f.valor_neto) || 0), 0);
-    if (totalMercancia > 0) set("valor_mercancia", Math.round(totalMercancia));
-    // Guardar las facturas seleccionadas para crear lista de cargue al guardar
-    set("_facturasSeleccionadas", sels);
+    // Una sola actualización para evitar que React colapse las llamadas
+    setForm(f => ({
+      ...f,
+      facturas: nums.join(" - "),
+      ...(destinos.length ? { destino: destinos.join(" - ") } : {}),
+      ...(totalMercancia > 0 ? { valor_mercancia: Math.round(totalMercancia) } : {}),
+      _facturasSeleccionadas: sels,
+    }));
   };
 
   useEffect(() => {
