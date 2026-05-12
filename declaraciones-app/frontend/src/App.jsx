@@ -1355,9 +1355,13 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
 
           <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:20, paddingTop:16, borderTop:`1px solid ${C.border}` }}>
             <button onClick={onCancel} style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:7, padding:"9px 20px", cursor:"pointer", color:C.textMuted, fontSize:12 }}>Cancelar</button>
+            <button onClick={() => {
+              onSave({ ...form, _borrador: true });
+              onCancel();
+            }} style={{ background:"#ff9800", color:"white", border:"none", borderRadius:7, padding:"9px 20px", cursor:"pointer", fontWeight:700, fontSize:12 }}>📝 Guardar borrador</button>
             <button onClick={() => generateContratoPDF(form)} style={{ background:C.blue, color:"white", border:"none", borderRadius:7, padding:"9px 20px", cursor:"pointer", fontWeight:700, fontSize:12 }}>🖨 Vista previa / Imprimir</button>
             <button onClick={() => {
-              onSave(form);
+              onSave({ ...form, _borrador: false });
               // Guardar ruta histórica si hay conductor + destino + valor
               if (conductorHistorico && form.destino && form.valor_contrato) {
                 rhGuardarRuta(conductorHistorico, form.destino, form.valor_contrato);
@@ -1797,16 +1801,20 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
 function ContratoRow({ contrato, onEdit }) {
   const [open, setOpen] = useState(false);
   const fmt = (v) => v ? `$${Number(v).toLocaleString("es-CO")}` : "—";
+  const esBorrador = contrato._borrador === true;
   return (
-    <div style={{ border:`1px solid ${C.border}`, borderRadius:8, marginBottom:8, overflow:"hidden" }}>
-      <div onClick={() => setOpen(o => !o)} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", cursor:"pointer", background: open ? "#f0f4f8" : C.white, transition:"background 0.15s" }}>
-        <div style={{ fontSize:16 }}>🚛</div>
+    <div style={{ border:`1px solid ${esBorrador ? "#ff9800" : C.border}`, borderRadius:8, marginBottom:8, overflow:"hidden", background: esBorrador ? "#fffbf2" : C.white }}>
+      <div onClick={() => setOpen(o => !o)} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", cursor:"pointer", background: open ? (esBorrador ? "#fff3e0" : "#f0f4f8") : "transparent", transition:"background 0.15s" }}>
+        <div style={{ fontSize:16 }}>{esBorrador ? "📝" : "🚛"}</div>
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontSize:12, fontWeight:700, color:C.text }}>N° {contrato.numero} — {contrato.contratista_nombre || "Sin nombre"}</div>
           <div style={{ fontSize:10, color:C.textMuted }}>{contrato.fecha_cargue} · {contrato.destino || "Sin destino especificado"}</div>
         </div>
-        <Badge color={C.green}>{fmt(contrato.valor_total)}</Badge>
-        {contrato.saldo_pagar > 0 && <Badge color={C.blue}>Saldo {fmt(contrato.saldo_pagar)}</Badge>}
+        {esBorrador
+          ? <Badge color="#ff9800">📝 BORRADOR — Faltan facturas</Badge>
+          : <><Badge color={C.green}>{fmt(contrato.valor_total)}</Badge>
+             {contrato.saldo_pagar > 0 && <Badge color={C.blue}>Saldo {fmt(contrato.saldo_pagar)}</Badge>}</>
+        }
         <button onClick={e => { e.stopPropagation(); generateContratoPDF(contrato); }}
           style={{ fontSize:11, background:C.blue, color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>🖨 Imprimir</button>
         <button onClick={e => { e.stopPropagation(); onEdit(contrato); }}
