@@ -941,6 +941,9 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     set("facturas", nums.join(" - "));
     const destinos = [...new Set(sels.map(f => f.ciudad).filter(Boolean))];
     if (destinos.length) set("destino", destinos.join(" - "));
+    // Sumar valor_neto de todas las facturas seleccionadas
+    const totalMercancia = sels.reduce((sum, f) => sum + (Number(f.valor_neto) || 0), 0);
+    if (totalMercancia > 0) set("valor_mercancia", Math.round(totalMercancia));
     // Guardar las facturas seleccionadas para crear lista de cargue al guardar
     set("_facturasSeleccionadas", sels);
   };
