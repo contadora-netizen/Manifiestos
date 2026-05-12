@@ -490,6 +490,39 @@ app.get('/api/debug/fvele-recientes', async (req, res) => {
   }
 });
 
+// ── GET /api/debug/hoy - Todo lo que hay en adn_doccli para hoy sin filtros ──
+app.get('/api/debug/hoy', async (req, res) => {
+  try {
+    const hoy = new Date().toISOString().slice(0, 10);
+    const [porFecha] = await getPool().query(`
+      SELECT DCL_TDT_CODIGO, COUNT(*) as total, MAX(CAST(DCL_NUMERO AS UNSIGNED)) as max_num
+      FROM adn_doccli
+      WHERE DATE(DCL_FECHA) = ?
+      GROUP BY DCL_TDT_CODIGO
+      ORDER BY total DESC
+    `, [hoy]);
+    const [maxNum] = await getPool().query(`
+      SELECT MAX(CAST(DCL_NUMERO AS UNSIGNED)) as max_numero,
+             (SELECT DCL_FECHA FROM adn_doccli ORDER BY CAST(DCL_NUMERO AS UNSIGNED) DESC LIMIT 1) as ultima_fecha
+      FROM adn_doccli
+    `);
+    const [recientes] = await getPool().query(`
+      SELECT DCL_NUMERO, DCL_TDT_CODIGO, DCL_FECHA, DCL_ACTIVO
+      FROM adn_doccli
+      ORDER BY CAST(DCL_NUMERO AS UNSIGNED) DESC
+      LIMIT 5
+    `);
+    res.json({
+      fecha_consultada: hoy,
+      documentos_hoy_por_tipo: porFecha,
+      numero_maximo_en_bd: maxNum[0],
+      ultimos_5_registros: recientes
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // mantener compatibilidad con ruta anterior
 app.get('/api/lista-cargue/:fecha', async (req, res) => {
   req.query.desde = req.params.fecha;
