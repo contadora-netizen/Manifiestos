@@ -444,13 +444,14 @@ app.get('/api/lista-cargue', async (req, res) => {
         d.DCL_CLT_CODIGO    AS cliente_codigo,
         d.DCL_NETO          AS valor_neto,
         d.DCL_BULTOS        AS bultos,
-        c.CLT_NOMBRE        AS nombre,
-        cd.CDD_DESCRI       AS ciudad
+        MIN(c.CLT_NOMBRE)   AS nombre,
+        MIN(cd.CDD_DESCRI)  AS ciudad
       FROM adn_doccli d
       LEFT JOIN adn_clientes c  ON d.DCL_CLT_CODIGO = c.CLT_CODIGO
       LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO  = cd.CDD_CODIGO
       WHERE DATE(d.DCL_FECHA) BETWEEN ? AND ?
         AND d.DCL_TDT_CODIGO IN (${placeholders})
+      GROUP BY d.DCL_NUMERO, d.DCL_TDT_CODIGO, d.DCL_FECHA, d.DCL_CLT_CODIGO, d.DCL_NETO, d.DCL_BULTOS
       ORDER BY d.DCL_FECHA ASC, CAST(d.DCL_NUMERO AS UNSIGNED) ASC
     `, [desde, hasta, ...tiposArr]);
 
