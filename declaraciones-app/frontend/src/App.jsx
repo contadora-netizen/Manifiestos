@@ -1884,15 +1884,40 @@ function ContratoRow({ contrato, onEdit, onFirmar }) {
 
 // ── Bodega Tab ────────────────────────────────────────────────────────────────
 const ZONA_INFO = {
-  A: { label: "Zona A",  piso:"1° Piso", color: "#1e7e34", bg: "#e8f5e9", desc: "Alta rotación · Pegada al alistamiento" },
-  E: { label: "Zona E",  piso:"1° Piso", color: "#1255a4", bg: "#e3f2fd", desc: "Rotación media-alta" },
-  F: { label: "Zona F",  piso:"1° Piso", color: "#d4780a", bg: "#fff3e0", desc: "Rotación media-baja · Fondo 1° piso" },
-  B: { label: "Zona B",  piso:"2° Piso", color: "#6a1b9a", bg: "#f3e5f5", desc: "Baja rotación · 2° piso" },
-  D: { label: "Zona D",  piso:"2° Piso", color: "#7b1fa2", bg: "#f3e5f5", desc: "Baja rotación · 2° piso" },
-  G: { label: "Zona G",  piso:"2° Piso", color: "#4a148c", bg: "#ede7f6", desc: "Baja rotación · 2° piso" },
-  H: { label: "Zona H",  piso:"2° Piso", color: "#311b92", bg: "#ede7f6", desc: "Baja rotación · 2° piso" },
+  // Zonas internas (croquis)
+  A: { label: "Zona A",          piso:"1° Piso",  color: "#1e7e34", bg: "#e8f5e9", desc: "Alta rotación · Pegada al alistamiento" },
+  E: { label: "Zona E",          piso:"1° Piso",  color: "#1255a4", bg: "#e3f2fd", desc: "Rotación media-alta" },
+  F: { label: "Zona F",          piso:"1° Piso",  color: "#d4780a", bg: "#fff3e0", desc: "Rotación media-baja · Fondo 1° piso" },
+  B: { label: "Zona B",          piso:"2° Piso",  color: "#6a1b9a", bg: "#f3e5f5", desc: "Baja rotación · 2° piso" },
+  D: { label: "Zona D",          piso:"2° Piso",  color: "#7b1fa2", bg: "#f3e5f5", desc: "Baja rotación · 2° piso" },
+  G: { label: "Zona G",          piso:"2° Piso",  color: "#4a148c", bg: "#ede7f6", desc: "Baja rotación · 2° piso" },
+  H: { label: "Zona H",          piso:"2° Piso",  color: "#311b92", bg: "#ede7f6", desc: "Baja rotación · 2° piso" },
+  // Zonas externas (fuera del croquis — sin control individual de referencias)
+  I: { label: "Zona Industrial",  piso:"Externa",  color: "#37474f", bg: "#eceff1", desc: "Bodega zona industrial — sin control individual de refs", externa: true },
+  X: { label: "Pto. Exhibición",  piso:"Externa",  color: "#6a1b9a", bg: "#ede7f6", desc: "Punto de exhibición — productos de muestra / display", externa: true },
+  // Sin zona asignada
+  "?": { label: "Sin Zona",       piso:"—",        color: "#9e9e9e", bg: "#f5f5f5", desc: "Producto sin ubicación definida", sinZona: true },
 };
+
+// Sólo las zonas que aparecen en el croquis SVG
+const ZONAS_CROQUIS = ["A","E","F","B","D","G","H"];
+
 const CLASE_COLOR = { A: "#1e7e34", B: "#1255a4", C: "#888" };
+
+// Zonas esperadas por clase de rotación
+const ZONA_ESPERADA = { A: ["A","E"], B: ["E","F"], C: ["B","D","G","H"] };
+
+function evaluarUbicacion(clase, zona) {
+  if (!zona || zona === "?") return { estado:"sinzona",  icono:"❓", color:"#9e9e9e", texto:"Sin zona asignada" };
+  if (zona === "I")          return { estado:"externo",  icono:"🏭", color:"#37474f", texto:"Zona Industrial" };
+  if (zona === "X")          return { estado:"externo",  icono:"🖼", color:"#6a1b9a", texto:"Punto Exhibición" };
+  const esperadas = ZONA_ESPERADA[clase] || [];
+  if (esperadas.includes(zona)) return { estado:"ok",     icono:"✅", color:"#1e7e34", texto:"Ubicación correcta" };
+  const en2piso = ["B","D","G","H"].includes(zona);
+  if (clase === "A" && en2piso)           return { estado:"critico", icono:"🔴", color:"#c0392b", texto:"Clase A en 2° piso — mover urgente" };
+  if (clase === "C" && ["A","E"].includes(zona)) return { estado:"malo",   icono:"🟡", color:"#d4780a", texto:"Clase C en zona prime — liberar" };
+  return { estado:"revisar", icono:"🟡", color:"#d4780a", texto:`Zona ${zona} no ideal para clase ${clase}` };
+}
 
 // ── Croquis SVG interactivo ───────────────────────────────────────────────────
 function CroquisBodega({ productos, zonaActiva, onZonaClick, piso }) {
@@ -2005,13 +2030,14 @@ function BodegaTab({ capiBase }) {
   const [zonaActiva, setZonaActiva]   = useState(null);
   const [filtroClase, setFiltroClase] = useState("todas");
   const [pisoVista, setPisoVista]     = useState(1);
-  const [vistaPanel, setVistaPanel]   = useState("productos"); // "productos" | "historial"
+  const [vistaPanel, setVistaPanel]   = useState("productos"); // "productos" | "sinzona" | "historial"
   const [overrides, setOverrides]     = useState(() => lsGet("alumar_zona_ov", {}));
   const [capacidades, setCapacidades] = useState(() => lsGet("alumar_zona_caps", CAP_DEFAULT));
   const [historial, setHistorial]     = useState(() => lsGet("alumar_bodega_hist", []));
   const [editandoCap, setEditandoCap] = useState(false);
   const [capTemp, setCapTemp]         = useState(CAP_DEFAULT);
   const [conocidos, setConocidos]     = useState(() => new Set(lsGet("alumar_conocidos", [])));
+  const [notasExternas, setNotasExternas] = useState(() => lsGet("alumar_notas_ext", { I:"", X:"" }));
 
   const cargar = async () => {
     setLoading(true);
@@ -2043,23 +2069,44 @@ function BodegaTab({ capiBase }) {
   // Productos sin ubicar = nuevos en BD que no se han visto antes
   const sinUbicar = productos.filter(p => !lsGet("alumar_conocidos_pre",[]).includes(p.codigo));
 
+  // Productos sin zona asignada (marcados manualmente como "?")
+  const sinZonaLista = productos.filter(p => p.zona === "?");
+
+  // Productos en zonas externas
+  const enIndustrial  = productos.filter(p => p.zona === "I");
+  const enExhibicion  = productos.filter(p => p.zona === "X");
+
+  // Productos mal ubicados según rotación (excluyendo externos y sin zona)
+  const malUbicados = productos.filter(p => {
+    const ev = evaluarUbicacion(p.clase_rotacion, p.zona);
+    return ev.estado === "critico" || ev.estado === "malo" || ev.estado === "revisar";
+  });
+
   const filtrados = productos.filter(p => {
     const txt = busqueda.toLowerCase();
     const matchBus   = !txt || p.codigo.toLowerCase().includes(txt) || (p.descripcion||"").toLowerCase().includes(txt);
     const matchZona  = !zonaActiva || p.zona === zonaActiva;
     const matchClase = filtroClase === "todas" || p.clase_rotacion === filtroClase;
-    return matchBus && matchZona && matchClase;
+    // Excluir sin zona y externos del panel principal (tienen sus propias secciones)
+    const esEspecial = p.zona === "?" || p.zona === "I" || p.zona === "X";
+    return matchBus && matchZona && matchClase && !esEspecial;
   });
 
   const conteoZona = {};
-  Object.keys(ZONA_INFO).forEach(z => { conteoZona[z] = productos.filter(p => p.zona === z).length; });
+  ZONAS_CROQUIS.forEach(z => { conteoZona[z] = productos.filter(p => p.zona === z).length; });
 
   const zonaInfo = zonaActiva ? ZONA_INFO[zonaActiva] : null;
 
   const onZonaClick = (zona) => {
     setZonaActiva(z => z === zona ? null : zona);
-    setPisoVista(["B","D","G","H"].includes(zona) ? 2 : 1);
+    if (ZONAS_CROQUIS.includes(zona)) setPisoVista(["B","D","G","H"].includes(zona) ? 2 : 1);
     setBusqueda(""); setFiltroClase("todas"); setVistaPanel("productos");
+  };
+
+  const guardarNotaExterna = (zona, texto) => {
+    const nuevas = { ...notasExternas, [zona]: texto };
+    setNotasExternas(nuevas);
+    lsSet("alumar_notas_ext", nuevas);
   };
 
   const cambiarZona = (codigo, descripcion, zonaAnterior, zonaNueva) => {
@@ -2146,17 +2193,42 @@ function BodegaTab({ capiBase }) {
         </div>
       </div>
 
-      {/* Alerta nuevos SKUs */}
-      {historial[0]?.tipo === "nuevos" && (
-        <div style={{ background:"#fff3e0", border:`1px solid ${C.accent}`, borderRadius:8, padding:"10px 14px", marginBottom:12,
-          display:"flex", alignItems:"center", gap:10, fontSize:12 }}>
-          <span style={{ fontSize:18 }}>⚠️</span>
-          <div><strong style={{ color:C.accent }}>Nuevos SKUs detectados:</strong> {historial[0].detalle}</div>
-          <button onClick={() => setVistaPanel("historial")}
-            style={{ marginLeft:"auto", border:`1px solid ${C.accent}`, background:"transparent", borderRadius:5,
-              padding:"3px 10px", fontSize:11, color:C.accent, cursor:"pointer" }}>Ver historial</button>
-        </div>
-      )}
+      {/* Alertas */}
+      <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:12 }}>
+        {sinZonaLista.length > 0 && (
+          <div style={{ background:"#f5f5f5", border:"1px solid #9e9e9e", borderRadius:8, padding:"10px 14px",
+            display:"flex", alignItems:"center", gap:10, fontSize:12 }}>
+            <span style={{ fontSize:18 }}>❓</span>
+            <div><strong style={{ color:"#616161" }}>{sinZonaLista.length} producto(s) sin zona asignada</strong>
+              <span style={{ color:C.textMuted }}> — pendientes de ubicar</span></div>
+            <button onClick={() => { setZonaActiva(null); setVistaPanel("sinzona"); }}
+              style={{ marginLeft:"auto", border:"1px solid #9e9e9e", background:"transparent", borderRadius:5,
+                padding:"3px 10px", fontSize:11, color:"#616161", cursor:"pointer" }}>Ver lista</button>
+          </div>
+        )}
+        {malUbicados.filter(p => evaluarUbicacion(p.clase_rotacion, p.zona).estado === "critico").length > 0 && (
+          <div style={{ background:"#fdecea", border:`1px solid ${C.red}`, borderRadius:8, padding:"10px 14px",
+            display:"flex", alignItems:"center", gap:10, fontSize:12 }}>
+            <span style={{ fontSize:18 }}>🔴</span>
+            <div>
+              <strong style={{ color:C.red }}>
+                {malUbicados.filter(p => evaluarUbicacion(p.clase_rotacion, p.zona).estado === "critico").length} producto(s) clase A en 2° piso
+              </strong>
+              <span style={{ color:C.textMuted }}> — requieren reubicación urgente</span>
+            </div>
+          </div>
+        )}
+        {historial[0]?.tipo === "nuevos" && (
+          <div style={{ background:"#fff3e0", border:`1px solid ${C.accent}`, borderRadius:8, padding:"10px 14px",
+            display:"flex", alignItems:"center", gap:10, fontSize:12 }}>
+            <span style={{ fontSize:18 }}>⚠️</span>
+            <div><strong style={{ color:C.accent }}>Nuevos SKUs detectados:</strong> {historial[0].detalle}</div>
+            <button onClick={() => setVistaPanel("historial")}
+              style={{ marginLeft:"auto", border:`1px solid ${C.accent}`, background:"transparent", borderRadius:5,
+                padding:"3px 10px", fontSize:11, color:C.accent, cursor:"pointer" }}>Ver historial</button>
+          </div>
+        )}
+      </div>
 
       {/* Layout principal */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 400px", gap:16 }}>
@@ -2224,11 +2296,14 @@ function BodegaTab({ capiBase }) {
           {data && (
             <div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:5 }}>
               <div style={{ fontSize:10, fontWeight:700, color:C.textDim, letterSpacing:"0.08em" }}>OCUPACIÓN ESTIMADA POR ZONA</div>
-              {Object.entries(ZONA_INFO).map(([zona, info]) => {
+              {ZONAS_CROQUIS.map(zona => {
+                const info = ZONA_INFO[zona];
                 const cap  = capacidades[zona] || 1;
                 const cnt  = conteoZona[zona]  || 0;
                 const pct  = Math.min(Math.round((cnt/cap)*100), 100);
                 const col  = pct >= 90 ? C.red : pct >= 70 ? C.accent : C.green;
+                // cuántos mal ubicados hay en esta zona
+                const malos = malUbicados.filter(p => p.zona === zona);
                 return (
                   <div key={zona} style={{ display:"flex", alignItems:"center", gap:8 }}>
                     <div style={{ width:50, fontSize:11, fontWeight:700, color:info.color }}>{zona}</div>
@@ -2236,9 +2311,23 @@ function BodegaTab({ capiBase }) {
                       <div style={{ width:`${pct}%`, background:col, height:"100%", borderRadius:4, transition:"width 0.5s" }}/>
                     </div>
                     <div style={{ width:70, fontSize:10, color:col, fontWeight:700, textAlign:"right" }}>{cnt}/{cap} ({pct}%)</div>
+                    {malos.length > 0 && (
+                      <span title={malos.map(p=>evaluarUbicacion(p.clase_rotacion,p.zona).texto).join('\n')}
+                        style={{ fontSize:10, color: malos.some(p=>evaluarUbicacion(p.clase_rotacion,p.zona).estado==="critico")?C.red:C.accent,
+                          cursor:"help", flexShrink:0 }}>
+                        {malos.some(p=>evaluarUbicacion(p.clase_rotacion,p.zona).estado==="critico")?"🔴":"🟡"}
+                      </span>
+                    )}
                   </div>
                 );
               })}
+              {/* Resumen mal ubicados */}
+              {malUbicados.length > 0 && (
+                <div style={{ marginTop:6, padding:"6px 10px", background:"#fff8e1", borderRadius:6, fontSize:11, color:"#7a5c00", display:"flex", gap:12 }}>
+                  <span>🟡 {malUbicados.filter(p=>["malo","revisar"].includes(evaluarUbicacion(p.clase_rotacion,p.zona).estado)).length} a revisar</span>
+                  <span>🔴 {malUbicados.filter(p=>evaluarUbicacion(p.clase_rotacion,p.zona).estado==="critico").length} urgentes</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -2270,12 +2359,16 @@ function BodegaTab({ capiBase }) {
 
           {/* Tabs panel */}
           <div style={{ display:"flex", borderBottom:`1px solid ${C.border}` }}>
-            {[["productos","📦 Productos"],["historial",`📋 Historial (${historial.length})`]].map(([v,l]) => (
+            {[
+              ["productos","📦 Productos"],
+              ["sinzona", sinZonaLista.length > 0 ? `❓ Sin Zona (${sinZonaLista.length})` : "❓ Sin Zona"],
+              ["historial",`📋 Historial (${historial.length})`]
+            ].map(([v,l]) => (
               <button key={v} onClick={() => setVistaPanel(v)}
                 style={{ flex:1, border:"none", borderBottom:`3px solid ${vistaPanel===v?(zonaInfo?.color||C.blue):"transparent"}`,
-                  padding:"10px 0", fontSize:12, fontWeight:vistaPanel===v?700:400,
-                  color:vistaPanel===v?(zonaInfo?.color||C.blue):C.textMuted,
-                  background:"transparent", cursor:"pointer" }}>{l}</button>
+                  padding:"10px 0", fontSize:11, fontWeight:vistaPanel===v?700:400,
+                  color: vistaPanel===v?(zonaInfo?.color||C.blue): v==="sinzona"&&sinZonaLista.length>0?"#9e9e9e":C.textMuted,
+                  background: v==="sinzona"&&sinZonaLista.length>0?"#fafafa":"transparent", cursor:"pointer" }}>{l}</button>
             ))}
           </div>
 
@@ -2293,7 +2386,52 @@ function BodegaTab({ capiBase }) {
             <div style={{ fontWeight:900, fontSize:20 }}>{vistaPanel==="productos"?filtrados.length:historial.length}</div>
           </div>
 
-          {vistaPanel === "historial" ? (
+          {vistaPanel === "sinzona" ? (
+            <div style={{ overflowY:"auto", flex:1, maxHeight:560, padding:"12px 14px" }}>
+              {sinZonaLista.length === 0 ? (
+                <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:12 }}>
+                  <div style={{ fontSize:32, marginBottom:8 }}>✅</div>
+                  Todos los productos tienen zona asignada
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize:11, color:C.textMuted, marginBottom:10, padding:"8px 10px", background:"#f5f5f5", borderRadius:6 }}>
+                    {sinZonaLista.length} producto(s) pendientes de ubicar. Asígnales una zona usando el selector.
+                  </div>
+                  {sinZonaLista.map((p, i) => (
+                    <div key={p.codigo} style={{ padding:"8px 10px", borderBottom:`1px solid ${C.border}`,
+                      display:"flex", alignItems:"flex-start", gap:8, background: i%2===0?"#f8fafc":C.white }}>
+                      <span style={{ background:CLASE_COLOR[p.clase_rotacion]+"18", color:CLASE_COLOR[p.clase_rotacion],
+                        borderRadius:4, padding:"2px 6px", fontWeight:800, fontSize:10, flexShrink:0, marginTop:2 }}>
+                        {p.clase_rotacion}
+                      </span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontFamily:"monospace", fontWeight:700, color:C.blue, fontSize:11 }}>{p.codigo}</div>
+                        <div style={{ fontSize:11, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.descripcion}</div>
+                        <div style={{ fontSize:10, color:C.textMuted }}>{(p.unidades_vendidas||0).toLocaleString("es-CO")} uds · {p.num_facturas} facturas</div>
+                        <div style={{ fontSize:9, color:"#9e9e9e", marginTop:1 }}>
+                          Zona sugerida por rotación: <strong>Z{p.zonaAuto}</strong> — {ZONA_INFO[p.zonaAuto]?.piso} · {ZONA_INFO[p.zonaAuto]?.desc}
+                        </div>
+                      </div>
+                      <select value={p.zona}
+                        onChange={e => cambiarZona(p.codigo, p.descripcion, p.zona, e.target.value)}
+                        style={{ border:"1px solid #9e9e9e", background:"#f5f5f5", color:"#616161",
+                          borderRadius:5, padding:"2px 4px", fontSize:10, fontWeight:700, cursor:"pointer", flexShrink:0 }}>
+                        <option value="?">❓ Sin zona</option>
+                        <optgroup label="Internas">
+                          {ZONAS_CROQUIS.map(z => <option key={z} value={z}>Z{z} — {ZONA_INFO[z].piso}</option>)}
+                        </optgroup>
+                        <optgroup label="Externas">
+                          <option value="I">🏭 Industrial</option>
+                          <option value="X">🖼 Exhibición</option>
+                        </optgroup>
+                      </select>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          ) : vistaPanel === "historial" ? (
             <div style={{ overflowY:"auto", flex:1, maxHeight:520 }}>
               {historial.length === 0 ? (
                 <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:12 }}>Sin cambios registrados aún</div>
@@ -2330,11 +2468,12 @@ function BodegaTab({ capiBase }) {
                 {filtrados.length===0 ? (
                   <div style={{ textAlign:"center", padding:"2rem", color:C.textMuted, fontSize:12 }}>Sin resultados</div>
                 ) : filtrados.slice(0,150).map((p, i) => {
-                  const zi = ZONA_INFO[p.zona] || {};
+                  const zi  = ZONA_INFO[p.zona] || {};
+                  const ev  = evaluarUbicacion(p.clase_rotacion, p.zona);
+                  const bgRow = ev.estado==="critico"?"#fff5f5": ev.estado==="malo"?"#fffde7": p.esOverride?"#fffde7": i%2===0?"#f8fafc":C.white;
                   return (
                     <div key={p.codigo} style={{ padding:"8px 12px", borderBottom:`1px solid ${C.border}`,
-                      background:p.esOverride?"#fffde7":i%2===0?"#f8fafc":C.white,
-                      display:"flex", alignItems:"flex-start", gap:8 }}>
+                      background: bgRow, display:"flex", alignItems:"flex-start", gap:8 }}>
                       <span style={{ background:CLASE_COLOR[p.clase_rotacion]+"18", color:CLASE_COLOR[p.clase_rotacion],
                         borderRadius:4, padding:"2px 6px", fontWeight:800, fontSize:10, flexShrink:0, marginTop:2 }}>
                         {p.clase_rotacion}
@@ -2343,17 +2482,33 @@ function BodegaTab({ capiBase }) {
                         <div style={{ display:"flex", alignItems:"center", gap:4 }}>
                           <span style={{ fontFamily:"monospace", fontWeight:700, color:C.blue, fontSize:11 }}>{p.codigo}</span>
                           {p.esOverride && <span style={{ fontSize:9, background:"#fff3e0", color:C.accent, borderRadius:3, padding:"1px 4px", fontWeight:700 }}>MANUAL</span>}
+                          {/* Indicador de calidad de ubicación */}
+                          {ev.estado !== "ok" && ev.estado !== "externo" && ev.estado !== "sinzona" && (
+                            <span title={ev.texto} style={{ fontSize:10, cursor:"help" }}>{ev.icono}</span>
+                          )}
                         </div>
                         <div style={{ fontSize:11, color:C.text, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.descripcion}</div>
                         <div style={{ fontSize:10, color:C.textMuted }}>{(p.unidades_vendidas||0).toLocaleString("es-CO")} uds · {p.num_facturas} facturas</div>
+                        {ev.estado !== "ok" && ev.estado !== "externo" && ev.estado !== "sinzona" && (
+                          <div style={{ fontSize:9, color:ev.color, fontWeight:600, marginTop:1 }}>{ev.texto}</div>
+                        )}
                       </div>
                       {/* Selector de zona manual */}
                       <select value={p.zona}
                         onChange={e => cambiarZona(p.codigo, p.descripcion, p.zona, e.target.value)}
-                        style={{ border:`1px solid ${zi.color}`, background:zi.bg, color:zi.color,
+                        style={{ border:`1px solid ${zi.color||"#ccc"}`, background:zi.bg||"#f5f5f5", color:zi.color||"#666",
                           borderRadius:5, padding:"2px 4px", fontSize:10, fontWeight:700, cursor:"pointer", flexShrink:0 }}>
-                        {Object.keys(ZONA_INFO).map(z => <option key={z} value={z}>Z{z}</option>)}
-                        {p.esOverride && <option value="auto">↩ Auto</option>}
+                        <optgroup label="Zonas internas">
+                          {ZONAS_CROQUIS.map(z => <option key={z} value={z}>Z{z} — {ZONA_INFO[z].piso}</option>)}
+                        </optgroup>
+                        <optgroup label="Zonas externas">
+                          <option value="I">🏭 Industrial</option>
+                          <option value="X">🖼 Exhibición</option>
+                        </optgroup>
+                        <optgroup label="Otros">
+                          <option value="?">❓ Sin zona</option>
+                          {p.esOverride && <option value="auto">↩ Auto (volver)</option>}
+                        </optgroup>
                       </select>
                     </div>
                   );
@@ -2366,6 +2521,76 @@ function BodegaTab({ capiBase }) {
               </div>
             </>
           )}
+        </div>
+      </div>
+
+      {/* ── Zonas externas ────────────────────────────────────────────────── */}
+      <div style={{ marginTop:20 }}>
+        <div style={{ fontSize:13, fontWeight:700, color:C.navy, marginBottom:10 }}>
+          🌐 Zonas externas — sin control individual de referencias
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+          {[
+            { key:"I", emoji:"🏭", label:"Zona Industrial",   color:"#37474f", bg:"#eceff1", lista: enIndustrial },
+            { key:"X", emoji:"🖼", label:"Punto de Exhibición", color:"#6a1b9a", bg:"#f3e5f5", lista: enExhibicion },
+          ].map(({ key, emoji, label, color, bg, lista }) => (
+            <div key={key} style={{ background:C.white, border:`1.5px solid ${color}40`, borderRadius:12, overflow:"hidden", boxShadow:C.shadow }}>
+              {/* Header */}
+              <div style={{ background:color, color:"#fff", padding:"12px 16px", display:"flex", alignItems:"center", gap:10 }}>
+                <span style={{ fontSize:22 }}>{emoji}</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:800, fontSize:13 }}>{label}</div>
+                  <div style={{ fontSize:10, opacity:.8 }}>Zona externa · {lista.length} referencia(s) asignada(s) manualmente</div>
+                </div>
+              </div>
+              {/* Notas */}
+              <div style={{ padding:"12px 16px", borderBottom:`1px solid ${color}20` }}>
+                <div style={{ fontSize:10, fontWeight:700, color:color, marginBottom:6, letterSpacing:"0.06em" }}>NOTAS / DESCRIPCIÓN GENERAL</div>
+                <textarea
+                  value={notasExternas[key] || ""}
+                  onChange={e => guardarNotaExterna(key, e.target.value)}
+                  placeholder={`Ej: ${key==="I" ? "Cajas de línea NADIR, stock de seguridad, productos de gran volumen..." : "Juego de ollas exhibición, vajillas display, muestras para clientes..."}`}
+                  rows={3}
+                  style={{ width:"100%", border:`1px solid ${color}40`, borderRadius:6, padding:"8px 10px", fontSize:12,
+                    color:C.text, resize:"none", outline:"none", boxSizing:"border-box", background:bg, fontFamily:"Arial, sans-serif" }}
+                />
+                <div style={{ fontSize:9, color:C.textDim, marginTop:3 }}>Se guarda automáticamente · Sólo texto libre (no hay inventario por referencia)</div>
+              </div>
+              {/* Lista de productos asignados manualmente */}
+              {lista.length > 0 ? (
+                <div style={{ maxHeight:200, overflowY:"auto" }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:C.textDim, padding:"8px 16px 4px", letterSpacing:"0.06em" }}>
+                    REFERENCIAS ASIGNADAS A ESTA ZONA
+                  </div>
+                  {lista.map((p, i) => (
+                    <div key={p.codigo} style={{ padding:"6px 16px", borderBottom:`1px solid ${color}15`,
+                      background: i%2===0?"#fafafa":C.white, display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ background:CLASE_COLOR[p.clase_rotacion]+"18", color:CLASE_COLOR[p.clase_rotacion],
+                        borderRadius:3, padding:"1px 5px", fontWeight:800, fontSize:9, flexShrink:0 }}>
+                        {p.clase_rotacion}
+                      </span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <span style={{ fontFamily:"monospace", fontSize:10, fontWeight:700, color:color }}>{p.codigo}</span>
+                        <span style={{ fontSize:10, color:C.textMuted, marginLeft:6,
+                          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"inline-block", maxWidth:200, verticalAlign:"bottom" }}>
+                          {p.descripcion}
+                        </span>
+                      </div>
+                      <button onClick={() => cambiarZona(p.codigo, p.descripcion, key, p.zonaAuto || "?")}
+                        title="Devolver a zona automática"
+                        style={{ fontSize:9, background:"transparent", border:`1px solid ${color}40`, color, borderRadius:4,
+                          padding:"2px 6px", cursor:"pointer" }}>↩ Auto</button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ padding:"14px 16px", fontSize:11, color:C.textDim, fontStyle:"italic" }}>
+                  Ninguna referencia asignada manualmente a esta zona.<br/>
+                  <span style={{ fontSize:10 }}>Usa el selector en la lista de productos para asignar.</span>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
