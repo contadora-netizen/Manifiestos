@@ -1828,8 +1828,39 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
 // ── Contrato: fila de historial ───────────────────────────────────────────────
 function ContratoRow({ contrato, onEdit }) {
   const [open, setOpen] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [qrBultos, setQrBultos] = useState(contrato.bultos || "");
+  const [confStatus, setConfStatus] = useState(null); // null | {confirmado, confirmacion}
   const fmt = (v) => v ? `$${Number(v).toLocaleString("es-CO")}` : "—";
   const esBorrador = contrato._borrador === true;
+
+  const capiBase = (typeof CAPI_BASE !== "undefined" ? CAPI_BASE : "").replace(/\/api$/, "") || "https://adaptable-caring-production-735b.up.railway.app";
+
+  const generarToken = () => {
+    const datos = {
+      numero: contrato.numero || "",
+      facturas: contrato.facturas || "",
+      bultos: qrBultos || "",
+      destino: contrato.destino || "",
+      fecha: contrato.fecha_cargue || new Date().toISOString().slice(0, 10),
+      conductor: contrato.conductor_nombre || "",
+    };
+    return btoa(JSON.stringify(datos));
+  };
+
+  const token = generarToken();
+  const linkConfirmacion = `${capiBase}/confirmar/${token}`;
+  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&color=0a1f3c&data=${encodeURIComponent(linkConfirmacion)}`;
+
+  const consultarConfirmacion = async () => {
+    try {
+      const r = await fetch(`${capiBase}/api/confirmacion/${token}`);
+      const d = await r.json();
+      setConfStatus(d);
+    } catch { setConfStatus(null); }
+  };
+
+  const abrirQR = () => { setShowQR(true); consultarConfirmacion(); };
   return (
     <div style={{ border:`1px solid ${esBorrador ? "#ff9800" : C.border}`, borderRadius:8, marginBottom:8, overflow:"hidden", background: esBorrador ? "#fffbf2" : C.white }}>
       <div onClick={() => setOpen(o => !o)} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", cursor:"pointer", background: open ? (esBorrador ? "#fff3e0" : "#f0f4f8") : "transparent", transition:"background 0.15s" }}>
@@ -1845,6 +1876,10 @@ function ContratoRow({ contrato, onEdit }) {
         }
         <button onClick={e => { e.stopPropagation(); generateContratoPDF(contrato); }}
           style={{ fontSize:11, background:C.blue, color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>🖨 Imprimir</button>
+        {!esBorrador && (
+          <button onClick={e => { e.stopPropagation(); abrirQR(); }}
+            style={{ fontSize:11, background:"#1e7e34", color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>📲 QR Entrega</button>
+        )}
         <button onClick={e => { e.stopPropagation(); onEdit(contrato); }}
           style={{ fontSize:11, background:C.accent, color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>✏ Editar</button>
         <span style={{ color:C.textDim, fontSize:12 }}>{open ? "▲" : "▼"}</span>
@@ -1867,6 +1902,82 @@ function ContratoRow({ contrato, onEdit }) {
                 <span style={{ fontWeight:700, color:C.green }}><strong style={{ color:C.text }}>Saldo a pagar:</strong> {fmt(contrato.saldo_pagar)}</span>
               </div>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal QR confirmación de entrega ─────────────────────────────── */}
+      {showQR && (
+        <div onClick={() => setShowQR(false)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:"#fff", borderRadius:14, width:"100%", maxWidth:480, overflow:"hidden", boxShadow:"0 8px 40px rgba(0,0,0,.25)" }}>
+            {/* Encabezado */}
+            <div style={{ background:`linear-gradient(135deg,${C.navy},${C.blue})`, color:"#fff", padding:"16px 20px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <div>
+                <div style={{ fontWeight:700, fontSize:15 }}>📲 Confirmación de entrega</div>
+                <div style={{ fontSize:11, opacity:.8, marginTop:2 }}>Contrato N° {contrato.numero} — {contrato.destino || "Sin destino"}</div>
+              </div>
+              <button onClick={() => setShowQR(false)} style={{ background:"transparent", border:"none", color:"#fff", fontSize:20, cursor:"pointer", lineHeight:1 }}>✕</button>
+            </div>
+
+            <div style={{ padding:"20px 24px" }}>
+              {/* Estado confirmación */}
+              {confStatus?.confirmado ? (
+                <div style={{ background:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:8, padding:"12px 16px", marginBottom:16 }}>
+                  <div style={{ fontWeight:700, color:C.green, fontSize:13 }}>✅ Entrega ya confirmada</div>
+                  <div style={{ fontSize:12, color:C.textMuted, marginTop:4 }}>
+                    <strong>{confStatus.confirmacion.nombre_receptor}</strong> · C.C. {confStatus.confirmacion.cedula} · Tel {confStatus.confirmacion.telefono}
+                  </div>
+                  <div style={{ fontSize:11, color:C.textDim, marginTop:2 }}>
+                    {new Date(confStatus.confirmacion.fecha_confirmacion).toLocaleString("es-CO")}
+                  </div>
+                  {confStatus.confirmacion.observaciones && (
+                    <div style={{ fontSize:11, color:C.textMuted, marginTop:4, fontStyle:"italic" }}>"{confStatus.confirmacion.observaciones}"</div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ background:"#fff8e1", border:"1px solid #ffe082", borderRadius:8, padding:"10px 14px", marginBottom:16, fontSize:12, color:"#7a5c00" }}>
+                  ⏳ Pendiente de confirmación por el cliente
+                  <button onClick={consultarConfirmacion} style={{ marginLeft:10, fontSize:11, background:"transparent", border:"1px solid #ffe082", borderRadius:4, padding:"2px 8px", cursor:"pointer", color:"#7a5c00" }}>🔄 Actualizar</button>
+                </div>
+              )}
+
+              {/* Bultos */}
+              <div style={{ marginBottom:14 }}>
+                <label style={{ fontSize:11, fontWeight:700, color:C.textMuted, display:"block", marginBottom:4 }}>TOTAL BULTOS A ENVIAR</label>
+                <input type="number" value={qrBultos} onChange={e => setQrBultos(e.target.value)}
+                  placeholder="Ej: 24"
+                  style={{ border:`1px solid ${C.border}`, borderRadius:6, padding:"7px 12px", fontSize:13, width:"100%", outline:"none" }} />
+                <div style={{ fontSize:10, color:C.textDim, marginTop:3 }}>Este valor quedará en el link que verá el cliente</div>
+              </div>
+
+              {/* QR */}
+              <div style={{ textAlign:"center", marginBottom:16 }}>
+                <img src={qrImgUrl} alt="QR confirmación" style={{ width:200, height:200, border:`2px solid ${C.border}`, borderRadius:8 }} />
+                <div style={{ fontSize:11, color:C.textMuted, marginTop:6 }}>Muestra este QR al cliente para que confirme el recibo</div>
+              </div>
+
+              {/* Link copiable */}
+              <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:"10px 12px", marginBottom:12 }}>
+                <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:4 }}>LINK DE CONFIRMACIÓN</div>
+                <div style={{ fontSize:10, color:C.blue, wordBreak:"break-all", marginBottom:8 }}>{linkConfirmacion}</div>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={() => { navigator.clipboard.writeText(linkConfirmacion); }}
+                    style={{ flex:1, fontSize:11, background:C.blue, color:"#fff", border:"none", borderRadius:5, padding:"7px", cursor:"pointer", fontWeight:700 }}>
+                    📋 Copiar link
+                  </button>
+                  <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent("Hola, por favor confirme el recibo de su mercancía ALUMAR SAS haciendo clic en el siguiente link:\n\n" + linkConfirmacion)}`, "_blank")}
+                    style={{ flex:1, fontSize:11, background:"#25d366", color:"#fff", border:"none", borderRadius:5, padding:"7px", cursor:"pointer", fontWeight:700 }}>
+                    💬 Enviar por WhatsApp
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ fontSize:10, color:C.textDim, textAlign:"center" }}>
+                Cuando el cliente confirme, recibirás un email en <strong>despachos@alumaronline.com</strong>
+              </div>
+            </div>
           </div>
         </div>
       )}

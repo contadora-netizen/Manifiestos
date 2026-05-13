@@ -1,6 +1,7 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const path = require('path');
+const nodemailer = require('nodemailer');
 
 require('dotenv').config ? require('dotenv').config() : null;
 
@@ -841,6 +842,204 @@ app.get('/api/rotacion-bodega', async (req, res) => {
     console.error('Error /api/rotacion-bodega:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ── SISTEMA DE CONFIRMACIÓN DE ENTREGAS ────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Store en memoria (persiste durante el deploy; trazabilidad principal = email)
+const confirmacionesStore = new Map();
+
+function crearTransporter() {
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!user || !pass) { console.warn('⚠️  SMTP_USER/SMTP_PASS no configurados — emails desactivados'); return null; }
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user, pass },
+  });
+}
+
+function htmlPaginaConfirmacion(datos, confirmacion, token) {
+  const confirmado = !!confirmacion;
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Confirmar entrega — Alumar SAS</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;background:#f0f4f8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+    .card{background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.12);max-width:480px;width:100%;overflow:hidden}
+    .hdr{background:linear-gradient(135deg,#0a1f3c,#1255a4);color:#fff;padding:20px 24px}
+    .hdr h1{font-size:18px;margin-bottom:4px}.hdr p{font-size:12px;opacity:.8}
+    .body{padding:24px}
+    .info{background:#f0f4f8;border-radius:8px;padding:14px;margin-bottom:20px}
+    .row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px}
+    .row:last-child{margin-bottom:0}.lbl{color:#4a6380}.val{font-weight:700;color:#1a2535;text-align:right;max-width:60%}
+    .fg{margin-bottom:14px}
+    label{font-size:12px;font-weight:700;color:#0a1f3c;display:block;margin-bottom:4px}
+    input,textarea{width:100%;border:1px solid #dde3ec;border-radius:6px;padding:9px 12px;font-size:14px;color:#1a2535;outline:none}
+    input:focus,textarea:focus{border-color:#1255a4}
+    .btn{width:100%;background:#1e7e34;color:#fff;border:none;border-radius:8px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
+    .btn:hover{background:#166028}.btn:disabled{opacity:.6;cursor:not-allowed}
+    .ok{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:20px;text-align:center}
+    .ok h2{color:#1e7e34;margin-bottom:8px;font-size:16px}.ok p{font-size:13px;color:#4a6380;margin-top:4px}
+    .foot{font-size:11px;color:#8fa3bc;text-align:center;padding:14px;border-top:1px solid #edf2f7}
+    .req{color:#c0392b}
+    #msg{margin-top:10px;font-size:13px;text-align:center;min-height:20px}
+  </style>
+</head>
+<body><div class="card">
+  <div class="hdr"><h1>📦 Confirmar recibo de mercancía</h1><p>ALUMAR SAS — Por favor diligencie sus datos</p></div>
+  <div class="body">
+    <div class="info">
+      ${datos.facturas ? `<div class="row"><span class="lbl">Factura(s)</span><span class="val">${datos.facturas}</span></div>` : ''}
+      ${datos.bultos   ? `<div class="row"><span class="lbl">Bultos</span><span class="val">${datos.bultos}</span></div>` : ''}
+      ${datos.destino  ? `<div class="row"><span class="lbl">Destino</span><span class="val">${datos.destino}</span></div>` : ''}
+      ${datos.fecha    ? `<div class="row"><span class="lbl">Fecha despacho</span><span class="val">${datos.fecha}</span></div>` : ''}
+      ${datos.conductor? `<div class="row"><span class="lbl">Conductor</span><span class="val">${datos.conductor}</span></div>` : ''}
+    </div>
+
+    ${confirmado ? `
+    <div class="ok">
+      <h2>✅ Entrega ya confirmada</h2>
+      <p>Recibido por: <strong>${confirmacion.nombre_receptor}</strong></p>
+      <p>C.C.: ${confirmacion.cedula} &nbsp;·&nbsp; Tel: ${confirmacion.telefono}</p>
+      <p style="margin-top:10px;font-size:11px;color:#8fa3bc">
+        ${new Date(confirmacion.fecha_confirmacion).toLocaleString('es-CO',{timeZone:'America/Bogota'})}
+      </p>
+    </div>
+    ` : `
+    <p style="font-size:12px;color:#4a6380;margin-bottom:18px">
+      Confirme que recibió la mercancía a satisfacción llenando el siguiente formulario:
+    </p>
+    <div id="form-area">
+      <div class="fg"><label>Nombre completo de quien recibe <span class="req">*</span></label>
+        <input type="text" id="nombre" placeholder="Nombre legible" autocomplete="name"></div>
+      <div class="fg"><label>Número de cédula <span class="req">*</span></label>
+        <input type="text" id="cedula" placeholder="Ej: 1.234.567.890" inputmode="numeric"></div>
+      <div class="fg"><label>Teléfono de contacto <span class="req">*</span></label>
+        <input type="tel" id="telefono" placeholder="Ej: 300 123 4567"></div>
+      <div class="fg"><label>Observaciones (opcional)</label>
+        <textarea id="obs" rows="2" placeholder="Ej: Mercancía en buen estado"></textarea></div>
+      <button class="btn" id="btn" onclick="confirmar()">✅ Confirmar recibo</button>
+      <div id="msg"></div>
+    </div>
+    <script>
+    async function confirmar(){
+      const nombre=document.getElementById('nombre').value.trim();
+      const cedula=document.getElementById('cedula').value.trim();
+      const telefono=document.getElementById('telefono').value.trim();
+      const obs=document.getElementById('obs').value.trim();
+      const msg=document.getElementById('msg');
+      if(!nombre||!cedula||!telefono){msg.innerHTML='<span style="color:red">Complete todos los campos obligatorios.</span>';return;}
+      const btn=document.getElementById('btn');
+      btn.disabled=true;btn.textContent='⏳ Enviando...';msg.innerHTML='';
+      try{
+        const r=await fetch('/api/confirmacion/${token}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre,cedula,telefono,observaciones:obs})});
+        const d=await r.json();
+        if(d.ok){
+          document.getElementById('form-area').innerHTML='<div class="ok"><h2>✅ ¡Confirmación enviada!</h2><p>Gracias <strong>'+nombre+'</strong>.</p><p>La empresa ha sido notificada.</p></div>';
+        }else{throw new Error(d.error||'Error');}
+      }catch(e){
+        btn.disabled=false;btn.textContent='✅ Confirmar recibo';
+        msg.innerHTML='<span style="color:red">Error al enviar. Intente nuevamente.</span>';
+      }
+    }
+    </script>
+    `}
+  </div>
+  <div class="foot">ALUMAR SAS · Sistema automático de confirmación de entregas</div>
+</div></body></html>`;
+}
+
+// ── GET /confirmar/:token  (página pública para el cliente) ─────────────────
+app.get('/confirmar/:token', (req, res) => {
+  try {
+    const datos = JSON.parse(Buffer.from(req.params.token, 'base64').toString('utf8'));
+    const confirmacion = confirmacionesStore.get(req.params.token);
+    res.send(htmlPaginaConfirmacion(datos, confirmacion, req.params.token));
+  } catch {
+    res.status(400).send('<div style="font-family:Arial;padding:40px;text-align:center"><h2 style="color:#c0392b">⚠️ Link inválido</h2><p>Este enlace no es válido o ha expirado.</p></div>');
+  }
+});
+
+// ── POST /api/confirmacion/:token  (el cliente envía el formulario) ─────────
+app.post('/api/confirmacion/:token', async (req, res) => {
+  try {
+    const { nombre, cedula, telefono, observaciones } = req.body;
+    if (!nombre || !cedula || !telefono) return res.status(400).json({ ok: false, error: 'Faltan campos obligatorios' });
+
+    const datos = JSON.parse(Buffer.from(req.params.token, 'base64').toString('utf8'));
+    const confirmacion = {
+      ...datos,
+      nombre_receptor: nombre,
+      cedula,
+      telefono,
+      observaciones: observaciones || '',
+      fecha_confirmacion: new Date().toISOString(),
+    };
+    confirmacionesStore.set(req.params.token, confirmacion);
+
+    // ── Envío de email ──────────────────────────────────────────────────────
+    const transporter = crearTransporter();
+    if (transporter) {
+      const fechaLegible = new Date(confirmacion.fecha_confirmacion)
+        .toLocaleString('es-CO', { timeZone: 'America/Bogota' });
+      await transporter.sendMail({
+        from: `"Alumar SAS Despachos" <${process.env.SMTP_USER}>`,
+        to: 'despachos@alumaronline.com',
+        subject: `✅ Entrega confirmada — Contrato N° ${datos.numero || '?'} · ${datos.facturas || ''}`,
+        html: `
+<div style="font-family:Arial;max-width:600px;margin:0 auto;color:#1a2535">
+  <div style="background:linear-gradient(135deg,#0a1f3c,#1255a4);color:#fff;padding:20px;border-radius:8px 8px 0 0">
+    <h2 style="margin:0;font-size:18px">✅ Entrega confirmada</h2>
+    <p style="margin:4px 0 0;opacity:.8;font-size:12px">ALUMAR SAS — Notificación automática</p>
+  </div>
+  <div style="border:1px solid #dde3ec;border-top:none;padding:20px;border-radius:0 0 8px 8px">
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380;width:38%">Contrato N°</td><td style="padding:8px 12px;font-weight:700">${datos.numero || '—'}</td></tr>
+      <tr><td style="padding:8px 12px;color:#4a6380">Factura(s)</td><td style="padding:8px 12px;font-weight:700">${datos.facturas || '—'}</td></tr>
+      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Bultos</td><td style="padding:8px 12px;font-weight:700">${datos.bultos || '—'}</td></tr>
+      <tr><td style="padding:8px 12px;color:#4a6380">Destino</td><td style="padding:8px 12px;font-weight:700">${datos.destino || '—'}</td></tr>
+      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Conductor</td><td style="padding:8px 12px">${datos.conductor || '—'}</td></tr>
+      <tr><td style="padding:8px 12px;color:#4a6380">Fecha despacho</td><td style="padding:8px 12px">${datos.fecha || '—'}</td></tr>
+      <tr style="border-top:2px solid #1e7e34">
+        <td style="padding:10px 12px;background:#e8f5e9;color:#1e7e34;font-weight:700">RECIBIDO POR</td>
+        <td style="padding:10px 12px;background:#e8f5e9;font-weight:700;color:#1e7e34;font-size:15px">${nombre}</td>
+      </tr>
+      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Cédula</td><td style="padding:8px 12px;font-weight:700">${cedula}</td></tr>
+      <tr><td style="padding:8px 12px;color:#4a6380">Teléfono</td><td style="padding:8px 12px;font-weight:700">${telefono}</td></tr>
+      ${observaciones ? `<tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Observaciones</td><td style="padding:8px 12px">${observaciones}</td></tr>` : ''}
+      <tr><td style="padding:8px 12px;color:#4a6380">Confirmado el</td><td style="padding:8px 12px;font-size:12px;color:#8fa3bc">${fechaLegible}</td></tr>
+    </table>
+  </div>
+  <p style="font-size:11px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS · Sistema automático de confirmación</p>
+</div>`,
+      });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Error /api/confirmacion POST:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── GET /api/confirmacion/:token  (el app consulta estado) ─────────────────
+app.get('/api/confirmacion/:token', (req, res) => {
+  const conf = confirmacionesStore.get(req.params.token);
+  res.json({ confirmado: !!conf, confirmacion: conf || null });
+});
+
+// ── GET /api/confirmaciones  (listado interno) ─────────────────────────────
+app.get('/api/confirmaciones', (req, res) => {
+  const lista = [...confirmacionesStore.entries()]
+    .map(([token, c]) => ({ token, ...c }))
+    .sort((a, b) => new Date(b.fecha_confirmacion) - new Date(a.fecha_confirmacion));
+  res.json({ total: lista.length, confirmaciones: lista });
 });
 
 app.listen(PORT, () => {
