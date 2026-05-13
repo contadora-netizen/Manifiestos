@@ -34,7 +34,7 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'alumar-contratos-api', version: '2026-05-13-confirmaciones', rutas: ['/confirmar/:token', '/api/confirmacion/enviar-masivo'] }));
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'alumar-contratos-api', version: '2026-05-13-greenapi', rutas: ['/confirmar/:token', '/api/confirmacion/enviar-masivo'] }));
 
 // ── GET /api/guias - List recent guides for the dropdown ──
 app.get('/api/guias', async (_req, res) => {
@@ -863,25 +863,33 @@ function persistirConfirmaciones(store) {
 }
 const confirmacionesStore = cargarConfirmaciones();
 
-// Envío de email via Resend API (fetch nativo Node 18+, sin dependencias)
-// Usa onboarding@resend.dev como remitente — no requiere verificar dominio propio
-async function enviarEmail({ to, subject, html }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) { console.warn('⚠️  RESEND_API_KEY no configurada — email desactivado'); return false; }
+// ── WhatsApp via Green API (envía DESDE el número de despachos conectado) ────
+// Env vars: GREEN_API_INSTANCE, GREEN_API_TOKEN
+// El número de despachos debe estar conectado en green-api.com (scan QR)
+async function enviarWhatsApp(numero, mensaje) {
+  const instanceId = process.env.GREEN_API_INSTANCE;
+  const token      = process.env.GREEN_API_TOKEN;
+  if (!instanceId || !token) { console.warn('⚠️  GREEN_API no configurado'); return false; }
+
+  // Limpiar número → formato Colombia: 573XXXXXXXXX@c.us
+  const limpio = numero.replace(/\D/g, '');
+  if (limpio.length < 7) { console.warn('Número inválido:', numero); return false; }
+  const chatId = (limpio.startsWith('57') ? limpio : '57' + limpio) + '@c.us';
+
   try {
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'ALUMAR SAS <onboarding@resend.dev>', to, subject, html }),
-    });
+    const r = await fetch(
+      `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId, message: mensaje }),
+      }
+    );
     const d = await r.json();
-    if (!r.ok) { console.warn('Resend error:', JSON.stringify(d)); return false; }
-    console.log('Email enviado a:', to);
+    if (!r.ok) { console.warn('GreenAPI error:', JSON.stringify(d)); return false; }
+    console.log('✅ WhatsApp enviado a', chatId);
     return true;
-  } catch (e) {
-    console.warn('enviarEmail error:', e.message);
-    return false;
-  }
+  } catch (e) { console.warn('enviarWhatsApp error:', e.message); return false; }
 }
 
 function htmlPaginaConfirmacion(datos, confirmacion, token) {
@@ -979,10 +987,9 @@ function htmlPaginaConfirmacion(datos, confirmacion, token) {
 }
 
 // ── POST /api/confirmacion/enviar-masivo  (se llama al firmar el contrato) ──
-// Recibe array de items: [{token, link, factura, nombre, ciudad, bultos, telefono, email}]
-// 1. Envía email individual a clientes que tengan email
-// 2. Envía email resumen a despachos@alumaronline.com con TODOS los links
-// 3. Envía WhatsApp a 315 8278613 con resumen
+// Recibe array de items: [{token, link, factura, nombre, ciudad, bultos, telefono}]
+// 1. WhatsApp individual a cada cliente que tenga teléfono → link de confirmación
+// 2. WhatsApp resumen a despachos (315 8278613) con todos los links
 app.post('/api/confirmacion/enviar-masivo', async (req, res) => {
   try {
     const { items, contrato_numero, destino, fecha, conductor } = req.body;
@@ -990,88 +997,37 @@ app.post('/api/confirmacion/enviar-masivo', async (req, res) => {
 
     const resultados = [];
 
-    // 1. Emails individuales a clientes
+    // 1. WhatsApp individual a cada cliente
     for (const item of items) {
-      const emailCliente = (item.email || '').trim();
-      if (emailCliente && emailCliente.includes('@')) {
-        const ok = await enviarEmail({
-          to: emailCliente,
-          subject: `Confirme el recibo de su mercancía — Factura ${item.factura}`,
-          html: `<div style="font-family:Arial;max-width:560px;margin:0 auto;color:#1a2535">
-  <div style="background:linear-gradient(135deg,#0a1f3c,#1255a4);color:#fff;padding:20px;border-radius:8px 8px 0 0">
-    <h2 style="margin:0;font-size:17px">📦 Confirme el recibo de su mercancía</h2>
-    <p style="margin:4px 0 0;opacity:.8;font-size:12px">ALUMAR SAS</p>
-  </div>
-  <div style="border:1px solid #dde3ec;border-top:none;padding:20px;border-radius:0 0 8px 8px">
-    <p style="font-size:14px;margin-bottom:16px">Estimado(a) <strong>${item.nombre || 'cliente'}</strong>,</p>
-    <p style="font-size:13px;color:#4a6380;margin-bottom:16px">Su mercancía (Factura <strong>${item.factura}</strong>${item.bultos ? `, ${item.bultos} bultos` : ''}) con destino <strong>${item.ciudad || destino || ''}</strong> ha sido despachada.</p>
-    <div style="text-align:center;margin:20px 0">
-      <a href="${item.link}" style="background:#1e7e34;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block">✅ Confirmar recibo</a>
-    </div>
-    <p style="font-size:11px;color:#8fa3bc;text-align:center">O abra: <span style="color:#1255a4">${item.link}</span></p>
-  </div>
-  <p style="font-size:11px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS</p>
-</div>`,
-        });
-        resultados.push({ factura: item.factura, email: emailCliente, enviado: ok });
+      const tel = (item.telefono || '').replace(/\D/g, '');
+      if (tel.length >= 7) {
+        const msg =
+          `Hola ${item.nombre || 'estimado cliente'}, somos *ALUMAR SAS*.\n\n` +
+          `Su mercancía ha sido despachada:\n` +
+          `📄 Factura: *${item.factura}*\n` +
+          (item.bultos ? `📦 Bultos: *${item.bultos}*\n` : '') +
+          (item.ciudad ? `📍 Destino: *${item.ciudad}*\n` : '') +
+          (conductor  ? `🚚 Conductor: *${conductor}*\n` : '') +
+          `\nPor favor confirme el recibo tocando este enlace:\n${item.link}`;
+        const ok = await enviarWhatsApp(tel, msg);
+        resultados.push({ factura: item.factura, telefono: tel, enviado: ok });
       } else {
-        resultados.push({ factura: item.factura, email: 'sin email', enviado: false });
+        resultados.push({ factura: item.factura, telefono: 'sin teléfono', enviado: false });
       }
     }
 
-    // 2. Email resumen a despachos
-    const filasTabla = items.map(it => {
-      const waLink = it.telefono
-        ? `https://wa.me/57${it.telefono.replace(/\D/g,'')}?text=${encodeURIComponent('Hola ' + (it.nombre||'') + ', confirme recibo factura ' + it.factura + ': ' + it.link)}`
-        : null;
-      return `<tr>
-        <td style="padding:7px 10px;border-bottom:1px solid #edf2f7;font-weight:700;color:#1255a4">${it.factura}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid #edf2f7">${it.nombre||'—'}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid #edf2f7">${it.ciudad||'—'}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid #edf2f7;text-align:center">${it.bultos||'—'}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid #edf2f7">${waLink ? `<a href="${waLink}" style="background:#25d366;color:#fff;padding:3px 8px;border-radius:4px;text-decoration:none;font-size:11px;font-weight:700">💬 WA</a>` : '—'}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid #edf2f7"><a href="${it.link}" style="color:#1255a4;font-size:11px">Link</a></td>
-      </tr>`;
-    }).join('');
-    await enviarEmail({
-      to: 'despachos@alumaronline.com',
-      subject: `📋 Confirmaciones — Contrato N° ${contrato_numero} · ${items.length} facturas`,
-      html: `<div style="font-family:Arial;max-width:700px;margin:0 auto">
-  <div style="background:linear-gradient(135deg,#0a1f3c,#1255a4);color:#fff;padding:18px;border-radius:8px 8px 0 0">
-    <h2 style="margin:0;font-size:16px">📋 Links de confirmación de entrega</h2>
-    <p style="margin:4px 0 0;opacity:.8;font-size:12px">Contrato N° ${contrato_numero} · ${destino||''} · ${fecha||''} · ${conductor||''}</p>
-  </div>
-  <div style="border:1px solid #dde3ec;border-top:none;border-radius:0 0 8px 8px;overflow:hidden">
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead><tr style="background:#f0f4f8">
-        <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Factura</th>
-        <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Cliente</th>
-        <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Ciudad</th>
-        <th style="padding:8px 10px;text-align:center;font-size:11px;color:#4a6380">Bultos</th>
-        <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">WhatsApp</th>
-        <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Link</th>
-      </tr></thead>
-      <tbody>${filasTabla}</tbody>
-    </table>
-  </div>
-  <p style="font-size:11px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS · Generado automáticamente al firmar</p>
-</div>`,
-    });
-
-    // 3. WhatsApp a empresa con resumen
-    const callmebotKey = process.env.CALLMEBOT_APIKEY;
-    if (callmebotKey) {
-      const conEmail = resultados.filter(r => r.enviado).length;
-      const sinEmail = items.length - conEmail;
-      const waMsg = encodeURIComponent(
-        `📋 ALUMAR - Contrato N° ${contrato_numero} firmado\n` +
-        `${items.length} facturas · Destino: ${destino || '—'}\n` +
-        `✉️ Emails enviados: ${conEmail} · Sin email: ${sinEmail}\n` +
-        `Ver links en despachos@alumaronline.com`
-      );
-      fetch(`https://api.callmebot.com/whatsapp.php?phone=573158278613&text=${waMsg}&apikey=${callmebotKey}`)
-        .catch(e => console.warn('CallMeBot error:', e.message));
-    }
+    // 2. Resumen a despachos
+    const enviados = resultados.filter(r => r.enviado).length;
+    const lineas = items.map(it =>
+      `• *${it.factura}* — ${it.nombre || '?'} (${it.ciudad || '?'}) ${it.bultos ? it.bultos + ' bts' : ''}\n  ${it.link}`
+    ).join('\n');
+    const resumenMsg =
+      `📋 *ALUMAR — Contrato N° ${contrato_numero} firmado*\n` +
+      `Destino: ${destino || '—'} · Fecha: ${fecha || '—'}\n` +
+      `Conductor: ${conductor || '—'}\n` +
+      `WA enviados: ${enviados}/${items.length}\n\n` +
+      lineas;
+    await enviarWhatsApp('3158278613', resumenMsg);
 
     res.json({ ok: true, resultados });
   } catch (err) {
@@ -1109,51 +1065,19 @@ app.post('/api/confirmacion/:token', async (req, res) => {
     confirmacionesStore.set(req.params.token, confirmacion);
     persistirConfirmaciones(confirmacionesStore);
 
-    // ── Notificación WhatsApp (CallMeBot) ────────────────────────────────────
-    const callmebotKey = process.env.CALLMEBOT_APIKEY;
-    if (callmebotKey) {
-      const waMsg = encodeURIComponent(
-        `✅ ALUMAR - Entrega confirmada\n` +
-        `Contrato N° ${datos.numero} | Factura ${datos.factura || datos.facturas}\n` +
-        `Recibido: ${nombre} | C.C. ${cedula} | Tel ${telefono}\n` +
-        `Destino: ${datos.destino || '—'}\n` +
-        (observaciones ? `Obs: ${observaciones}` : '')
-      );
-      fetch(`https://api.callmebot.com/whatsapp.php?phone=573158278613&text=${waMsg}&apikey=${callmebotKey}`)
-        .catch(e => console.warn('CallMeBot error:', e.message));
-    }
-
-    // ── Envío de email al confirmar ─────────────────────────────────────────
+    // ── Notificación WhatsApp a despachos (desde número de despachos) ────────
     const fechaLegible = new Date(confirmacion.fecha_confirmacion)
       .toLocaleString('es-CO', { timeZone: 'America/Bogota' });
-    await enviarEmail({
-      to: 'despachos@alumaronline.com',
-      subject: `✅ Entrega confirmada — Contrato N° ${datos.numero || '?'} · Factura ${datos.factura || datos.facturas || ''}`,
-      html: `<div style="font-family:Arial;max-width:600px;margin:0 auto;color:#1a2535">
-  <div style="background:linear-gradient(135deg,#0a1f3c,#1255a4);color:#fff;padding:20px;border-radius:8px 8px 0 0">
-    <h2 style="margin:0;font-size:18px">✅ Entrega confirmada</h2>
-    <p style="margin:4px 0 0;opacity:.8;font-size:12px">ALUMAR SAS — Notificación automática</p>
-  </div>
-  <div style="border:1px solid #dde3ec;border-top:none;padding:20px;border-radius:0 0 8px 8px">
-    <table style="width:100%;border-collapse:collapse;font-size:14px">
-      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380;width:38%">Contrato N°</td><td style="padding:8px 12px;font-weight:700">${datos.numero||'—'}</td></tr>
-      <tr><td style="padding:8px 12px;color:#4a6380">Factura</td><td style="padding:8px 12px;font-weight:700">${datos.factura||datos.facturas||'—'}</td></tr>
-      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Bultos</td><td style="padding:8px 12px;font-weight:700">${datos.bultos||'—'}</td></tr>
-      <tr><td style="padding:8px 12px;color:#4a6380">Destino</td><td style="padding:8px 12px;font-weight:700">${datos.destino||'—'}</td></tr>
-      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Conductor</td><td style="padding:8px 12px">${datos.conductor||'—'}</td></tr>
-      <tr style="border-top:2px solid #1e7e34">
-        <td style="padding:10px 12px;background:#e8f5e9;color:#1e7e34;font-weight:700">RECIBIDO POR</td>
-        <td style="padding:10px 12px;background:#e8f5e9;font-weight:700;color:#1e7e34;font-size:15px">${nombre}</td>
-      </tr>
-      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Cédula</td><td style="padding:8px 12px;font-weight:700">${cedula}</td></tr>
-      <tr><td style="padding:8px 12px;color:#4a6380">Teléfono</td><td style="padding:8px 12px;font-weight:700">${telefono}</td></tr>
-      ${observaciones?`<tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Observaciones</td><td style="padding:8px 12px">${observaciones}</td></tr>`:''}
-      <tr><td style="padding:8px 12px;color:#4a6380">Confirmado el</td><td style="padding:8px 12px;font-size:12px;color:#8fa3bc">${fechaLegible}</td></tr>
-    </table>
-  </div>
-  <p style="font-size:11px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS · Confirmación automática</p>
-</div>`,
-    });
+    const notifMsg =
+      `✅ *ALUMAR — Entrega confirmada*\n` +
+      `Contrato N° ${datos.numero || '?'} | Factura ${datos.factura || datos.facturas || '?'}\n` +
+      `📦 Bultos: ${datos.bultos || '—'} | Destino: ${datos.destino || '—'}\n` +
+      `🚚 Conductor: ${datos.conductor || '—'}\n\n` +
+      `👤 *Recibido por:* ${nombre}\n` +
+      `C.C.: ${cedula} | Tel: ${telefono}\n` +
+      (observaciones ? `📝 Obs: ${observaciones}\n` : '') +
+      `🕐 ${fechaLegible}`;
+    await enviarWhatsApp('3158278613', notifMsg);
 
     res.json({ ok: true });
   } catch (err) {
