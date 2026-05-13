@@ -1867,7 +1867,7 @@ function ContratoRow({ contrato, onEdit, onFirmar }) {
     bultos:    item.bultos       || "",
     nombre_cliente: item.nombre  || "",
     destino:   item.ciudad       || contrato.destino || "",
-    fecha:     contrato.fecha_cargue || new Date().toISOString().slice(0,10),
+    fecha:     (contrato.fecha_cargue || new Date().toISOString()).slice(0,10),
     conductor: contrato.conductor_nombre || "",
   }));
 
@@ -1938,7 +1938,7 @@ function ContratoRow({ contrato, onEdit, onFirmar }) {
         <div style={{ fontSize:16 }}>{esBorrador ? "📝" : "🚛"}</div>
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontSize:12, fontWeight:700, color:C.text }}>N° {contrato.numero} — {contrato.contratista_nombre || "Sin nombre"}</div>
-          <div style={{ fontSize:10, color:C.textMuted }}>{contrato.fecha_cargue} · {contrato.destino || "Sin destino especificado"}</div>
+          <div style={{ fontSize:10, color:C.textMuted }}>{(contrato.fecha_cargue||"").slice(0,10)} · {contrato.destino || "Sin destino especificado"}</div>
         </div>
         {esBorrador
           ? <Badge color="#ff9800">📝 BORRADOR — Faltan facturas</Badge>
@@ -1992,7 +1992,7 @@ function ContratoRow({ contrato, onEdit, onFirmar }) {
             <div style={{ background:`linear-gradient(135deg,${C.navy},${C.blue})`, color:"#fff", padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
               <div>
                 <div style={{ fontWeight:700, fontSize:14 }}>📲 Confirmaciones de entrega — Contrato N° {contrato.numero}</div>
-                <div style={{ fontSize:11, opacity:.8, marginTop:2 }}>{itemsQR.length} factura(s) · {contrato.destino || ""} · {contrato.fecha_cargue || ""}</div>
+                <div style={{ fontSize:11, opacity:.8, marginTop:2 }}>{itemsQR.length} factura(s) · {contrato.destino || ""} · {(contrato.fecha_cargue||"").slice(0,10)}</div>
               </div>
               <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                 <button onClick={consultarTodos} style={{ fontSize:10, background:"rgba(255,255,255,.15)", border:"1px solid rgba(255,255,255,.3)", color:"#fff", borderRadius:5, padding:"4px 10px", cursor:"pointer" }}>🔄</button>
@@ -2019,7 +2019,7 @@ function ContratoRow({ contrato, onEdit, onFirmar }) {
                   </div>
                 ) : (
                   <div style={{ background:"#fff8e1", border:"1px solid #ffe082", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:12, color:"#7a5c00" }}>
-                    ⚠️ {resultadoEnvio.error || "Error al enviar — usa los botones manuales abajo"}
+                    ⚠️ Envío automático no disponible aún — usa los botones <strong>"Enviar por WhatsApp"</strong> de cada factura para notificar manualmente. El resumen llegará a <strong>despachos@alumaronline.com</strong> una vez el servidor esté activo.
                   </div>
                 )
               )}
