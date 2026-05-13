@@ -1,6 +1,7 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const path = require('path');
+const fs = require('fs');
 
 require('dotenv').config ? require('dotenv').config() : null;
 
@@ -851,10 +852,19 @@ app.get('/api/rotacion-bodega', async (req, res) => {
 // ── SISTEMA DE CONFIRMACIÓN DE ENTREGAS ────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Store en memoria (persiste durante el deploy; trazabilidad principal = email)
-const confirmacionesStore = new Map();
+// Store persistente en /tmp (sobrevive reinicios del mismo contenedor)
+const CONF_FILE = '/tmp/alumar_confirmaciones.json';
+function cargarConfirmaciones() {
+  try { return new Map(Object.entries(JSON.parse(fs.readFileSync(CONF_FILE, 'utf8')))); }
+  catch { return new Map(); }
+}
+function persistirConfirmaciones(store) {
+  try { fs.writeFileSync(CONF_FILE, JSON.stringify(Object.fromEntries(store))); } catch {}
+}
+const confirmacionesStore = cargarConfirmaciones();
 
-// Envío de email via Resend API (sin dependencias extra — solo fetch nativo Node 18+)
+// Envío de email via Resend API (fetch nativo Node 18+, sin dependencias)
+// Usa onboarding@resend.dev como remitente — no requiere verificar dominio propio
 async function enviarEmail({ to, subject, html }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) { console.warn('⚠️  RESEND_API_KEY no configurada — email desactivado'); return false; }
@@ -862,10 +872,11 @@ async function enviarEmail({ to, subject, html }) {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'ALUMAR SAS <despachos@alumaronline.com>', to, subject, html }),
+      body: JSON.stringify({ from: 'ALUMAR SAS <onboarding@resend.dev>', to, subject, html }),
     });
     const d = await r.json();
-    if (!r.ok) { console.warn('Resend error:', d); return false; }
+    if (!r.ok) { console.warn('Resend error:', JSON.stringify(d)); return false; }
+    console.log('Email enviado a:', to);
     return true;
   } catch (e) {
     console.warn('enviarEmail error:', e.message);
@@ -1096,6 +1107,7 @@ app.post('/api/confirmacion/:token', async (req, res) => {
       fecha_confirmacion: new Date().toISOString(),
     };
     confirmacionesStore.set(req.params.token, confirmacion);
+    persistirConfirmaciones(confirmacionesStore);
 
     // ── Notificación WhatsApp (CallMeBot) ────────────────────────────────────
     const callmebotKey = process.env.CALLMEBOT_APIKEY;

@@ -1825,6 +1825,85 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
   );
 }
 
+// ── Panel de confirmaciones recibidas ─────────────────────────────────────────
+function ConfirmacionesPanel({ capiBase }) {
+  const base = (capiBase || "").replace(/\/api$/, "") || "https://adaptable-caring-production-735b.up.railway.app";
+  const [lista, setLista] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const cargar = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${base}/api/confirmaciones`);
+      const d = await r.json();
+      setLista(d.confirmaciones || []);
+    } catch { setLista([]); }
+    finally { setLoading(false); }
+  };
+
+  const abrirPanel = () => { setOpen(o => !o); if (!open) cargar(); };
+
+  return (
+    <div style={{ marginTop:20, background:C.white, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden", boxShadow:C.shadow }}>
+      <div onClick={abrirPanel} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 18px", cursor:"pointer", background: open ? "#f0f4f8" : C.white }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:18 }}>✅</span>
+          <div>
+            <div style={{ fontWeight:700, fontSize:13, color:C.navy }}>Confirmaciones de entrega recibidas</div>
+            <div style={{ fontSize:11, color:C.textMuted }}>Registro de clientes que confirmaron recibo de mercancía</div>
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          {open && <button onClick={e => { e.stopPropagation(); cargar(); }} style={{ fontSize:11, background:C.blue, color:"#fff", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer" }}>🔄 Actualizar</button>}
+          <span style={{ color:C.textDim }}>{open ? "▲" : "▼"}</span>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{ borderTop:`1px solid ${C.border}` }}>
+          {loading ? (
+            <div style={{ padding:24, textAlign:"center", color:C.textMuted, fontSize:13 }}>⏳ Cargando...</div>
+          ) : lista.length === 0 ? (
+            <div style={{ padding:24, textAlign:"center", color:C.textMuted, fontSize:13 }}>
+              Sin confirmaciones aún. Cuando un cliente confirme el recibo aparecerá aquí.
+            </div>
+          ) : (
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                <thead>
+                  <tr style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, color:"#fff" }}>
+                    {["Contrato","Factura","Recibido por","Cédula","Teléfono","Destino","Bultos","Fecha confirmación","Observaciones"].map(h => (
+                      <th key={h} style={{ padding:"8px 10px", textAlign:"left", fontSize:10, fontWeight:700, whiteSpace:"nowrap" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {lista.map((c, i) => (
+                    <tr key={c.token} style={{ background: i%2===0 ? "#f8fafc" : C.white, borderBottom:`1px solid ${C.border}` }}>
+                      <td style={{ padding:"7px 10px", fontWeight:700, color:C.navy }}>N° {c.numero||"—"}</td>
+                      <td style={{ padding:"7px 10px", color:C.blue, fontWeight:600 }}>{c.factura||c.facturas||"—"}</td>
+                      <td style={{ padding:"7px 10px", fontWeight:700, color:C.green }}>{c.nombre_receptor}</td>
+                      <td style={{ padding:"7px 10px" }}>{c.cedula}</td>
+                      <td style={{ padding:"7px 10px" }}>{c.telefono}</td>
+                      <td style={{ padding:"7px 10px", color:C.textMuted }}>{c.destino||"—"}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"center" }}>{c.bultos||"—"}</td>
+                      <td style={{ padding:"7px 10px", fontSize:10, color:C.textMuted, whiteSpace:"nowrap" }}>
+                        {new Date(c.fecha_confirmacion).toLocaleString("es-CO",{timeZone:"America/Bogota"})}
+                      </td>
+                      <td style={{ padding:"7px 10px", fontSize:11, color:C.textMuted, fontStyle:"italic" }}>{c.observaciones||""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Contrato: fila de historial ───────────────────────────────────────────────
 function ContratoRow({ contrato, onEdit, onFirmar }) {
   const [open, setOpen] = useState(false);
@@ -3789,7 +3868,7 @@ export default function App() {
 
         {/* TAB: CONTRATOS */}
         {tab === "contratos" && (
-          <div style={{ maxWidth:860 }}>
+          <div style={{ maxWidth:900 }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
               <div>
                 <div style={{ fontSize:16, fontWeight:700, color:C.text }}>Contratos de transporte</div>
@@ -3815,6 +3894,9 @@ export default function App() {
                 ))}
               </div>
             )}
+
+            {/* ── Panel confirmaciones recibidas ── */}
+            <ConfirmacionesPanel capiBase={CAPI_BASE} />
           </div>
         )}
 
