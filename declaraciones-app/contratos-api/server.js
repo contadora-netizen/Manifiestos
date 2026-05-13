@@ -983,6 +983,20 @@ app.post('/api/confirmacion/:token', async (req, res) => {
     };
     confirmacionesStore.set(req.params.token, confirmacion);
 
+    // ── Notificación WhatsApp (CallMeBot) ────────────────────────────────────
+    const callmebotKey = process.env.CALLMEBOT_APIKEY;
+    if (callmebotKey) {
+      const waMsg = encodeURIComponent(
+        `✅ ALUMAR - Entrega confirmada\n` +
+        `Contrato N° ${datos.numero} | Factura ${datos.factura || datos.facturas}\n` +
+        `Recibido: ${nombre} | C.C. ${cedula} | Tel ${telefono}\n` +
+        `Destino: ${datos.destino || '—'}\n` +
+        (observaciones ? `Obs: ${observaciones}` : '')
+      );
+      fetch(`https://api.callmebot.com/whatsapp.php?phone=573158278613&text=${waMsg}&apikey=${callmebotKey}`)
+        .catch(e => console.warn('CallMeBot error:', e.message));
+    }
+
     // ── Envío de email ──────────────────────────────────────────────────────
     const transporter = crearTransporter();
     if (transporter) {
