@@ -182,14 +182,18 @@ body{font-family:Arial,sans-serif;font-size:9.5px;padding:12mm 14mm;color:#000}
   <div class="cell"><span class="lbl">Palencia</span><span class="val">${fmt(c.valor_palencia)}</span></div>
   <div class="cell"><span class="lbl"><strong>SS TOTAL</strong></span><span class="val" style="font-weight:bold;font-size:11px">${fmt(c.valor_total)}</span></div>
 </div>
-${(Number(c.anticipo)||Number(c.retencion)||Number(c.reteica)) ? `
+${(Number(c.anticipo)||Number(c.retencion)||Number(c.reteica)||Number(c.apoyo_seguridad)) ? `
 <div style="margin-top:4px;border:1px solid #000;border-radius:4px;padding:6px">
   <div style="font-size:7px;font-weight:700;letter-spacing:0.08em;color:#555;margin-bottom:4px">LIQUIDACIÓN DE PAGO</div>
   <div class="grid4">
+    ${Number(c.apoyo_seguridad) > 0 ? `<div class="cell"><span class="lbl">Apoyo seg. social</span><span class="val" style="color:#1e7e34">+${fmt(c.apoyo_seguridad)}</span></div>` : '<div class="cell"></div>'}
     <div class="cell"><span class="lbl">Anticipo</span><span class="val">${fmt(c.anticipo||0)}</span></div>
     <div class="cell"><span class="lbl">Retención fuente</span><span class="val">${fmt(c.retencion||0)}</span></div>
     <div class="cell"><span class="lbl">ReteICA</span><span class="val">${fmt(c.reteica||0)}</span></div>
-    <div class="cell"><span class="lbl"><strong>SALDO A PAGAR</strong></span><span class="val" style="font-weight:bold;font-size:11px;color:#1e7e34">${fmt(c.saldo_pagar||0)}</span></div>
+  </div>
+  <div style="margin-top:4px;text-align:right">
+    <span style="font-size:8px;color:#555">SALDO A PAGAR: </span>
+    <span style="font-weight:bold;font-size:11px;color:#1e7e34">${fmt(c.saldo_pagar||0)}</span>
   </div>
 </div>` : ""}
 
@@ -891,7 +895,7 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     vehiculo_propietario: "", aseguradora: "", tecnicomecanica: "", capacidad: "", medidas: "",
     facturas: "", devoluciones: "", destino: "",
     valor_mercancia: "", valor_contrato: "", valor_pelete: "", valor_palencia: "", valor_total: "",
-    anticipo: "", retencion: "", reteica: "", saldo_pagar: "",
+    anticipo: "", retencion: "", reteica: "", apoyo_seguridad: 60000, saldo_pagar: "",
     observaciones: "",
   };
   const [form, setForm] = useState(initial || empty);
@@ -965,12 +969,13 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   }, [form.valor_contrato]);
 
   useEffect(() => {
-    const base   = Number(form.valor_total)  || 0;
-    const ant    = Number(form.anticipo)     || 0;
-    const ret    = Number(form.retencion)    || 0;
-    const rica   = Number(form.reteica)      || 0;
-    setForm(f => ({ ...f, saldo_pagar: base - ant - ret - rica }));
-  }, [form.valor_total, form.anticipo, form.retencion, form.reteica]);
+    const base   = Number(form.valor_total)      || 0;
+    const ant    = Number(form.anticipo)         || 0;
+    const ret    = Number(form.retencion)        || 0;
+    const rica   = Number(form.reteica)          || 0;
+    const apoyo  = Number(form.apoyo_seguridad)  || 0;
+    setForm(f => ({ ...f, saldo_pagar: base + apoyo - ant - ret - rica }));
+  }, [form.valor_total, form.anticipo, form.retencion, form.reteica, form.apoyo_seguridad]);
 
   const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState("");
   const [filtroCiudad, setFiltroCiudad] = useState("");
@@ -1320,7 +1325,12 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
           {/* ── Liquidación de pago ─────────────────────────────────── */}
           <Sec t="LIQUIDACIÓN DE PAGO" />
           <div style={{ background:"#f8fbff", border:`1px solid ${C.border}`, borderRadius:10, padding:"14px 16px" }}>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:12 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10, marginBottom:12 }}>
+              <div>
+                <label style={lbl}>Apoyo seg. social $</label>
+                <input type="number" value={form.apoyo_seguridad||""} onChange={e => set("apoyo_seguridad",e.target.value)}
+                  placeholder="60000" style={{ ...inp, background:"#f0fff4", border:`1px solid ${C.green}` }} />
+              </div>
               <div>
                 <label style={lbl}>Anticipo $</label>
                 <input type="number" value={form.anticipo||""} onChange={e => set("anticipo",e.target.value)}
@@ -1352,7 +1362,8 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
             {/* Resumen visual */}
             {form.valor_total > 0 && (
               <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", fontSize:11, color:C.textMuted, borderTop:`1px dashed ${C.border}`, paddingTop:10 }}>
-                <span>SS Total <strong style={{ color:C.text }}>${Number(form.valor_total||0).toLocaleString("es-CO")}</strong></span>
+                <span>Total <strong style={{ color:C.text }}>${Number(form.valor_total||0).toLocaleString("es-CO")}</strong></span>
+                {Number(form.apoyo_seguridad) > 0 && <><span style={{ color:C.green }}>+</span><span>Apoyo seg. social <strong style={{ color:C.green }}>${Number(form.apoyo_seguridad).toLocaleString("es-CO")}</strong></span></>}
                 {Number(form.anticipo) > 0 && <><span style={{ color:C.textDim }}>−</span><span>Anticipo <strong style={{ color:C.accent }}>${Number(form.anticipo).toLocaleString("es-CO")}</strong></span></>}
                 {Number(form.retencion) > 0 && <><span style={{ color:C.textDim }}>−</span><span>Retención <strong style={{ color:C.red }}>${Number(form.retencion).toLocaleString("es-CO")}</strong></span></>}
                 {Number(form.reteica) > 0 && <><span style={{ color:C.textDim }}>−</span><span>ReteICA <strong style={{ color:C.red }}>${Number(form.reteica).toLocaleString("es-CO")}</strong></span></>}
