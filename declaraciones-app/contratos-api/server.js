@@ -1,7 +1,6 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const path = require('path');
-const nodemailer = require('nodemailer');
 
 require('dotenv').config ? require('dotenv').config() : null;
 
@@ -34,7 +33,7 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'alumar-contratos-api' }));
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'alumar-contratos-api', version: '2026-05-13-confirmaciones', rutas: ['/confirmar/:token', '/api/confirmacion/enviar-masivo'] }));
 
 // ── GET /api/guias - List recent guides for the dropdown ──
 app.get('/api/guias', async (_req, res) => {
@@ -859,10 +858,13 @@ function crearTransporter() {
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
   if (!user || !pass) { console.warn('⚠️  SMTP_USER/SMTP_PASS no configurados — emails desactivados'); return null; }
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user, pass },
-  });
+  try {
+    const nodemailer = require('nodemailer');
+    return nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+  } catch (e) {
+    console.warn('⚠️  nodemailer no disponible:', e.message);
+    return null;
+  }
 }
 
 function htmlPaginaConfirmacion(datos, confirmacion, token) {
