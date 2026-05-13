@@ -948,7 +948,7 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     const sels = bdFacturasLista.filter(f => bdSeleccionadas.has(f.factura_numero_raw));
     const nums = sels.map(f => f.factura_numero_corto || String(f.factura_numero_raw).replace(/^0+/,''));
     const destinos = [...new Set(sels.map(f => f.ciudad).filter(Boolean))];
-    const totalMercancia = sels.reduce((sum, f) => sum + (Number(f.valor_neto) || 0), 0);
+    const totalMercancia = sels.reduce((sum, f) => sum + (Number(f.valor_bruto) || 0), 0); // DCL_BRUTO = sin IVA
     // Una sola actualización para evitar que React colapse las llamadas
     setForm(f => ({
       ...f,
@@ -1277,6 +1277,7 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                         <span style={{ fontSize:11, fontWeight:700, color: yaEn ? C.green : C.navy, minWidth:90 }}>{f.factura}</span>
                         <span style={{ fontSize:11, color:C.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.nombre || "—"}</span>
                         <span style={{ fontSize:10, color:C.blue, whiteSpace:"nowrap" }}>{f.ciudad || ""}</span>
+                        {f.valor_bruto > 0 && <span style={{ fontSize:10, color:C.textMuted, whiteSpace:"nowrap" }}>${f.valor_bruto.toLocaleString("es-CO")}</span>}
                         {yaEn && <span style={{ fontSize:9, color:C.green, fontWeight:700, whiteSpace:"nowrap" }}>✓ ya agregada</span>}
                       </div>
                     );

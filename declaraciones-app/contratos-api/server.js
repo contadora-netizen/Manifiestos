@@ -442,6 +442,7 @@ app.get('/api/lista-cargue', async (req, res) => {
         d.DCL_TDT_CODIGO      AS tipo_doc,
         MAX(d.DCL_FECHA)      AS fecha,
         MAX(d.DCL_CLT_CODIGO) AS cliente_codigo,
+        MAX(d.DCL_BRUTO)      AS valor_bruto,
         MAX(d.DCL_NETO)       AS valor_neto,
         SUM(d.DCL_BULTOS)     AS bultos,
         MIN(c.CLT_NOMBRE)     AS nombre,
@@ -464,7 +465,8 @@ app.get('/api/lista-cargue', async (req, res) => {
       cliente_codigo: r.cliente_codigo || '',
       nombre: r.nombre || '',
       ciudad: r.ciudad || '',
-      valor_neto: parseFloat(r.valor_neto) || 0,
+      valor_bruto: parseFloat(r.valor_bruto) || 0,  // antes de IVA y descuentos
+      valor_neto: parseFloat(r.valor_neto) || 0,    // total con IVA
       bultos: parseFloat(r.bultos) || 0,
     }));
 
