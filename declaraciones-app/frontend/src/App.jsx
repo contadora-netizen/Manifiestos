@@ -2425,7 +2425,8 @@ function ListaCargueTab({ capiBase, contratos = [] }) {
   const [loading, setLoading] = useState(false);
   const [todasFacturas, setTodasFacturas] = useState([]); // todas las que trajo la BD
   const [filas, setFilas] = useState([]);                 // las seleccionadas para este cargue
-  const [consultado, setConsultado] = useState(false);
+  const [consultado, setConsultado] = useState(false);    // se hizo consulta BD
+  const [cargadaDesdeLista, setCargadaDesdeLista] = useState(false); // cargada desde guardadas
   const [guardadas, setGuardadas] = useState(() => lcGetAll());
   const [msgGuardado, setMsgGuardado] = useState("");
   const [ocultarAsignadas, setOcultarAsignadas] = useState(true);
@@ -2443,6 +2444,7 @@ function ListaCargueTab({ capiBase, contratos = [] }) {
   const consultar = async () => {
     setLoading(true);
     setConsultado(false);
+    setCargadaDesdeLista(false);
     setFilas([]);
     try {
       const base = (capiBase || "").replace(/\/api$/, "") || "http://localhost:3000";
@@ -2521,8 +2523,10 @@ function ListaCargueTab({ capiBase, contratos = [] }) {
   const cargarGuardada = (lista) => {
     setDesde(lista.desde || lista.fecha || hoy);
     setHasta(lista.hasta || lista.fecha || hoy);
-    setFilas(lista.filas);
-    setConsultado(true);
+    setFilas(lista.filas || []);
+    setConsultado(false);          // no viene de consulta BD
+    setCargadaDesdeLista(true);    // viene de lista guardada
+    setTodasFacturas([]);          // limpiar panel BD
   };
 
   const eliminarGuardada = (id) => {
@@ -2674,15 +2678,22 @@ ${filasTrs}</table><div class="tot">Total bultos: ${totalBultos}</div></body></h
           </>)}
         </div>
 
-        {consultado && todasFacturas.length === 0 && (
+        {consultado && todasFacturas.length === 0 && filas.length === 0 && (
           <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:24, textAlign:"center", color:C.textMuted, fontSize:13 }}>
             ⚠️ No se encontraron facturas FVELE para el período seleccionado.
           </div>
         )}
 
-        {!consultado && (
+        {!consultado && !cargadaDesdeLista && filas.length === 0 && (
           <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:32, textAlign:"center", color:C.textMuted, fontSize:13 }}>
-            Seleccione el rango de fechas y consulte la BD para ver las facturas disponibles.
+            Seleccione el rango de fechas y consulte la BD para ver las facturas disponibles.<br/>
+            <span style={{ fontSize:11, color:C.blue, marginTop:6, display:"block" }}>O cargue una lista guardada desde el panel derecho →</span>
+          </div>
+        )}
+
+        {cargadaDesdeLista && filas.length === 0 && (
+          <div style={{ background:"#fff8e1", border:`1px solid #ffe082`, borderRadius:10, padding:24, textAlign:"center", color:C.accent, fontSize:13 }}>
+            ⚠️ La lista guardada no tiene filas.
           </div>
         )}
 
