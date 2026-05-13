@@ -854,16 +854,22 @@ app.get('/api/rotacion-bodega', async (req, res) => {
 // Store en memoria (persiste durante el deploy; trazabilidad principal = email)
 const confirmacionesStore = new Map();
 
-function crearTransporter() {
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!user || !pass) { console.warn('⚠️  SMTP_USER/SMTP_PASS no configurados — emails desactivados'); return null; }
+// Envío de email via Resend API (sin dependencias extra — solo fetch nativo Node 18+)
+async function enviarEmail({ to, subject, html }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) { console.warn('⚠️  RESEND_API_KEY no configurada — email desactivado'); return false; }
   try {
-    const nodemailer = require('nodemailer');
-    return nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'ALUMAR SAS <despachos@alumaronline.com>', to, subject, html }),
+    });
+    const d = await r.json();
+    if (!r.ok) { console.warn('Resend error:', d); return false; }
+    return true;
   } catch (e) {
-    console.warn('⚠️  nodemailer no disponible:', e.message);
-    return null;
+    console.warn('enviarEmail error:', e.message);
+    return false;
   }
 }
 
@@ -971,96 +977,75 @@ app.post('/api/confirmacion/enviar-masivo', async (req, res) => {
     const { items, contrato_numero, destino, fecha, conductor } = req.body;
     if (!items || !items.length) return res.status(400).json({ ok: false, error: 'Sin items' });
 
-    const transporter = crearTransporter();
     const resultados = [];
 
     // 1. Emails individuales a clientes
     for (const item of items) {
       const emailCliente = (item.email || '').trim();
-      if (transporter && emailCliente && emailCliente.includes('@')) {
-        try {
-          await transporter.sendMail({
-            from: `"ALUMAR SAS Despachos" <${process.env.SMTP_USER}>`,
-            to: emailCliente,
-            subject: `Confirme el recibo de su mercancía — Factura ${item.factura}`,
-            html: `
-<div style="font-family:Arial;max-width:560px;margin:0 auto;color:#1a2535">
+      if (emailCliente && emailCliente.includes('@')) {
+        const ok = await enviarEmail({
+          to: emailCliente,
+          subject: `Confirme el recibo de su mercancía — Factura ${item.factura}`,
+          html: `<div style="font-family:Arial;max-width:560px;margin:0 auto;color:#1a2535">
   <div style="background:linear-gradient(135deg,#0a1f3c,#1255a4);color:#fff;padding:20px;border-radius:8px 8px 0 0">
     <h2 style="margin:0;font-size:17px">📦 Confirme el recibo de su mercancía</h2>
     <p style="margin:4px 0 0;opacity:.8;font-size:12px">ALUMAR SAS</p>
   </div>
   <div style="border:1px solid #dde3ec;border-top:none;padding:20px;border-radius:0 0 8px 8px">
     <p style="font-size:14px;margin-bottom:16px">Estimado(a) <strong>${item.nombre || 'cliente'}</strong>,</p>
-    <p style="font-size:13px;color:#4a6380;margin-bottom:16px">
-      Le informamos que su mercancía correspondiente a la factura <strong>${item.factura}</strong>
-      ${item.bultos ? `(${item.bultos} bultos)` : ''} con destino a <strong>${item.ciudad || destino || ''}</strong> ha sido despachada.
-    </p>
-    <p style="font-size:13px;color:#4a6380;margin-bottom:20px">
-      Por favor haga clic en el botón para confirmar el recibo:
-    </p>
-    <div style="text-align:center;margin-bottom:24px">
-      <a href="${item.link}" style="background:#1e7e34;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block">
-        ✅ Confirmar recibo de mercancía
-      </a>
+    <p style="font-size:13px;color:#4a6380;margin-bottom:16px">Su mercancía (Factura <strong>${item.factura}</strong>${item.bultos ? `, ${item.bultos} bultos` : ''}) con destino <strong>${item.ciudad || destino || ''}</strong> ha sido despachada.</p>
+    <div style="text-align:center;margin:20px 0">
+      <a href="${item.link}" style="background:#1e7e34;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block">✅ Confirmar recibo</a>
     </div>
-    <p style="font-size:11px;color:#8fa3bc;text-align:center">
-      O copie este link en su navegador:<br>
-      <span style="color:#1255a4">${item.link}</span>
-    </p>
+    <p style="font-size:11px;color:#8fa3bc;text-align:center">O abra: <span style="color:#1255a4">${item.link}</span></p>
   </div>
-  <p style="font-size:11px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS · Confirmación automática de entregas</p>
+  <p style="font-size:11px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS</p>
 </div>`,
-          });
-          resultados.push({ factura: item.factura, email: emailCliente, enviado: true });
-        } catch (e) {
-          resultados.push({ factura: item.factura, email: emailCliente, enviado: false, error: e.message });
-        }
+        });
+        resultados.push({ factura: item.factura, email: emailCliente, enviado: ok });
       } else {
-        resultados.push({ factura: item.factura, email: emailCliente || 'sin email', enviado: false, razon: 'sin email' });
+        resultados.push({ factura: item.factura, email: 'sin email', enviado: false });
       }
     }
 
-    // 2. Email resumen a despachos con TODOS los links (incluye los que no tienen email)
-    if (transporter) {
-      const filasTabla = items.map(it => `
-        <tr>
-          <td style="padding:7px 10px;border-bottom:1px solid #edf2f7;font-weight:700;color:#1255a4">${it.factura}</td>
-          <td style="padding:7px 10px;border-bottom:1px solid #edf2f7">${it.nombre || '—'}</td>
-          <td style="padding:7px 10px;border-bottom:1px solid #edf2f7">${it.ciudad || '—'}</td>
-          <td style="padding:7px 10px;border-bottom:1px solid #edf2f7;text-align:center">${it.bultos || '—'}</td>
-          <td style="padding:7px 10px;border-bottom:1px solid #edf2f7">${it.telefono ? `<a href="https://wa.me/57${it.telefono.replace(/\D/g,'')}?text=${encodeURIComponent('Hola ' + (it.nombre||'') + ', por favor confirme el recibo de su mercancía (Factura ' + it.factura + ') en: ' + it.link)}" style="background:#25d366;color:#fff;padding:3px 8px;border-radius:4px;text-decoration:none;font-size:11px;font-weight:700">💬 WhatsApp</a>` : '—'}</td>
-          <td style="padding:7px 10px;border-bottom:1px solid #edf2f7"><a href="${it.link}" style="color:#1255a4;font-size:11px">Ver link</a></td>
-        </tr>`).join('');
-
-      await transporter.sendMail({
-        from: `"ALUMAR SAS Despachos" <${process.env.SMTP_USER}>`,
-        to: 'despachos@alumaronline.com',
-        subject: `📋 Links de confirmación — Contrato N° ${contrato_numero} · ${items.length} facturas`,
-        html: `
-<div style="font-family:Arial;max-width:700px;margin:0 auto;color:#1a2535">
+    // 2. Email resumen a despachos
+    const filasTabla = items.map(it => {
+      const waLink = it.telefono
+        ? `https://wa.me/57${it.telefono.replace(/\D/g,'')}?text=${encodeURIComponent('Hola ' + (it.nombre||'') + ', confirme recibo factura ' + it.factura + ': ' + it.link)}`
+        : null;
+      return `<tr>
+        <td style="padding:7px 10px;border-bottom:1px solid #edf2f7;font-weight:700;color:#1255a4">${it.factura}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #edf2f7">${it.nombre||'—'}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #edf2f7">${it.ciudad||'—'}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #edf2f7;text-align:center">${it.bultos||'—'}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #edf2f7">${waLink ? `<a href="${waLink}" style="background:#25d366;color:#fff;padding:3px 8px;border-radius:4px;text-decoration:none;font-size:11px;font-weight:700">💬 WA</a>` : '—'}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #edf2f7"><a href="${it.link}" style="color:#1255a4;font-size:11px">Link</a></td>
+      </tr>`;
+    }).join('');
+    await enviarEmail({
+      to: 'despachos@alumaronline.com',
+      subject: `📋 Confirmaciones — Contrato N° ${contrato_numero} · ${items.length} facturas`,
+      html: `<div style="font-family:Arial;max-width:700px;margin:0 auto">
   <div style="background:linear-gradient(135deg,#0a1f3c,#1255a4);color:#fff;padding:18px;border-radius:8px 8px 0 0">
     <h2 style="margin:0;font-size:16px">📋 Links de confirmación de entrega</h2>
-    <p style="margin:4px 0 0;opacity:.8;font-size:12px">Contrato N° ${contrato_numero} · ${destino || ''} · ${fecha || ''} · Conductor: ${conductor || '—'}</p>
+    <p style="margin:4px 0 0;opacity:.8;font-size:12px">Contrato N° ${contrato_numero} · ${destino||''} · ${fecha||''} · ${conductor||''}</p>
   </div>
   <div style="border:1px solid #dde3ec;border-top:none;border-radius:0 0 8px 8px;overflow:hidden">
     <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead>
-        <tr style="background:#f0f4f8">
-          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Factura</th>
-          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Cliente</th>
-          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Ciudad</th>
-          <th style="padding:8px 10px;text-align:center;font-size:11px;color:#4a6380">Bultos</th>
-          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">WhatsApp</th>
-          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Link</th>
-        </tr>
-      </thead>
+      <thead><tr style="background:#f0f4f8">
+        <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Factura</th>
+        <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Cliente</th>
+        <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Ciudad</th>
+        <th style="padding:8px 10px;text-align:center;font-size:11px;color:#4a6380">Bultos</th>
+        <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">WhatsApp</th>
+        <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Link</th>
+      </tr></thead>
       <tbody>${filasTabla}</tbody>
     </table>
   </div>
-  <p style="font-size:11px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS · Generado automáticamente al firmar el contrato</p>
+  <p style="font-size:11px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS · Generado automáticamente al firmar</p>
 </div>`,
-      });
-    }
+    });
 
     // 3. WhatsApp a empresa con resumen
     const callmebotKey = process.env.CALLMEBOT_APIKEY;
@@ -1126,43 +1111,37 @@ app.post('/api/confirmacion/:token', async (req, res) => {
         .catch(e => console.warn('CallMeBot error:', e.message));
     }
 
-    // ── Envío de email ──────────────────────────────────────────────────────
-    const transporter = crearTransporter();
-    if (transporter) {
-      const fechaLegible = new Date(confirmacion.fecha_confirmacion)
-        .toLocaleString('es-CO', { timeZone: 'America/Bogota' });
-      await transporter.sendMail({
-        from: `"Alumar SAS Despachos" <${process.env.SMTP_USER}>`,
-        to: 'despachos@alumaronline.com',
-        subject: `✅ Entrega confirmada — Contrato N° ${datos.numero || '?'} · ${datos.facturas || ''}`,
-        html: `
-<div style="font-family:Arial;max-width:600px;margin:0 auto;color:#1a2535">
+    // ── Envío de email al confirmar ─────────────────────────────────────────
+    const fechaLegible = new Date(confirmacion.fecha_confirmacion)
+      .toLocaleString('es-CO', { timeZone: 'America/Bogota' });
+    await enviarEmail({
+      to: 'despachos@alumaronline.com',
+      subject: `✅ Entrega confirmada — Contrato N° ${datos.numero || '?'} · Factura ${datos.factura || datos.facturas || ''}`,
+      html: `<div style="font-family:Arial;max-width:600px;margin:0 auto;color:#1a2535">
   <div style="background:linear-gradient(135deg,#0a1f3c,#1255a4);color:#fff;padding:20px;border-radius:8px 8px 0 0">
     <h2 style="margin:0;font-size:18px">✅ Entrega confirmada</h2>
     <p style="margin:4px 0 0;opacity:.8;font-size:12px">ALUMAR SAS — Notificación automática</p>
   </div>
   <div style="border:1px solid #dde3ec;border-top:none;padding:20px;border-radius:0 0 8px 8px">
     <table style="width:100%;border-collapse:collapse;font-size:14px">
-      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380;width:38%">Contrato N°</td><td style="padding:8px 12px;font-weight:700">${datos.numero || '—'}</td></tr>
-      <tr><td style="padding:8px 12px;color:#4a6380">Factura(s)</td><td style="padding:8px 12px;font-weight:700">${datos.facturas || '—'}</td></tr>
-      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Bultos</td><td style="padding:8px 12px;font-weight:700">${datos.bultos || '—'}</td></tr>
-      <tr><td style="padding:8px 12px;color:#4a6380">Destino</td><td style="padding:8px 12px;font-weight:700">${datos.destino || '—'}</td></tr>
-      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Conductor</td><td style="padding:8px 12px">${datos.conductor || '—'}</td></tr>
-      <tr><td style="padding:8px 12px;color:#4a6380">Fecha despacho</td><td style="padding:8px 12px">${datos.fecha || '—'}</td></tr>
+      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380;width:38%">Contrato N°</td><td style="padding:8px 12px;font-weight:700">${datos.numero||'—'}</td></tr>
+      <tr><td style="padding:8px 12px;color:#4a6380">Factura</td><td style="padding:8px 12px;font-weight:700">${datos.factura||datos.facturas||'—'}</td></tr>
+      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Bultos</td><td style="padding:8px 12px;font-weight:700">${datos.bultos||'—'}</td></tr>
+      <tr><td style="padding:8px 12px;color:#4a6380">Destino</td><td style="padding:8px 12px;font-weight:700">${datos.destino||'—'}</td></tr>
+      <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Conductor</td><td style="padding:8px 12px">${datos.conductor||'—'}</td></tr>
       <tr style="border-top:2px solid #1e7e34">
         <td style="padding:10px 12px;background:#e8f5e9;color:#1e7e34;font-weight:700">RECIBIDO POR</td>
         <td style="padding:10px 12px;background:#e8f5e9;font-weight:700;color:#1e7e34;font-size:15px">${nombre}</td>
       </tr>
       <tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Cédula</td><td style="padding:8px 12px;font-weight:700">${cedula}</td></tr>
       <tr><td style="padding:8px 12px;color:#4a6380">Teléfono</td><td style="padding:8px 12px;font-weight:700">${telefono}</td></tr>
-      ${observaciones ? `<tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Observaciones</td><td style="padding:8px 12px">${observaciones}</td></tr>` : ''}
+      ${observaciones?`<tr><td style="padding:8px 12px;background:#f8fafc;color:#4a6380">Observaciones</td><td style="padding:8px 12px">${observaciones}</td></tr>`:''}
       <tr><td style="padding:8px 12px;color:#4a6380">Confirmado el</td><td style="padding:8px 12px;font-size:12px;color:#8fa3bc">${fechaLegible}</td></tr>
     </table>
   </div>
-  <p style="font-size:11px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS · Sistema automático de confirmación</p>
+  <p style="font-size:11px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS · Confirmación automática</p>
 </div>`,
-      });
-    }
+    });
 
     res.json({ ok: true });
   } catch (err) {
