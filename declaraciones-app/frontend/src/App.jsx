@@ -1846,6 +1846,8 @@ function ContratoRow({ contrato, onEdit, onFirmar }) {
         nombre: f.nombre || "—",
         ciudad: f.ciudad || contrato.destino || "",
         bultos: f.bultos || "",
+        telefono: f.telefono || "",
+        email: f.email || "",
       }));
     }
     // fallback: un solo item con datos del contrato
@@ -1888,10 +1890,47 @@ function ContratoRow({ contrato, onEdit, onFirmar }) {
 
   const abrirQR = () => { setShowQR(true); consultarTodos(); };
 
-  const firmarContrato = () => {
+  const [enviandoLinks, setEnviandoLinks] = useState(false);
+  const [resultadoEnvio, setResultadoEnvio] = useState(null);
+
+  const firmarContrato = async () => {
     if (onFirmar) onFirmar(contrato);
     setShowQR(true);
     consultarTodos();
+    setEnviandoLinks(true);
+    setResultadoEnvio(null);
+    try {
+      const items = itemsQR.map(item => {
+        const { token: tk, link } = getLinkItem(item);
+        return {
+          token: tk,
+          link,
+          factura: item.factura,
+          nombre: item.nombre,
+          ciudad: item.ciudad,
+          bultos: item.bultos,
+          telefono: item.telefono || "",
+          email: item.email || "",
+        };
+      });
+      const r = await fetch(`${capiBase}/api/confirmacion/enviar-masivo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items,
+          contrato_numero: contrato.numero,
+          destino: contrato.destino,
+          fecha: contrato.fecha_cargue,
+          conductor: contrato.conductor_nombre,
+        }),
+      });
+      const d = await r.json();
+      setResultadoEnvio(d);
+    } catch (e) {
+      setResultadoEnvio({ ok: false, error: e.message });
+    } finally {
+      setEnviandoLinks(false);
+    }
   };
   return (
     <div style={{ border:`1px solid ${esBorrador ? "#ff9800" : C.border}`, borderRadius:8, marginBottom:8, overflow:"hidden", background: esBorrador ? "#fffbf2" : C.white }}>
@@ -1963,9 +2002,30 @@ function ContratoRow({ contrato, onEdit, onFirmar }) {
 
             {/* Lista de facturas */}
             <div style={{ overflowY:"auto", flex:1, padding:"14px 16px" }}>
+              {/* Banner estado envío */}
+              {enviandoLinks && (
+                <div style={{ background:"#e3f2fd", border:"1px solid #90caf9", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:12, color:"#1255a4", fontWeight:600 }}>
+                  ⏳ Enviando links de confirmación a los clientes...
+                </div>
+              )}
+              {resultadoEnvio && !enviandoLinks && (
+                resultadoEnvio.ok ? (
+                  <div style={{ background:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:12 }}>
+                    <span style={{ color:C.green, fontWeight:700 }}>✅ Links enviados automáticamente</span>
+                    <div style={{ color:C.textMuted, marginTop:3 }}>
+                      {resultadoEnvio.resultados?.filter(r => r.enviado).length || 0} emails enviados a clientes ·
+                      resumen en <strong>despachos@alumaronline.com</strong> · WhatsApp al <strong>315 8278613</strong>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ background:"#fff8e1", border:"1px solid #ffe082", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:12, color:"#7a5c00" }}>
+                    ⚠️ {resultadoEnvio.error || "Error al enviar — usa los botones manuales abajo"}
+                  </div>
+                )
+              )}
+
               <div style={{ fontSize:11, color:C.textMuted, marginBottom:12 }}>
-                Comparte el QR o el link con cada cliente para que confirme el recibo.
-                Cuando confirme, recibirás email + WhatsApp en <strong>despachos@alumaronline.com</strong> y <strong>+57 315 8278613</strong>.
+                Al firmar, los links se envían automáticamente por email a cada cliente y el resumen llega a <strong>despachos@alumaronline.com</strong> y <strong>+57 315 8278613</strong>.
               </div>
 
               {itemsQR.map((item, idx) => {

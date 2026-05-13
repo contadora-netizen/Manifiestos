@@ -447,7 +447,9 @@ app.get('/api/lista-cargue', async (req, res) => {
         MAX(d.DCL_NETO)       AS valor_neto,
         SUM(d.DCL_BULTOS)     AS bultos,
         MIN(c.CLT_NOMBRE)     AS nombre,
-        MIN(cd.CDD_DESCRI)    AS ciudad
+        MIN(cd.CDD_DESCRI)    AS ciudad,
+        MIN(NULLIF(TRIM(c.CLT_CELULAR),''))   AS telefono,
+        MIN(NULLIF(TRIM(c.CLT_EMAIL1),''))    AS email
       FROM adn_doccli d
       LEFT JOIN adn_clientes c  ON d.DCL_CLT_CODIGO = c.CLT_CODIGO
       LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO  = cd.CDD_CODIGO
@@ -466,6 +468,8 @@ app.get('/api/lista-cargue', async (req, res) => {
       cliente_codigo: r.cliente_codigo || '',
       nombre: r.nombre || '',
       ciudad: r.ciudad || '',
+      telefono: r.telefono || '',
+      email: r.email || '',
       valor_bruto: parseFloat(r.valor_bruto) || 0,  // antes de IVA y descuentos
       valor_neto: parseFloat(r.valor_neto) || 0,    // total con IVA
       bultos: parseFloat(r.bultos) || 0,
@@ -954,6 +958,129 @@ function htmlPaginaConfirmacion(datos, confirmacion, token) {
   <div class="foot">ALUMAR SAS · Sistema automático de confirmación de entregas</div>
 </div></body></html>`;
 }
+
+// ── POST /api/confirmacion/enviar-masivo  (se llama al firmar el contrato) ──
+// Recibe array de items: [{token, link, factura, nombre, ciudad, bultos, telefono, email}]
+// 1. Envía email individual a clientes que tengan email
+// 2. Envía email resumen a despachos@alumaronline.com con TODOS los links
+// 3. Envía WhatsApp a 315 8278613 con resumen
+app.post('/api/confirmacion/enviar-masivo', async (req, res) => {
+  try {
+    const { items, contrato_numero, destino, fecha, conductor } = req.body;
+    if (!items || !items.length) return res.status(400).json({ ok: false, error: 'Sin items' });
+
+    const transporter = crearTransporter();
+    const resultados = [];
+
+    // 1. Emails individuales a clientes
+    for (const item of items) {
+      const emailCliente = (item.email || '').trim();
+      if (transporter && emailCliente && emailCliente.includes('@')) {
+        try {
+          await transporter.sendMail({
+            from: `"ALUMAR SAS Despachos" <${process.env.SMTP_USER}>`,
+            to: emailCliente,
+            subject: `Confirme el recibo de su mercancía — Factura ${item.factura}`,
+            html: `
+<div style="font-family:Arial;max-width:560px;margin:0 auto;color:#1a2535">
+  <div style="background:linear-gradient(135deg,#0a1f3c,#1255a4);color:#fff;padding:20px;border-radius:8px 8px 0 0">
+    <h2 style="margin:0;font-size:17px">📦 Confirme el recibo de su mercancía</h2>
+    <p style="margin:4px 0 0;opacity:.8;font-size:12px">ALUMAR SAS</p>
+  </div>
+  <div style="border:1px solid #dde3ec;border-top:none;padding:20px;border-radius:0 0 8px 8px">
+    <p style="font-size:14px;margin-bottom:16px">Estimado(a) <strong>${item.nombre || 'cliente'}</strong>,</p>
+    <p style="font-size:13px;color:#4a6380;margin-bottom:16px">
+      Le informamos que su mercancía correspondiente a la factura <strong>${item.factura}</strong>
+      ${item.bultos ? `(${item.bultos} bultos)` : ''} con destino a <strong>${item.ciudad || destino || ''}</strong> ha sido despachada.
+    </p>
+    <p style="font-size:13px;color:#4a6380;margin-bottom:20px">
+      Por favor haga clic en el botón para confirmar el recibo:
+    </p>
+    <div style="text-align:center;margin-bottom:24px">
+      <a href="${item.link}" style="background:#1e7e34;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block">
+        ✅ Confirmar recibo de mercancía
+      </a>
+    </div>
+    <p style="font-size:11px;color:#8fa3bc;text-align:center">
+      O copie este link en su navegador:<br>
+      <span style="color:#1255a4">${item.link}</span>
+    </p>
+  </div>
+  <p style="font-size:11px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS · Confirmación automática de entregas</p>
+</div>`,
+          });
+          resultados.push({ factura: item.factura, email: emailCliente, enviado: true });
+        } catch (e) {
+          resultados.push({ factura: item.factura, email: emailCliente, enviado: false, error: e.message });
+        }
+      } else {
+        resultados.push({ factura: item.factura, email: emailCliente || 'sin email', enviado: false, razon: 'sin email' });
+      }
+    }
+
+    // 2. Email resumen a despachos con TODOS los links (incluye los que no tienen email)
+    if (transporter) {
+      const filasTabla = items.map(it => `
+        <tr>
+          <td style="padding:7px 10px;border-bottom:1px solid #edf2f7;font-weight:700;color:#1255a4">${it.factura}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #edf2f7">${it.nombre || '—'}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #edf2f7">${it.ciudad || '—'}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #edf2f7;text-align:center">${it.bultos || '—'}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #edf2f7">${it.telefono ? `<a href="https://wa.me/57${it.telefono.replace(/\D/g,'')}?text=${encodeURIComponent('Hola ' + (it.nombre||'') + ', por favor confirme el recibo de su mercancía (Factura ' + it.factura + ') en: ' + it.link)}" style="background:#25d366;color:#fff;padding:3px 8px;border-radius:4px;text-decoration:none;font-size:11px;font-weight:700">💬 WhatsApp</a>` : '—'}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #edf2f7"><a href="${it.link}" style="color:#1255a4;font-size:11px">Ver link</a></td>
+        </tr>`).join('');
+
+      await transporter.sendMail({
+        from: `"ALUMAR SAS Despachos" <${process.env.SMTP_USER}>`,
+        to: 'despachos@alumaronline.com',
+        subject: `📋 Links de confirmación — Contrato N° ${contrato_numero} · ${items.length} facturas`,
+        html: `
+<div style="font-family:Arial;max-width:700px;margin:0 auto;color:#1a2535">
+  <div style="background:linear-gradient(135deg,#0a1f3c,#1255a4);color:#fff;padding:18px;border-radius:8px 8px 0 0">
+    <h2 style="margin:0;font-size:16px">📋 Links de confirmación de entrega</h2>
+    <p style="margin:4px 0 0;opacity:.8;font-size:12px">Contrato N° ${contrato_numero} · ${destino || ''} · ${fecha || ''} · Conductor: ${conductor || '—'}</p>
+  </div>
+  <div style="border:1px solid #dde3ec;border-top:none;border-radius:0 0 8px 8px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#f0f4f8">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Factura</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Cliente</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Ciudad</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;color:#4a6380">Bultos</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">WhatsApp</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;color:#4a6380">Link</th>
+        </tr>
+      </thead>
+      <tbody>${filasTabla}</tbody>
+    </table>
+  </div>
+  <p style="font-size:11px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS · Generado automáticamente al firmar el contrato</p>
+</div>`,
+      });
+    }
+
+    // 3. WhatsApp a empresa con resumen
+    const callmebotKey = process.env.CALLMEBOT_APIKEY;
+    if (callmebotKey) {
+      const conEmail = resultados.filter(r => r.enviado).length;
+      const sinEmail = items.length - conEmail;
+      const waMsg = encodeURIComponent(
+        `📋 ALUMAR - Contrato N° ${contrato_numero} firmado\n` +
+        `${items.length} facturas · Destino: ${destino || '—'}\n` +
+        `✉️ Emails enviados: ${conEmail} · Sin email: ${sinEmail}\n` +
+        `Ver links en despachos@alumaronline.com`
+      );
+      fetch(`https://api.callmebot.com/whatsapp.php?phone=573158278613&text=${waMsg}&apikey=${callmebotKey}`)
+        .catch(e => console.warn('CallMeBot error:', e.message));
+    }
+
+    res.json({ ok: true, resultados });
+  } catch (err) {
+    console.error('Error /api/confirmacion/enviar-masivo:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 // ── GET /confirmar/:token  (página pública para el cliente) ─────────────────
 app.get('/confirmar/:token', (req, res) => {
