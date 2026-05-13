@@ -1825,192 +1825,13 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
   );
 }
 
-// ── Panel de confirmaciones recibidas ─────────────────────────────────────────
-function ConfirmacionesPanel({ capiBase }) {
-  const base = (capiBase || "").replace(/\/api$/, "") || "https://adaptable-caring-production-735b.up.railway.app";
-  const [lista, setLista] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
-
-  const cargar = async () => {
-    setLoading(true);
-    try {
-      const r = await fetch(`${base}/api/confirmaciones`);
-      const d = await r.json();
-      setLista(d.confirmaciones || []);
-    } catch { setLista([]); }
-    finally { setLoading(false); }
-  };
-
-  const abrirPanel = () => { setOpen(o => !o); if (!open) cargar(); };
-
-  return (
-    <div style={{ marginTop:20, background:C.white, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden", boxShadow:C.shadow }}>
-      <div onClick={abrirPanel} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 18px", cursor:"pointer", background: open ? "#f0f4f8" : C.white }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ fontSize:18 }}>✅</span>
-          <div>
-            <div style={{ fontWeight:700, fontSize:13, color:C.navy }}>Confirmaciones de entrega recibidas</div>
-            <div style={{ fontSize:11, color:C.textMuted }}>Registro de clientes que confirmaron recibo de mercancía</div>
-          </div>
-        </div>
-        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-          {open && <button onClick={e => { e.stopPropagation(); cargar(); }} style={{ fontSize:11, background:C.blue, color:"#fff", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer" }}>🔄 Actualizar</button>}
-          <span style={{ color:C.textDim }}>{open ? "▲" : "▼"}</span>
-        </div>
-      </div>
-
-      {open && (
-        <div style={{ borderTop:`1px solid ${C.border}` }}>
-          {loading ? (
-            <div style={{ padding:24, textAlign:"center", color:C.textMuted, fontSize:13 }}>⏳ Cargando...</div>
-          ) : lista.length === 0 ? (
-            <div style={{ padding:24, textAlign:"center", color:C.textMuted, fontSize:13 }}>
-              Sin confirmaciones aún. Cuando un cliente confirme el recibo aparecerá aquí.
-            </div>
-          ) : (
-            <div style={{ overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-                <thead>
-                  <tr style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, color:"#fff" }}>
-                    {["Contrato","Factura","Recibido por","Cédula","Teléfono","Destino","Bultos","Fecha confirmación","Observaciones"].map(h => (
-                      <th key={h} style={{ padding:"8px 10px", textAlign:"left", fontSize:10, fontWeight:700, whiteSpace:"nowrap" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {lista.map((c, i) => (
-                    <tr key={c.token} style={{ background: i%2===0 ? "#f8fafc" : C.white, borderBottom:`1px solid ${C.border}` }}>
-                      <td style={{ padding:"7px 10px", fontWeight:700, color:C.navy }}>N° {c.numero||"—"}</td>
-                      <td style={{ padding:"7px 10px", color:C.blue, fontWeight:600 }}>{c.factura||c.facturas||"—"}</td>
-                      <td style={{ padding:"7px 10px", fontWeight:700, color:C.green }}>{c.nombre_receptor}</td>
-                      <td style={{ padding:"7px 10px" }}>{c.cedula}</td>
-                      <td style={{ padding:"7px 10px" }}>{c.telefono}</td>
-                      <td style={{ padding:"7px 10px", color:C.textMuted }}>{c.destino||"—"}</td>
-                      <td style={{ padding:"7px 10px", textAlign:"center" }}>{c.bultos||"—"}</td>
-                      <td style={{ padding:"7px 10px", fontSize:10, color:C.textMuted, whiteSpace:"nowrap" }}>
-                        {new Date(c.fecha_confirmacion).toLocaleString("es-CO",{timeZone:"America/Bogota"})}
-                      </td>
-                      <td style={{ padding:"7px 10px", fontSize:11, color:C.textMuted, fontStyle:"italic" }}>{c.observaciones||""}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Contrato: fila de historial ───────────────────────────────────────────────
 function ContratoRow({ contrato, onEdit, onFirmar }) {
   const [open, setOpen] = useState(false);
-  const [showQR, setShowQR] = useState(false);
-  const [confirmStates, setConfirmStates] = useState({}); // token → {confirmado, confirmacion}
   const fmt = (v) => v ? `$${Number(v).toLocaleString("es-CO")}` : "—";
   const esBorrador = contrato._borrador === true;
   const esFirmado  = contrato._firmado  === true;
 
-  const capiBase = (typeof CAPI_BASE !== "undefined" ? CAPI_BASE : "").replace(/\/api$/, "") || "https://adaptable-caring-production-735b.up.railway.app";
-
-  // Genera los items de confirmación: uno por factura si hay _facturasSeleccionadas, sino uno global
-  const itemsQR = (() => {
-    const sels = contrato._facturasSeleccionadas;
-    if (sels && sels.length > 0) {
-      return sels.map(f => ({
-        key: f.factura_numero_raw || f.factura,
-        factura: f.factura || `FVELE ${f.factura_numero_raw}`,
-        nombre: f.nombre || "—",
-        ciudad: f.ciudad || contrato.destino || "",
-        bultos: f.bultos || "",
-        telefono: f.telefono || "",
-        email: f.email || "",
-      }));
-    }
-    // fallback: un solo item con datos del contrato
-    return [{
-      key: contrato.numero,
-      factura: contrato.facturas || "",
-      nombre: contrato.contratista_nombre || "",
-      ciudad: contrato.destino || "",
-      bultos: "",
-    }];
-  })();
-
-  const generarToken = (item) => btoa(JSON.stringify({
-    numero:    contrato.numero   || "",
-    factura:   item.factura      || "",
-    facturas:  item.factura      || contrato.facturas || "",
-    bultos:    item.bultos       || "",
-    nombre_cliente: item.nombre  || "",
-    destino:   item.ciudad       || contrato.destino || "",
-    fecha:     (contrato.fecha_cargue || new Date().toISOString()).slice(0,10),
-    conductor: contrato.conductor_nombre || "",
-  }));
-
-  const getLinkItem = (item) => {
-    const tk = generarToken(item);
-    return { token: tk, link: `${capiBase}/confirmar/${tk}` };
-  };
-
-  const consultarTodos = async () => {
-    const nuevos = {};
-    await Promise.all(itemsQR.map(async item => {
-      const { token } = getLinkItem(item);
-      try {
-        const r = await fetch(`${capiBase}/api/confirmacion/${token}`);
-        nuevos[token] = await r.json();
-      } catch { nuevos[token] = { confirmado: false }; }
-    }));
-    setConfirmStates(nuevos);
-  };
-
-  const abrirQR = () => { setShowQR(true); consultarTodos(); };
-
-  const [enviandoLinks, setEnviandoLinks] = useState(false);
-  const [resultadoEnvio, setResultadoEnvio] = useState(null);
-
-  const firmarContrato = async () => {
-    if (onFirmar) onFirmar(contrato);
-    setShowQR(true);
-    consultarTodos();
-    setEnviandoLinks(true);
-    setResultadoEnvio(null);
-    try {
-      const items = itemsQR.map(item => {
-        const { token: tk, link } = getLinkItem(item);
-        return {
-          token: tk,
-          link,
-          factura: item.factura,
-          nombre: item.nombre,
-          ciudad: item.ciudad,
-          bultos: item.bultos,
-          telefono: item.telefono || "",
-          email: item.email || "",
-        };
-      });
-      const r = await fetch(`${capiBase}/api/confirmacion/enviar-masivo`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items,
-          contrato_numero: contrato.numero,
-          destino: contrato.destino,
-          fecha: contrato.fecha_cargue,
-          conductor: contrato.conductor_nombre,
-        }),
-      });
-      const d = await r.json();
-      setResultadoEnvio(d);
-    } catch (e) {
-      setResultadoEnvio({ ok: false, error: e.message });
-    } finally {
-      setEnviandoLinks(false);
-    }
-  };
   return (
     <div style={{ border:`1px solid ${esBorrador ? "#ff9800" : C.border}`, borderRadius:8, marginBottom:8, overflow:"hidden", background: esBorrador ? "#fffbf2" : C.white }}>
       <div onClick={() => setOpen(o => !o)} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", cursor:"pointer", background: open ? (esBorrador ? "#fff3e0" : "#f0f4f8") : "transparent", transition:"background 0.15s" }}>
@@ -2027,12 +1848,9 @@ function ContratoRow({ contrato, onEdit, onFirmar }) {
         }
         <button onClick={e => { e.stopPropagation(); generateContratoPDF(contrato); }}
           style={{ fontSize:11, background:C.blue, color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>🖨 Imprimir</button>
-        {!esBorrador && (
-          esFirmado
-            ? <button onClick={e => { e.stopPropagation(); abrirQR(); }}
-                style={{ fontSize:11, background:"#1e7e34", color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>📲 Ver QRs</button>
-            : <button onClick={e => { e.stopPropagation(); firmarContrato(); }}
-                style={{ fontSize:11, background:"#6a1b9a", color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>✍️ Firmar contrato</button>
+        {!esBorrador && !esFirmado && (
+          <button onClick={e => { e.stopPropagation(); if (onFirmar) onFirmar(contrato); }}
+            style={{ fontSize:11, background:"#6a1b9a", color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>✍️ Firmar contrato</button>
         )}
         <button onClick={e => { e.stopPropagation(); onEdit(contrato); }}
           style={{ fontSize:11, background:C.accent, color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>✏ Editar</button>
@@ -2060,104 +1878,6 @@ function ContratoRow({ contrato, onEdit, onFirmar }) {
         </div>
       )}
 
-      {/* ── Modal QRs por factura ────────────────────────────────────────── */}
-      {showQR && (
-        <div onClick={() => setShowQR(false)}
-          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:12, overflowY:"auto" }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background:"#fff", borderRadius:14, width:"100%", maxWidth:560, boxShadow:"0 8px 40px rgba(0,0,0,.28)", maxHeight:"90vh", overflow:"hidden", display:"flex", flexDirection:"column" }}>
-
-            {/* Header */}
-            <div style={{ background:`linear-gradient(135deg,${C.navy},${C.blue})`, color:"#fff", padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
-              <div>
-                <div style={{ fontWeight:700, fontSize:14 }}>📲 Confirmaciones de entrega — Contrato N° {contrato.numero}</div>
-                <div style={{ fontSize:11, opacity:.8, marginTop:2 }}>{itemsQR.length} factura(s) · {contrato.destino || ""} · {(contrato.fecha_cargue||"").slice(0,10)}</div>
-              </div>
-              <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                <button onClick={consultarTodos} style={{ fontSize:10, background:"rgba(255,255,255,.15)", border:"1px solid rgba(255,255,255,.3)", color:"#fff", borderRadius:5, padding:"4px 10px", cursor:"pointer" }}>🔄</button>
-                <button onClick={() => setShowQR(false)} style={{ background:"transparent", border:"none", color:"#fff", fontSize:20, cursor:"pointer" }}>✕</button>
-              </div>
-            </div>
-
-            {/* Lista de facturas */}
-            <div style={{ overflowY:"auto", flex:1, padding:"14px 16px" }}>
-              {/* Banner estado envío */}
-              {enviandoLinks && (
-                <div style={{ background:"#e3f2fd", border:"1px solid #90caf9", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:12, color:"#1255a4", fontWeight:600 }}>
-                  ⏳ Enviando links de confirmación a los clientes...
-                </div>
-              )}
-              {resultadoEnvio && !enviandoLinks && (
-                resultadoEnvio.ok ? (
-                  <div style={{ background:"#e8f5e9", border:"1px solid #a5d6a7", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:12 }}>
-                    <span style={{ color:C.green, fontWeight:700 }}>✅ Links enviados automáticamente</span>
-                    <div style={{ color:C.textMuted, marginTop:3 }}>
-                      {resultadoEnvio.resultados?.filter(r => r.enviado).length || 0} emails enviados a clientes ·
-                      resumen en <strong>despachos@alumaronline.com</strong> · WhatsApp al <strong>315 8278613</strong>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ background:"#fff8e1", border:"1px solid #ffe082", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:12, color:"#7a5c00" }}>
-                    ⚠️ Envío automático no disponible aún — usa los botones <strong>"Enviar por WhatsApp"</strong> de cada factura para notificar manualmente. El resumen llegará a <strong>despachos@alumaronline.com</strong> una vez el servidor esté activo.
-                  </div>
-                )
-              )}
-
-              <div style={{ fontSize:11, color:C.textMuted, marginBottom:12 }}>
-                Al firmar, los links se envían automáticamente por email a cada cliente y el resumen llega a <strong>despachos@alumaronline.com</strong> y <strong>+57 315 8278613</strong>.
-              </div>
-
-              {itemsQR.map((item, idx) => {
-                const { token: tk, link } = getLinkItem(item);
-                const conf = confirmStates[tk];
-                const confirmado = conf?.confirmado;
-                const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=0a1f3c&data=${encodeURIComponent(link)}`;
-                const msgWa = encodeURIComponent(
-                  `Hola${item.nombre ? " " + item.nombre.split(" ")[0] : ""}, le saluda ALUMAR SAS.\n` +
-                  `Por favor confirme el recibo de su mercancía (Factura ${item.factura}${item.bultos ? `, ${item.bultos} bultos` : ""}) haciendo clic aquí:\n\n${link}`
-                );
-                return (
-                  <div key={item.key} style={{ border:`1px solid ${confirmado ? "#a5d6a7" : C.border}`, borderRadius:10, marginBottom:12, overflow:"hidden", background: confirmado ? "#f0fff4" : "#fff" }}>
-                    {/* Info cliente */}
-                    <div style={{ display:"flex", gap:12, padding:"10px 14px", borderBottom:`1px solid ${confirmado ? "#a5d6a7" : C.border}` }}>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:12, fontWeight:700, color:C.navy }}>{item.factura}</div>
-                        <div style={{ fontSize:11, color:C.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.nombre}</div>
-                        <div style={{ fontSize:10, color:C.blue }}>{item.ciudad}{item.bultos ? ` · ${item.bultos} bultos` : ""}</div>
-                      </div>
-                      {confirmado ? (
-                        <div style={{ textAlign:"right", fontSize:11 }}>
-                          <div style={{ color:C.green, fontWeight:700 }}>✅ Confirmado</div>
-                          <div style={{ color:C.textMuted, fontSize:10 }}>{conf.confirmacion?.nombre_receptor}</div>
-                          <div style={{ color:C.textDim, fontSize:9 }}>C.C. {conf.confirmacion?.cedula}</div>
-                        </div>
-                      ) : (
-                        <div style={{ fontSize:10, color:"#f59e0b", fontWeight:600, alignSelf:"center" }}>⏳ Pendiente</div>
-                      )}
-                    </div>
-
-                    {/* QR + botones */}
-                    <div style={{ display:"flex", gap:12, padding:"10px 14px", alignItems:"center" }}>
-                      <img src={qrImg} alt="QR" style={{ width:90, height:90, borderRadius:6, border:`1px solid ${C.border}`, flexShrink:0 }} />
-                      <div style={{ flex:1, display:"flex", flexDirection:"column", gap:6 }}>
-                        <div style={{ fontSize:9, color:C.textDim, wordBreak:"break-all", lineHeight:1.4 }}>{link.replace(capiBase, "…")}</div>
-                        <button onClick={() => navigator.clipboard.writeText(link)}
-                          style={{ fontSize:11, background:C.blue, color:"#fff", border:"none", borderRadius:5, padding:"6px 0", cursor:"pointer", fontWeight:700 }}>
-                          📋 Copiar link
-                        </button>
-                        <button onClick={() => window.open(`https://wa.me/?text=${msgWa}`, "_blank")}
-                          style={{ fontSize:11, background:"#25d366", color:"#fff", border:"none", borderRadius:5, padding:"6px 0", cursor:"pointer", fontWeight:700 }}>
-                          💬 Enviar por WhatsApp
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -3895,8 +3615,6 @@ export default function App() {
               </div>
             )}
 
-            {/* ── Panel confirmaciones recibidas ── */}
-            <ConfirmacionesPanel capiBase={CAPI_BASE} />
           </div>
         )}
 
