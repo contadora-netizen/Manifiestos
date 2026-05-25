@@ -1831,10 +1831,7 @@ function ContratoRow({ contrato, onEdit, onFirmar, capiBase }) {
   const [open, setOpen] = useState(false);
   const [showEmail, setShowEmail]       = useState(false);
   const [emailContratista, setEmailContratista] = useState("");
-  const [emailCartera]                  = useState("cartera@alumaronline.com");
   const [emailCarteraEdit, setEmailCarteraEdit] = useState("cartera@alumaronline.com");
-  const [enviandoEmail, setEnviandoEmail] = useState(false);
-  const [resultEmail, setResultEmail]   = useState(null); // null | {ok, msg}
 
   const fmt = (v) => v ? `$${Number(v).toLocaleString("es-CO")}` : "—";
   const esBorrador = contrato._borrador === true;
@@ -1843,28 +1840,60 @@ function ContratoRow({ contrato, onEdit, onFirmar, capiBase }) {
   const abrirModalEmail = () => {
     setEmailContratista(contrato.contratista_email || "");
     setEmailCarteraEdit("cartera@alumaronline.com");
-    setResultEmail(null);
     setShowEmail(true);
   };
 
-  const enviarContrato = async () => {
-    const emails = [];
-    if (emailContratista.trim()) emails.push({ rol: "Contratista / Conductor", to: emailContratista.trim() });
-    if (emailCarteraEdit.trim())  emails.push({ rol: "Cartera",                to: emailCarteraEdit.trim() });
-    if (!emails.length) { setResultEmail({ ok: false, msg: "Agrega al menos un correo." }); return; }
-    setEnviandoEmail(true); setResultEmail(null);
-    try {
-      const base = (capiBase || "").replace(/\/api$/, "") || "https://adaptable-caring-production-735b.up.railway.app";
-      const r = await fetch(`${base}/api/contrato/enviar-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contrato, emails }),
-      });
-      const d = await r.json();
-      setResultEmail({ ok: d.ok, msg: d.ok ? `✅ Enviado a ${emails.map(e=>e.to).join(", ")}` : `❌ ${d.error || "Error al enviar"}` });
-    } catch (e) {
-      setResultEmail({ ok: false, msg: `❌ ${e.message}` });
-    } finally { setEnviandoEmail(false); }
+  // Abre el cliente de correo del usuario con el contrato pre-llenado (mailto)
+  // Sin necesidad de API key ni configuración de servidor
+  const enviarContrato = () => {
+    const destinatarios = [emailContratista.trim(), emailCarteraEdit.trim()].filter(Boolean).join(",");
+    if (!destinatarios) return;
+
+    const asunto = `Contrato de transporte N° ${contrato.numero || ""} — ${contrato.destino || "ALUMAR SAS"}`;
+    const cuerpo = [
+      `Estimado(a) ${contrato.contratista_nombre || "transportador"},`,
+      ``,
+      `A continuación los detalles del contrato de transporte terrestre:`,
+      ``,
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `CONTRATO N°: ${contrato.numero || "—"}`,
+      `Fecha de cargue: ${contrato.fecha_cargue || "—"}`,
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+      ``,
+      `CONTRATISTA / TRANSPORTADOR`,
+      `Nombre: ${contrato.contratista_nombre || "—"}`,
+      `C.C.: ${contrato.contratista_cc || "—"}`,
+      `Teléfono: ${contrato.contratista_telefono || "—"}`,
+      ``,
+      `CONDUCTOR`,
+      `Nombre: ${contrato.conductor_nombre || "—"}`,
+      `Celular: ${contrato.conductor_celular || "—"}`,
+      ``,
+      `VEHÍCULO`,
+      `Marca: ${contrato.vehiculo_marca || "—"} | Placa: ${contrato.vehiculo_placas || "—"}`,
+      `Aseguradora: ${contrato.aseguradora || "—"}`,
+      ``,
+      `CARGA`,
+      `Destino: ${contrato.destino || "—"}`,
+      `Facturas: ${contrato.facturas || "—"}`,
+      `Valor mercancía: ${fmt(contrato.valor_mercancia)}`,
+      ``,
+      `VALORES`,
+      `Flete total: ${fmt(contrato.valor_total)}`,
+      contrato.anticipo     ? `Anticipo (60%): ${fmt(contrato.anticipo)}` : "",
+      contrato.saldo_pagar  ? `Saldo a pagar (40%): ${fmt(contrato.saldo_pagar)}` : "",
+      ``,
+      contrato.observaciones ? `Observaciones: ${contrato.observaciones}` : "",
+      ``,
+      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+      `Por favor imprima este contrato, fírmelo y entréguelo al Depto. de Tráfico de Alumar antes del despacho.`,
+      ``,
+      `ALUMAR SAS — NIT 800.193.639-5`,
+      `International Housewares`,
+    ].filter(l => l !== null).join("\n");
+
+    window.location.href = `mailto:${destinatarios}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+    setShowEmail(false);
   };
 
   return (
@@ -1972,22 +2001,16 @@ function ContratoRow({ contrato, onEdit, onFirmar, capiBase }) {
                 />
               </div>
 
-              {/* Resultado */}
-              {resultEmail && (
-                <div style={{ padding:"10px 14px", borderRadius:8, marginBottom:14, fontSize:12, fontWeight:600,
-                  background: resultEmail.ok ? "#e8f5e9" : "#fdecea",
-                  color: resultEmail.ok ? C.green : C.red,
-                  border: `1px solid ${resultEmail.ok ? "#a5d6a7" : "#ef9a9a"}` }}>
-                  {resultEmail.msg}
-                </div>
-              )}
+              <div style={{ background:"#e3f2fd", border:"1px solid #90caf9", borderRadius:8, padding:"10px 14px", marginBottom:16, fontSize:11, color:"#1255a4" }}>
+                💡 Al hacer clic en <strong>Abrir correo</strong> se abrirá tu cliente de email (Outlook, Gmail…) con el contrato listo para enviar. Solo das <strong>Enviar</strong> ahí.
+              </div>
 
               {/* Botones */}
               <div style={{ display:"flex", gap:10 }}>
-                <button onClick={enviarContrato} disabled={enviandoEmail}
-                  style={{ flex:1, background: enviandoEmail ? "#ccc" : C.green, color:"white", border:"none",
-                    borderRadius:8, padding:"11px 0", fontSize:14, fontWeight:700, cursor: enviandoEmail?"not-allowed":"pointer" }}>
-                  {enviandoEmail ? "⏳ Enviando..." : "📨 Enviar contrato"}
+                <button onClick={enviarContrato}
+                  style={{ flex:1, background:C.green, color:"white", border:"none",
+                    borderRadius:8, padding:"11px 0", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+                  📨 Abrir correo
                 </button>
                 <button onClick={() => setShowEmail(false)}
                   style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:8,
