@@ -946,13 +946,22 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   const [bdLoading, setBdLoading] = useState(false);
   const [bdConsultado, setBdConsultado] = useState(false);
 
+  const [bdError, setBdError] = useState("");
+
   const consultarFacturasBD = async () => {
     setBdLoading(true);
     setBdConsultado(false);
+    setBdError("");
     try {
       const capiBase = (typeof CAPI_BASE !== "undefined" ? CAPI_BASE : "").replace(/\/api$/, "") || "http://localhost:3000";
       const r = await fetch(`${capiBase}/api/lista-cargue?desde=${bdDesde}&hasta=${bdHasta}&tipos=FVELE`);
       const d = await r.json();
+      if (!r.ok) {
+        setBdError(`Error del servidor: ${d.error || r.status}`);
+        setBdFacturasLista([]);
+        setBdConsultado(true);
+        return;
+      }
       const lista = d.facturas || [];
       setBdFacturasLista(lista);
       // Pre-marcar las que ya fueron agregadas al contrato
@@ -964,7 +973,8 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
         : new Set();
       setBdSeleccionadas(presel);
       setBdConsultado(true);
-    } catch {
+    } catch (e) {
+      setBdError(`Error de conexión: ${e.message}`);
       setBdFacturasLista([]);
       setBdSeleccionadas(new Set());
       setBdConsultado(true);
@@ -1370,9 +1380,14 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
               </button>
             </div>
 
-            {bdConsultado && bdFacturasLista.length === 0 && (
+            {bdError && (
+              <div style={{ fontSize:11, color:C.red, background:"#fdecea", border:`1px solid ${C.red}33`, borderRadius:6, padding:"7px 10px", marginTop:4 }}>
+                <strong>Error al consultar la BD:</strong> {bdError}
+              </div>
+            )}
+            {bdConsultado && !bdError && bdFacturasLista.length === 0 && (
               <div style={{ fontSize:12, color:C.textMuted, padding:"8px 0" }}>
-                ⚠️ No se encontraron facturas para esa fecha.
+                ⚠️ No se encontraron facturas FVELE para ese período. Verifica las fechas o si las facturas tienen otro tipo de documento.
               </div>
             )}
 

@@ -448,7 +448,7 @@ app.get('/api/lista-cargue', async (req, res) => {
         MIN(c.CLT_NOMBRE)     AS nombre,
         MIN(cd.CDD_DESCRI)    AS ciudad,
         MIN(NULLIF(TRIM(c.CLT_CELULAR),''))   AS telefono,
-        MIN(NULLIF(TRIM(c.CLT_EMAIL1),''))    AS email
+        MIN(COALESCE(NULLIF(TRIM(c.CLT_EMAIL),''), NULLIF(TRIM(c.CLT_EMAILWEB),''))) AS email
       FROM adn_doccli d
       LEFT JOIN adn_clientes c  ON d.DCL_CLT_CODIGO = c.CLT_CODIGO
       LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO  = cd.CDD_CODIGO
@@ -602,7 +602,7 @@ app.get('/api/cliente-por-cc', async (req, res) => {
         COALESCE(NULLIF(TRIM(c.CLT_CELULAR),''), NULLIF(TRIM(c.CLT_TELEFONO1),''), NULLIF(TRIM(c.CLT_TELEFONO2),'')) AS telefono,
         c.CLT_DIRECCION1 AS direccion,
         cd.CDD_DESCRI    AS ciudad,
-        COALESCE(NULLIF(TRIM(c.CLT_EMAIL),''), NULLIF(TRIM(c.CLT_EMAILWEB),''), NULLIF(TRIM(c.CLT_EMAIL1),'')) AS email
+        COALESCE(NULLIF(TRIM(c.CLT_EMAIL),''), NULLIF(TRIM(c.CLT_EMAILWEB),'')) AS email
       FROM adn_clientes c
       LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO = cd.CDD_CODIGO
       WHERE REPLACE(REPLACE(REPLACE(TRIM(c.CLT_RIF), '.', ''), '-', ''), ' ', '') = ?
