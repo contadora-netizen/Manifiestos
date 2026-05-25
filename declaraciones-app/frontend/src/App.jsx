@@ -1866,7 +1866,7 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
 }
 
 // ── Contrato: fila de historial ───────────────────────────────────────────────
-function ContratoRow({ contrato, onEdit, onFirmar, capiBase }) {
+function ContratoRow({ contrato, onEdit, onFirmar, onDelete, capiBase }) {
   const [open, setOpen] = useState(false);
   const [showEmail, setShowEmail]       = useState(false);
   const [emailContratista, setEmailContratista] = useState("");
@@ -1959,6 +1959,11 @@ function ContratoRow({ contrato, onEdit, onFirmar, capiBase }) {
         )}
         <button onClick={e => { e.stopPropagation(); onEdit(contrato); }}
           style={{ fontSize:11, background:C.accent, color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>✏ Editar</button>
+        {!esFirmado && onDelete && (
+          <button onClick={e => { e.stopPropagation(); onDelete(contrato); }}
+            title="Eliminar contrato (solo disponible si no está firmado)"
+            style={{ fontSize:11, background:"transparent", color:C.red, border:`1px solid ${C.red}55`, borderRadius:5, padding:"4px 8px", cursor:"pointer", fontWeight:700 }}>🗑</button>
+        )}
         <span style={{ color:C.textDim, fontSize:12 }}>{open ? "▲" : "▼"}</span>
       </div>
       {open && (
@@ -3598,6 +3603,19 @@ export default function App() {
     }
   };
 
+  const deleteContrato = async (contrato) => {
+    const confirm1 = window.confirm(
+      `¿Eliminar el contrato N° ${contrato.numero} — ${contrato.contratista_nombre || "Sin nombre"}?\n\nEsta acción no se puede deshacer.`
+    );
+    if (!confirm1) return;
+    try {
+      await gsPost("deleteContrato", { id: contrato.id });
+      setContratos(prev => prev.filter(c => c.id !== contrato.id));
+    } catch (e) {
+      alert("Error eliminando contrato: " + e.message);
+    }
+  };
+
   const recargarProcesados = async () => {
     setProcesadosLoading(true);
     try {
@@ -4094,7 +4112,8 @@ export default function App() {
                     <ContratoRow key={c.id} contrato={c}
                       capiBase={CAPI_BASE}
                       onEdit={(ct) => { setEditingContrato(ct); setShowContratoForm(true); }}
-                      onFirmar={(ct) => saveContrato({ ...ct, _firmado: true })} />
+                      onFirmar={(ct) => saveContrato({ ...ct, _firmado: true })}
+                      onDelete={deleteContrato} />
                   ))}
                 </div>
               );
