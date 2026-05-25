@@ -294,68 +294,99 @@ function Step({ n, label, active, done }) {
 
 // ── Fila de factura ───────────────────────────────────────────────────────────
 function InvoiceRow({ item, onRemove, onPreview }) {
+  const [showError, setShowError] = useState(false);
   const statusColor = { pending: C.textDim, processing: C.blue, done: C.green, error: C.red }[item.status];
   const statusLabel = { pending: "En espera", processing: "Procesando...", done: "✓ Listo", error: "✗ Error" }[item.status];
   const displayName = item.isAuto ? item.label : item.file?.name;
   const displaySub  = item.isAuto
-    ? `${item.cliente || ""}${item.ciudad ? ` · ${item.ciudad}` : ""} · ${item.refs?.length || 0} refs`
+    ? `${item.cliente || ""}${item.ciudad ? ` · ${item.ciudad}` : ""} · ${item.refs?.length || 0} ref${item.refs?.length !== 1 ? "s" : ""}`
     : `${(item.file?.size / 1024).toFixed(0)} KB`;
   const noMatchFile = item.isAuto
     ? `no-match_${item.label}.txt`
     : `no-match_${(item.file?.name || "").replace(".pdf","")}.txt`;
 
+  const borderColor = item.status === "error" ? C.red + "55"
+    : item.status === "done" ? C.green + "44"
+    : item.status === "processing" ? C.blue + "44"
+    : item.isAuto ? "#1e7e3444" : C.border;
+  const bgColor = item.status === "error" ? "#fff5f5"
+    : item.status === "processing" ? "#1255a408"
+    : "#f8fafc";
+
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 10,
-      padding: "8px 10px", borderRadius: 7,
-      background: item.status === "processing" ? "#1255a408" : "#f8fafc",
-      border: `1px solid ${item.status === "processing" ? C.blue + "44" : item.isAuto ? "#1e7e3444" : C.border}`,
-      marginBottom: 6, transition: "all 0.2s"
-    }}>
-      <div style={{ fontSize: 18 }}>{item.isAuto ? "🤖" : "📄"}</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {displayName}
+    <div style={{ marginBottom: 6 }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10,
+        padding: "8px 10px", borderRadius: showError ? "7px 7px 0 0" : 7,
+        background: bgColor,
+        border: `1px solid ${borderColor}`,
+        borderBottom: showError ? "none" : `1px solid ${borderColor}`,
+        transition: "all 0.2s"
+      }}>
+        <div style={{ fontSize: 18 }}>{item.isAuto ? "🤖" : "📄"}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {displayName}
+            </div>
+            {item.isAuto && (
+              <span style={{ fontSize:9, background:"#e8f5e9", color:C.green, borderRadius:3, padding:"1px 5px", fontWeight:700, flexShrink:0 }}>BD AUTO</span>
+            )}
           </div>
-          {item.isAuto && (
-            <span style={{ fontSize:9, background:"#e8f5e9", color:C.green, borderRadius:3, padding:"1px 5px", fontWeight:700, flexShrink:0 }}>BD AUTO</span>
+          <div style={{ fontSize: 10, color: C.textMuted }}>{displaySub}</div>
+          {item.status === "done" && item.notFound?.length > 0 && (
+            <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
+              <span style={{ fontSize: 9, color: C.accent, fontWeight: 700 }}>⚠ Sin declaración: </span>
+              {item.notFound.map(r => (
+                <span key={r} style={{ fontSize: 9, background: "#fff3e0", color: C.accent, borderRadius: 3, padding: "1px 5px", fontFamily: "monospace" }}>{r}</span>
+              ))}
+            </div>
           )}
         </div>
-        <div style={{ fontSize: 10, color: C.textMuted }}>{displaySub}</div>
-        {item.notFound?.length > 0 && (
-          <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
-            <span style={{ fontSize: 9, color: C.red, fontWeight: 700 }}>Sin declaración: </span>
-            {item.notFound.map(r => (
-              <span key={r} style={{ fontSize: 9, background: "#fdecea", color: C.red, borderRadius: 3, padding: "1px 5px", fontFamily: "monospace" }}>{r}</span>
-            ))}
+        {item.status === "processing" && <Spinner size={14} />}
+        <span style={{ fontSize: 11, color: statusColor, fontWeight: 700, flexShrink: 0 }}>{statusLabel}</span>
+        {item.status === "error" && (
+          <button onClick={() => setShowError(v => !v)}
+            title="Ver detalle del error"
+            style={{ fontSize: 10, background: "#fdecea", color: C.red, border: `1px solid ${C.red}33`, borderRadius: 5, padding: "3px 8px", cursor: "pointer", fontWeight: 700, flexShrink: 0 }}>
+            {showError ? "▲ Ocultar" : "▼ Ver error"}
+          </button>
+        )}
+        {item.status === "done" && item.resultUrl && (
+          <div style={{ display: "flex", gap: 5 }}>
+            <button onClick={() => onPreview(item)}
+              style={{ fontSize: 11, background: C.blue, color: "white", border: "none", borderRadius: 5, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>
+              👁 Ver
+            </button>
+            <a href={item.resultUrl} download={item.resultFilename}
+              style={{ fontSize: 11, background: C.green, color: "white", borderRadius: 5, padding: "4px 10px", textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center" }}>
+              ⬇
+            </a>
+            {item.reportUrl && (
+              <a href={item.reportUrl} download={noMatchFile}
+                title="Descargar reporte de referencias sin declaración"
+                style={{ fontSize: 11, background: C.accent, color: "white", borderRadius: 5, padding: "4px 10px", textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center" }}>
+                📋
+              </a>
+            )}
           </div>
         )}
+        {item.status === "pending" && (
+          <button onClick={() => onRemove(item.id)}
+            style={{ background: "transparent", border: "none", cursor: "pointer", color: C.textDim, fontSize: 14, padding: "0 2px" }}>×</button>
+        )}
       </div>
-      {item.status === "processing" && <Spinner size={14} />}
-      <span style={{ fontSize: 11, color: statusColor, fontWeight: 600, flexShrink: 0 }}>{statusLabel}</span>
-      {item.status === "done" && item.resultUrl && (
-        <div style={{ display: "flex", gap: 5 }}>
-          <button onClick={() => onPreview(item)}
-            style={{ fontSize: 11, background: C.blue, color: "white", border: "none", borderRadius: 5, padding: "4px 10px", cursor: "pointer", fontWeight: 700 }}>
-            👁 Ver
-          </button>
-          <a href={item.resultUrl} download={item.resultFilename}
-            style={{ fontSize: 11, background: C.green, color: "white", borderRadius: 5, padding: "4px 10px", textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center" }}>
-            ⬇
-          </a>
-          {item.reportUrl && (
-            <a href={item.reportUrl} download={noMatchFile}
-              title="Descargar reporte de referencias sin declaración"
-              style={{ fontSize: 11, background: C.accent, color: "white", borderRadius: 5, padding: "4px 10px", textDecoration: "none", fontWeight: 700, display: "flex", alignItems: "center" }}>
-              📋
-            </a>
-          )}
+      {showError && item.errorMsg && (
+        <div style={{
+          background: "#fdecea", border: `1px solid ${C.red}55`, borderTop: "none",
+          borderRadius: "0 0 7px 7px", padding: "8px 12px"
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.red, marginBottom: 4, letterSpacing: "0.06em" }}>DETALLE DEL ERROR</div>
+          <div style={{ fontSize: 11, color: "#7b0000", fontFamily: "monospace", wordBreak: "break-all" }}>{item.errorMsg}</div>
+          <div style={{ fontSize: 10, color: C.textMuted, marginTop: 6 }}>
+            💡 Si el error es "no references found" o similar, la factura puede no tener referencias de importación asociadas en la BD.
+          </div>
         </div>
-      )}
-      {item.status === "pending" && (
-        <button onClick={() => onRemove(item.id)}
-          style={{ background: "transparent", border: "none", cursor: "pointer", color: C.textDim, fontSize: 14, padding: "0 2px" }}>×</button>
       )}
     </div>
   );
@@ -3189,6 +3220,7 @@ export default function App() {
   const [showConductorForm, setShowConductorForm] = useState(false);
   const [editingConductor, setEditingConductor] = useState(null);
   const [conductorSearch, setConductorSearch] = useState("");
+  const [contratoSearch, setContratoSearch] = useState("");
   const [procesados, setProcesados] = useState([]);
   const [procesadosLoading, setProcesadosLoading] = useState(false);
   const [gsLoading, setGsLoading] = useState(true);
@@ -3247,8 +3279,9 @@ export default function App() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        addLog(`  ✗ ${item.label}: ${err.error || `HTTP ${res.status}`}`);
-        setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
+        const msg = err.error || `HTTP ${res.status}`;
+        addLog(`  ✗ ${item.label}: ${msg}`);
+        setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error", errorMsg: msg } : i));
         return;
       }
       const resumen  = JSON.parse(res.headers.get("X-Resumen")        || "[]");
@@ -3267,7 +3300,7 @@ export default function App() {
       await savePdfToStorage(item.id, blob);
     } catch (e) {
       addLog(`  ✗ ${item.label}: ${e.message}`);
-      setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
+      setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error", errorMsg: e.message } : i));
     }
   };
 
@@ -3415,8 +3448,9 @@ export default function App() {
           });
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            addLog(`✗ ${item.label}: ${err.error || "Error"}`);
-            setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
+            const msg = err.error || `HTTP ${res.status}`;
+            addLog(`✗ ${item.label}: ${msg}`);
+            setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error", errorMsg: msg } : i));
             saveHistory({ id: item.id, date: new Date().toISOString(), invoiceName: item.label, matches: [], notFound: [] });
             continue;
           }
@@ -3436,7 +3470,7 @@ export default function App() {
           setPdfModal({ url, filename });
         } catch (e) {
           addLog(`✗ ${item.label}: ${e.message}`);
-          setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
+          setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error", errorMsg: e.message } : i));
         }
         continue;
       }
@@ -3452,8 +3486,9 @@ export default function App() {
 
         if (!res.ok) {
           const data = await res.json();
-          addLog(`✗ ${item.file.name}: ${data.error || "Error desconocido"}`);
-          setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
+          const msg = data.error || "Error desconocido";
+          addLog(`✗ ${item.file.name}: ${msg}`);
+          setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error", errorMsg: msg } : i));
           const newHist = saveHistory({ id: item.id, date: new Date().toISOString(), invoiceName: item.file.name, matches: [], notFound: [] });
           setHistory(newHist);
           continue;
@@ -3509,7 +3544,7 @@ export default function App() {
 
       } catch (e) {
         addLog(`✗ ${item.file.name}: Error de conexión — ${e.message}`);
-        setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error" } : i));
+        setQueue(prev => prev.map(i => i.id === item.id ? { ...i, status: "error", errorMsg: `Error de conexión — ${e.message}` } : i));
       }
     }
 
@@ -3618,30 +3653,51 @@ export default function App() {
             <span style={{ color: "#888", fontWeight: 400, fontSize: 10 }}>Sistema de gestión Alumar</span>
           </div>
         </div>
-        <div style={{ fontSize: 10, color: C.textMuted, textAlign: "right" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:6, justifyContent:"flex-end" }}>
-            {gsLoading
-              ? <><Spinner size={10}/><span style={{ color:C.textMuted }}>Conectando Google Sheets...</span></>
-              : gsError
-              ? <span style={{ color:C.red }}>⚠ Sin conexión GS</span>
-              : <span style={{ color:C.green }}>● Google Sheets</span>
-            }
+        <div style={{ fontSize: 10, color: C.textMuted, textAlign: "right", display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:5, background: gsLoading ? "#f0f4f8" : gsError ? "#fdecea" : "#e8f5e9", borderRadius:5, padding:"3px 8px", border:`1px solid ${gsLoading ? C.border : gsError ? C.red+"44" : C.green+"44"}` }}>
+              {gsLoading
+                ? <><Spinner size={8}/><span style={{ color:C.textMuted, fontSize:9 }}>Conectando…</span></>
+                : gsError
+                ? <span style={{ color:C.red, fontSize:9, fontWeight:700 }}>⚠ Sin conexión GS</span>
+                : <span style={{ color:C.green, fontSize:9, fontWeight:700 }}>● Google Sheets conectado</span>
+              }
+            </div>
           </div>
-          <div style={{ color: C.textDim }}>{new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</div>
+          <div style={{ color: C.textDim, fontSize:10 }}>{new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long", year:"numeric" })}</div>
         </div>
       </div>
 
       {/* TABS */}
-      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "0 2rem", display: "flex" }}>
-        {[["work", "⚡ Procesar Facturas"], ["history", `📋 Historial (${history.length})`], ["dashboard", "📊 Dashboard"], ["guias-ctt", "📄 Guías CTT"], ["contratos", `🚛 Contratos (${contratos.length})`], ["conductores", `👤 Conductores (${conductores.length})`], ["bodega", "🏭 Bodega"], ["lista-cargue", "📦 Lista Cargue"]].map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)} style={{
-            background: "transparent", border: "none",
-            borderBottom: tab === key ? `3px solid ${C.blue}` : "3px solid transparent",
-            color: tab === key ? C.blue : C.textMuted,
-            padding: "12px 20px", cursor: "pointer", fontSize: 13,
-            fontWeight: tab === key ? 700 : 400, marginBottom: -1, transition: "all 0.15s"
-          }}>{label}</button>
-        ))}
+      <div style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "0 1.5rem", display: "flex", overflowX: "auto" }}>
+        {[
+          ["work", "⚡", "Procesar"],
+          ["history", "📋", `Historial${history.length ? ` (${history.length})` : ""}`],
+          ["dashboard", "📊", "Dashboard"],
+          ["guias-ctt", "📄", "Guías CTT"],
+          ["contratos", "🚛", `Contratos${contratos.length ? ` (${contratos.length})` : ""}`],
+          ["conductores", "👤", `Conductores${conductores.length ? ` (${conductores.length})` : ""}`],
+          ["bodega", "🏭", "Bodega"],
+          ["lista-cargue", "📦", "Lista Cargue"],
+        ].map(([key, icon, label]) => {
+          const isActive = tab === key;
+          return (
+            <button key={key} onClick={() => setTab(key)} style={{
+              background: isActive ? `${C.blue}08` : "transparent",
+              border: "none",
+              borderBottom: isActive ? `3px solid ${C.blue}` : "3px solid transparent",
+              color: isActive ? C.blue : C.textMuted,
+              padding: "10px 16px", cursor: "pointer", fontSize: 12,
+              fontWeight: isActive ? 700 : 400,
+              marginBottom: -1, transition: "all 0.15s",
+              whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5,
+              borderRadius: isActive ? "6px 6px 0 0" : 0,
+            }}>
+              <span style={{ fontSize: 14 }}>{icon}</span>
+              <span>{label}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "1.5rem" }}>
@@ -3824,17 +3880,36 @@ export default function App() {
                   display: "flex", alignItems: "center", justifyContent: "space-between"
                 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: C.white }}>📋 Cola de procesamiento</div>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {queue.filter(i => i.status === "error").length > 0 && <Badge color="#ff8a80">{queue.filter(i => i.status === "error").length} error{queue.filter(i => i.status === "error").length !== 1 ? "es" : ""}</Badge>}
                     {pendingCount > 0 && <Badge color="#a0c4ff">{pendingCount} pendiente{pendingCount !== 1 ? "s" : ""}</Badge>}
                     {doneCount > 0 && <Badge color="#81c784">{doneCount} listo{doneCount !== 1 ? "s" : ""}</Badge>}
                   </div>
                 </div>
+                {queue.length > 0 && (() => {
+                  const total = queue.length;
+                  const done = queue.filter(i => i.status === "done").length;
+                  const errors = queue.filter(i => i.status === "error").length;
+                  const pct = Math.round(((done + errors) / total) * 100);
+                  return (
+                    <div style={{ padding: "8px 1rem 0", borderBottom: `1px solid ${C.border}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: C.textMuted, marginBottom: 4 }}>
+                        <span>{done} listos · {errors > 0 ? <span style={{ color: C.red }}>{errors} con error</span> : "sin errores"} · {pendingCount} pendientes</span>
+                        <span style={{ fontWeight: 700, color: pct === 100 ? C.green : C.textMuted }}>{pct}%</span>
+                      </div>
+                      <div style={{ height: 4, borderRadius: 2, background: "#e8edf3", marginBottom: 8, overflow: "hidden", display: "flex" }}>
+                        <div style={{ width: `${Math.round((done/total)*100)}%`, background: C.green, transition: "width 0.4s" }} />
+                        <div style={{ width: `${Math.round((errors/total)*100)}%`, background: C.red, transition: "width 0.4s" }} />
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div style={{ padding: "1rem" }}>
                   {queue.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "3rem 1rem", color: C.textDim }}>
                       <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: C.textMuted, marginBottom: 6 }}>No hay facturas en cola</div>
-                      <div style={{ fontSize: 12 }}>Arrastra los PDFs al panel izquierdo</div>
+                      <div style={{ fontSize: 12 }}>Activa el modo automático o arrastra PDFs al panel izquierdo</div>
                     </div>
                   ) : (
                     queue.map(item => <InvoiceRow key={item.id} item={item} onRemove={removeFromQueue} onPreview={openPreview} />)
@@ -3868,17 +3943,21 @@ export default function App() {
               {/* Instrucciones */}
               {queue.length === 0 && (
                 <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "1.5rem", boxShadow: C.shadow }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, marginBottom: 12 }}>¿Cómo usar el sistema?</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 14 }}>¿Cómo funciona?</div>
                   {[
-                    ["1", "Agrega una o varias facturas de importación en PDF"],
-                    ["2", "Haz clic en GENERAR PDF — el sistema busca las declaraciones DIAN automáticamente"],
-                    ["3", "Visualiza o descarga el PDF generado con todas las declaraciones"],
-                  ].map(([n, txt]) => (
-                    <div key={n} style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-                      <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.blue, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{n}</div>
-                      <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.5, paddingTop: 2 }}>{txt}</div>
+                    ["📂", "Arrastra PDFs de facturas de importación al panel izquierdo, o activa el modo automático para que el sistema detecte las facturas del día desde la BD"],
+                    ["⚡", "Haz clic en GENERAR PDF — el sistema cruza las referencias con las declaraciones DIAN registradas en Drive"],
+                    ["👁", "Visualiza o descarga el PDF generado. Si alguna referencia no tiene declaración, aparece un reporte adicional (📋)"],
+                  ].map(([icon, txt], i) => (
+                    <div key={i} style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "flex-start" }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: `${C.blue}10`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{icon}</div>
+                      <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.6, paddingTop: 6 }}>{txt}</div>
                     </div>
                   ))}
+                  <div style={{ marginTop:12, padding:"10px 12px", background:`${C.green}08`, border:`1px solid ${C.green}33`, borderRadius:8 }}>
+                    <div style={{ fontSize:11, color:C.green, fontWeight:700, marginBottom:3 }}>💡 Modo automático</div>
+                    <div style={{ fontSize:11, color:C.textMuted }}>Actívalo con el toggle del panel izquierdo. El sistema revisa cada 5 minutos si hay facturas nuevas del día y las procesa sin intervención manual.</div>
+                  </div>
                   <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: "0.08em", marginBottom: 8 }}>PROVEEDORES DISPONIBLES</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -3897,6 +3976,7 @@ export default function App() {
         {/* TAB: HISTORIAL */}
         {tab === "history" && (
           <div style={{ maxWidth: 800 }}>
+
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Historial de procesamiento</div>
@@ -3976,23 +4056,49 @@ export default function App() {
                 + Nuevo contrato
               </button>
             </div>
+            {contratos.length > 0 && (
+              <div style={{ marginBottom:12 }}>
+                <input
+                  value={contratoSearch}
+                  onChange={e => setContratoSearch(e.target.value)}
+                  placeholder="🔍  Buscar por conductor, destino, facturas o N° contrato..."
+                  style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:8, padding:"9px 14px", fontSize:13, color:C.text, outline:"none", background:C.white, boxSizing:"border-box" }}
+                />
+              </div>
+            )}
             {contratos.length === 0 ? (
               <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"4rem 2rem", textAlign:"center", boxShadow:C.shadow }}>
                 <div style={{ fontSize:40, marginBottom:12 }}>🚛</div>
                 <div style={{ fontSize:14, fontWeight:600, color:C.textMuted, marginBottom:6 }}>Sin contratos registrados</div>
                 <div style={{ fontSize:12, color:C.textDim }}>Haz clic en <strong>+ Nuevo contrato</strong> para crear el primero.</div>
               </div>
-            ) : (
-              <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"1.25rem", boxShadow:C.shadow }}>
-                {contratos.map(c => (
-                  <ContratoRow key={c.id} contrato={c}
-                    capiBase={CAPI_BASE}
-                    onEdit={(ct) => { setEditingContrato(ct); setShowContratoForm(true); }}
-                    onFirmar={(ct) => saveContrato({ ...ct, _firmado: true })} />
-                ))}
-              </div>
-            )}
-
+            ) : (() => {
+              const busq = contratoSearch.toLowerCase();
+              const filtrados = contratos.filter(c =>
+                !busq ||
+                c.contratista_nombre?.toLowerCase().includes(busq) ||
+                c.conductor_nombre?.toLowerCase().includes(busq) ||
+                c.destino?.toLowerCase().includes(busq) ||
+                c.facturas?.toLowerCase().includes(busq) ||
+                String(c.numero || "").includes(busq)
+              );
+              return filtrados.length === 0 ? (
+                <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"3rem 2rem", textAlign:"center", boxShadow:C.shadow }}>
+                  <div style={{ fontSize:32, marginBottom:10 }}>🔍</div>
+                  <div style={{ fontSize:13, fontWeight:600, color:C.textMuted }}>Sin resultados para "{contratoSearch}"</div>
+                  <div style={{ fontSize:11, color:C.textDim, marginTop:6 }}>Prueba con otro nombre, ciudad o número de contrato.</div>
+                </div>
+              ) : (
+                <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"1.25rem", boxShadow:C.shadow }}>
+                  {filtrados.map(c => (
+                    <ContratoRow key={c.id} contrato={c}
+                      capiBase={CAPI_BASE}
+                      onEdit={(ct) => { setEditingContrato(ct); setShowContratoForm(true); }}
+                      onFirmar={(ct) => saveContrato({ ...ct, _firmado: true })} />
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
 
