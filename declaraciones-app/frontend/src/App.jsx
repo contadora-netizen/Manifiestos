@@ -3096,6 +3096,12 @@ function parsarFacturasContrato(facturasStr) {
   );
 }
 
+// Tipos de documento conocidos en ADN (se enriquece con descubrimiento desde BD)
+const TIPOS_CONOCIDOS = [
+  { code: "FVELE", label: "FVELE — Factura Electrónica" },
+  { code: "FVEP",  label: "FVEP — Factura en Papel"    },
+];
+
 function ListaCargueTab({ capiBase, contratos = [] }) {
   const hoy = new Date().toISOString().slice(0, 10);
   const [desde, setDesde] = useState(hoy);
@@ -3108,6 +3114,48 @@ function ListaCargueTab({ capiBase, contratos = [] }) {
   const [guardadas, setGuardadas] = useState(() => lcGetAll());
   const [msgGuardado, setMsgGuardado] = useState("");
   const [ocultarAsignadas, setOcultarAsignadas] = useState(true);
+  const [bdError, setBdError] = useState("");
+
+  // ── Tipos de documento ────────────────────────────────────────────────────
+  const [tiposActivos, setTiposActivos] = useState(new Set(["FVELE"]));
+  const [tipoCustom, setTipoCustom] = useState("");
+  const [tiposDisponibles, setTiposDisponibles] = useState([]);       // descubiertos desde BD
+  const [loadingTipos, setLoadingTipos] = useState(false);
+  const [showTipos, setShowTipos] = useState(false);
+
+  const toggleTipo = (code) => {
+    setTiposActivos(prev => {
+      const n = new Set(prev);
+      n.has(code) ? n.delete(code) : n.add(code);
+      return n;
+    });
+  };
+
+  const agregarTipoCustom = () => {
+    const c = tipoCustom.trim().toUpperCase();
+    if (!c) return;
+    setTiposActivos(prev => new Set([...prev, c]));
+    setTipoCustom("");
+  };
+
+  const descubrirTipos = async () => {
+    setLoadingTipos(true);
+    try {
+      const base = (capiBase || "").replace(/\/api$/, "") || "http://localhost:3000";
+      const r = await fetch(`${base}/api/debug/tipos-documento`);
+      const d = await r.json();
+      if (d.tipos) setTiposDisponibles(d.tipos);
+    } catch {}
+    finally { setLoadingTipos(false); }
+  };
+
+  // Combina TIPOS_CONOCIDOS + descubiertos (sin duplicados)
+  const todosLosTipos = [
+    ...TIPOS_CONOCIDOS,
+    ...tiposDisponibles
+      .filter(t => !TIPOS_CONOCIDOS.some(k => k.code === t.tipo))
+      .map(t => ({ code: t.tipo, label: `${t.tipo} (${t.total?.toLocaleString("es-CO")} docs)` }))
+  ];
 
   // Números de factura ya usados en contratos existentes
   const facturasEnContratos = new Set(
@@ -3120,17 +3168,22 @@ function ListaCargueTab({ capiBase, contratos = [] }) {
   );
 
   const consultar = async () => {
+    if (!tiposActivos.size) { alert("Seleccioná al menos un tipo de documento."); return; }
     setLoading(true);
     setConsultado(false);
     setCargadaDesdeLista(false);
     setFilas([]);
+    setBdError("");
     try {
       const base = (capiBase || "").replace(/\/api$/, "") || "http://localhost:3000";
-      const r = await fetch(`${base}/api/lista-cargue?desde=${desde}&hasta=${hasta}&tipos=FVELE`);
+      const tiposParam = [...tiposActivos].join(",");
+      const r = await fetch(`${base}/api/lista-cargue?desde=${desde}&hasta=${hasta}&tipos=${tiposParam}`);
       const d = await r.json();
+      if (!r.ok) { setBdError(d.error || `HTTP ${r.status}`); setConsultado(true); return; }
       setTodasFacturas(d.facturas || []);
       setConsultado(true);
-    } catch {
+    } catch(e) {
+      setBdError(e.message);
       setConsultado(true);
     } finally {
       setLoading(false);
@@ -3271,7 +3324,7 @@ ${filasTrs}</table><div class="tot">Total bultos: ${totalBultos}</div></body></h
         <div style={{ width:320, flexShrink:0 }}>
           <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
             <div style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, padding:"10px 14px", color:"#fff" }}>
-              <div style={{ fontWeight:700, fontSize:12 }}>Facturas FVELE — {desde}{desde!==hasta?` al ${hasta}`:""}</div>
+              <div style={{ fontWeight:700, fontSize:12 }}>{[...tiposActivos].join(", ")} — {desde}{desde!==hasta?` al ${hasta}`:""}</div>
               <div style={{ fontSize:10, opacity:0.8, marginTop:2 }}>{todasFacturas.length} encontradas · {filas.length} seleccionadas</div>
             </div>
             <div style={{ padding:"8px 10px", borderBottom:`1px solid ${C.border}`, display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
@@ -3319,46 +3372,116 @@ ${filasTrs}</table><div class="tot">Total bultos: ${totalBultos}</div></body></h
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ marginBottom:12 }}>
           <div style={{ fontSize:18, fontWeight:700, color:C.navy, marginBottom:2 }}>📦 Lista de Cargue</div>
-          <div style={{ fontSize:11, color:C.textMuted }}>Solo facturas FVELE. Seleccione del panel izquierdo, diligencie los campos amarillos y guarde.</div>
+          <div style={{ fontSize:11, color:C.textMuted }}>
+            Facturas {[...tiposActivos].join(", ")}. Seleccione del panel izquierdo, diligencie los campos amarillos y guarde.
+          </div>
         </div>
 
         {/* Controles */}
-        <div style={{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap", marginBottom:12, background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 14px" }}>
-          <div>
-            <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:3 }}>DESDE</div>
-            <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={{ ...inp, width:145 }} />
+        <div style={{ marginBottom:12, background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 14px" }}>
+          <div style={{ display:"flex", gap:8, alignItems:"flex-end", flexWrap:"wrap", marginBottom: showTipos ? 12 : 0 }}>
+            <div>
+              <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:3 }}>DESDE</div>
+              <input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={{ ...inp, width:145 }} />
+            </div>
+            <div>
+              <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:3 }}>HASTA</div>
+              <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={{ ...inp, width:145 }} />
+            </div>
+            <button onClick={consultar} disabled={loading}
+              style={{ background:C.blue, color:"#fff", border:"none", borderRadius:7, padding:"7px 16px", cursor:"pointer", fontSize:12, fontWeight:700, opacity:loading?0.6:1 }}>
+              {loading ? "⏳..." : "🔍 Consultar BD"}
+            </button>
+            {/* Tipos badge + toggle */}
+            <button onClick={() => { setShowTipos(v => !v); if (!tiposDisponibles.length) descubrirTipos(); }}
+              style={{ fontSize:11, background: showTipos ? "#e3f2fd" : "#f0f4f8", color: showTipos ? C.blue : C.textMuted,
+                border:`1px solid ${showTipos ? C.blue : C.border}`, borderRadius:7, padding:"6px 12px", cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}>
+              🗂 Tipos ({tiposActivos.size}): {[...tiposActivos].join(", ")} {showTipos ? "▲" : "▼"}
+            </button>
           </div>
-          <div>
-            <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:3 }}>HASTA</div>
-            <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={{ ...inp, width:145 }} />
-          </div>
-          <button onClick={consultar} disabled={loading}
-            style={{ background:C.blue, color:"#fff", border:"none", borderRadius:7, padding:"7px 16px", cursor:"pointer", fontSize:12, fontWeight:700, opacity:loading?0.6:1 }}>
-            {loading ? "⏳..." : "🔍 Consultar BD"}
-          </button>
-          {filas.length > 0 && (<>
-            <button onClick={guardar}
-              style={{ background:"#e65100", color:"#fff", border:"none", borderRadius:7, padding:"7px 14px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
-              💾 Guardar
-            </button>
-            {msgGuardado && <span style={{ fontSize:12, color:C.green, fontWeight:700 }}>{msgGuardado}</span>}
-            <button onClick={imprimir}
-              style={{ background:C.navy, color:"#fff", border:"none", borderRadius:7, padding:"7px 14px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
-              🖨️ Imprimir
-            </button>
-            <button onClick={descargarCSV}
-              style={{ background:C.green, color:"#fff", border:"none", borderRadius:7, padding:"7px 14px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
-              📥 CSV
-            </button>
-            <span style={{ marginLeft:"auto", fontSize:12, color:C.textMuted, alignSelf:"center", whiteSpace:"nowrap" }}>
-              {filas.length} fact. · <b>{filas.reduce((s,f)=>s+(parseFloat(f.bultos)||0),0)}</b> bultos
-            </span>
-          </>)}
+
+          {/* ── Panel selector de tipos de documento ── */}
+          {showTipos && (
+            <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:10, marginTop:4 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, marginBottom:8, letterSpacing:"0.08em" }}>
+                TIPOS DE DOCUMENTO A CONSULTAR
+                {loadingTipos && <span style={{ color:C.blue, marginLeft:8 }}>⏳ Descubriendo...</span>}
+              </div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:10 }}>
+                {todosLosTipos.map(({ code, label }) => {
+                  const activo = tiposActivos.has(code);
+                  const descubierto = tiposDisponibles.find(t => t.tipo === code);
+                  return (
+                    <label key={code} style={{ display:"flex", alignItems:"center", gap:5, fontSize:11,
+                      cursor:"pointer", padding:"5px 10px", borderRadius:6,
+                      background: activo ? "#e3f2fd" : "#f5f5f5",
+                      border:`1px solid ${activo ? C.blue : C.border}`,
+                      fontWeight: activo ? 700 : 400, color: activo ? C.navy : C.textMuted }}>
+                      <input type="checkbox" checked={activo} onChange={() => toggleTipo(code)}
+                        style={{ accentColor:C.blue }} />
+                      {label}
+                      {descubierto && (
+                        <span style={{ fontSize:9, color:C.textDim, marginLeft:2 }}>
+                          · último {descubierto.ultima_fecha ? descubierto.ultima_fecha.slice(0,10) : ""}
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+              {/* Campo para tipo personalizado */}
+              <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                <input value={tipoCustom} onChange={e => setTipoCustom(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === "Enter" && agregarTipoCustom()}
+                  placeholder="Ej: FELCO, FVEN, …"
+                  style={{ ...inp, width:160, fontSize:11 }} />
+                <button onClick={agregarTipoCustom}
+                  style={{ fontSize:11, background:C.blue, color:"#fff", border:"none", borderRadius:5, padding:"5px 12px", cursor:"pointer", fontWeight:700 }}>
+                  + Agregar tipo
+                </button>
+                <button onClick={descubrirTipos} disabled={loadingTipos}
+                  style={{ fontSize:11, background:"#f0f4f8", color:C.textMuted, border:`1px solid ${C.border}`, borderRadius:5, padding:"5px 12px", cursor:"pointer" }}>
+                  🔍 Ver todos los tipos en BD
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Botones de acción de la lista */}
+          {filas.length > 0 && (
+            <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap", borderTop:`1px solid ${C.border}`, paddingTop:10, marginTop:showTipos ? 10 : 0 }}>
+              <button onClick={guardar}
+                style={{ background:"#e65100", color:"#fff", border:"none", borderRadius:7, padding:"7px 14px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
+                💾 Guardar
+              </button>
+              {msgGuardado && <span style={{ fontSize:12, color:C.green, fontWeight:700 }}>{msgGuardado}</span>}
+              <button onClick={imprimir}
+                style={{ background:C.navy, color:"#fff", border:"none", borderRadius:7, padding:"7px 14px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
+                🖨️ Imprimir
+              </button>
+              <button onClick={descargarCSV}
+                style={{ background:C.green, color:"#fff", border:"none", borderRadius:7, padding:"7px 14px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
+                📥 CSV
+              </button>
+              <span style={{ marginLeft:"auto", fontSize:12, color:C.textMuted, alignSelf:"center", whiteSpace:"nowrap" }}>
+                {filas.length} fact. · <b>{filas.reduce((s,f)=>s+(parseFloat(f.bultos)||0),0)}</b> bultos
+              </span>
+            </div>
+          )}
         </div>
 
-        {consultado && todasFacturas.length === 0 && filas.length === 0 && (
+        {bdError && (
+          <div style={{ background:"#fdecea", border:`1px solid ${C.red}33`, borderRadius:10, padding:"12px 16px", marginBottom:12, fontSize:12, color:C.red }}>
+            <strong>Error al consultar la BD:</strong> {bdError}
+            <div style={{ fontSize:11, color:C.textMuted, marginTop:4 }}>
+              Verifica que la conexión a la base de datos esté activa.
+            </div>
+          </div>
+        )}
+
+        {consultado && !bdError && todasFacturas.length === 0 && filas.length === 0 && (
           <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, padding:24, textAlign:"center", color:C.textMuted, fontSize:13 }}>
-            ⚠️ No se encontraron facturas FVELE para el período seleccionado.
+            ⚠️ No se encontraron facturas <strong>{[...tiposActivos].join(", ")}</strong> para el período seleccionado.
           </div>
         )}
 
