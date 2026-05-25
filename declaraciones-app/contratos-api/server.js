@@ -33,7 +33,7 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'alumar-contratos-api', version: '2026-05-25-cliente-por-cc' }));
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'alumar-contratos-api', version: '2026-05-25-tipos-doc' }));
 
 // ── GET /api/guias - List recent guides for the dropdown ──
 app.get('/api/guias', async (_req, res) => {
@@ -477,6 +477,24 @@ app.get('/api/lista-cargue', async (req, res) => {
     res.json({ desde, hasta, tipos: tiposArr, total: facturas.length, facturas });
   } catch (err) {
     console.error('Error /api/lista-cargue:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/debug/tipos-documento - Todos los tipos de doc en adn_doccli ──
+app.get('/api/debug/tipos-documento', async (_req, res) => {
+  try {
+    const [rows] = await getPool().query(`
+      SELECT DCL_TDT_CODIGO AS tipo,
+             COUNT(*) AS total,
+             MAX(DCL_FECHA) AS ultima_fecha,
+             MIN(DCL_FECHA) AS primera_fecha
+      FROM adn_doccli
+      GROUP BY DCL_TDT_CODIGO
+      ORDER BY total DESC
+    `);
+    res.json({ tipos: rows });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
