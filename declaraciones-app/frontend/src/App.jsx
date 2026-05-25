@@ -889,7 +889,7 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     id: crypto.randomUUID(), numero: nextNumero,
     fecha_cargue: new Date().toISOString().slice(0,10),
     fecha_salida: new Date().toISOString().slice(0,10),
-    contratista_nombre: "", contratista_cc: "", contratista_domicilio: "", contratista_ciudad: "", contratista_telefono: "",
+    contratista_nombre: "", contratista_cc: "", contratista_domicilio: "", contratista_ciudad: "", contratista_telefono: "", contratista_email: "",
     conductor_nombre: "", conductor_celular: "",
     vehiculo_marca: "", vehiculo_placas: "", vehiculo_licencia: "", vehiculo_soat: "",
     vehiculo_propietario: "", aseguradora: "", tecnicomecanica: "", capacidad: "", medidas: "",
@@ -1200,6 +1200,7 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
             <F label="Teléfono" k="contratista_telefono" onEditClick={() => { onCancel(); }} />
             <F label="Domicilio" k="contratista_domicilio" span={2} onEditClick={() => { onCancel(); }} />
             <F label="Ciudad" k="contratista_ciudad" onEditClick={() => { onCancel(); }} />
+            <F label="Correo electrónico" k="contratista_email" span={2} placeholder="ejemplo@correo.com" />
           </div>
 
           <Sec t="CONDUCTOR" />
@@ -1826,11 +1827,45 @@ function ProcesadosTab({ procesados, procesadosLoading, recargarProcesados, capi
 }
 
 // ── Contrato: fila de historial ───────────────────────────────────────────────
-function ContratoRow({ contrato, onEdit, onFirmar }) {
+function ContratoRow({ contrato, onEdit, onFirmar, capiBase }) {
   const [open, setOpen] = useState(false);
+  const [showEmail, setShowEmail]       = useState(false);
+  const [emailContratista, setEmailContratista] = useState("");
+  const [emailCartera]                  = useState("cartera@alumaronline.com");
+  const [emailCarteraEdit, setEmailCarteraEdit] = useState("cartera@alumaronline.com");
+  const [enviandoEmail, setEnviandoEmail] = useState(false);
+  const [resultEmail, setResultEmail]   = useState(null); // null | {ok, msg}
+
   const fmt = (v) => v ? `$${Number(v).toLocaleString("es-CO")}` : "—";
   const esBorrador = contrato._borrador === true;
   const esFirmado  = contrato._firmado  === true;
+
+  const abrirModalEmail = () => {
+    setEmailContratista(contrato.contratista_email || "");
+    setEmailCarteraEdit("cartera@alumaronline.com");
+    setResultEmail(null);
+    setShowEmail(true);
+  };
+
+  const enviarContrato = async () => {
+    const emails = [];
+    if (emailContratista.trim()) emails.push({ rol: "Contratista / Conductor", to: emailContratista.trim() });
+    if (emailCarteraEdit.trim())  emails.push({ rol: "Cartera",                to: emailCarteraEdit.trim() });
+    if (!emails.length) { setResultEmail({ ok: false, msg: "Agrega al menos un correo." }); return; }
+    setEnviandoEmail(true); setResultEmail(null);
+    try {
+      const base = (capiBase || "").replace(/\/api$/, "") || "https://adaptable-caring-production-735b.up.railway.app";
+      const r = await fetch(`${base}/api/contrato/enviar-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contrato, emails }),
+      });
+      const d = await r.json();
+      setResultEmail({ ok: d.ok, msg: d.ok ? `✅ Enviado a ${emails.map(e=>e.to).join(", ")}` : `❌ ${d.error || "Error al enviar"}` });
+    } catch (e) {
+      setResultEmail({ ok: false, msg: `❌ ${e.message}` });
+    } finally { setEnviandoEmail(false); }
+  };
 
   return (
     <div style={{ border:`1px solid ${esBorrador ? "#ff9800" : C.border}`, borderRadius:8, marginBottom:8, overflow:"hidden", background: esBorrador ? "#fffbf2" : C.white }}>
@@ -1848,6 +1883,8 @@ function ContratoRow({ contrato, onEdit, onFirmar }) {
         }
         <button onClick={e => { e.stopPropagation(); generateContratoPDF(contrato); }}
           style={{ fontSize:11, background:C.blue, color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>🖨 Imprimir</button>
+        <button onClick={e => { e.stopPropagation(); abrirModalEmail(); }}
+          style={{ fontSize:11, background:"#1e7e34", color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>📧 Enviar</button>
         {!esBorrador && !esFirmado && (
           <button onClick={e => { e.stopPropagation(); if (onFirmar) onFirmar(contrato); }}
             style={{ fontSize:11, background:"#6a1b9a", color:"white", border:"none", borderRadius:5, padding:"4px 10px", cursor:"pointer", fontWeight:700 }}>✍️ Firmar contrato</button>
@@ -1878,6 +1915,90 @@ function ContratoRow({ contrato, onEdit, onFirmar }) {
         </div>
       )}
 
+      {/* ── Modal envío de contrato por email ── */}
+      {showEmail && (
+        <div onClick={() => setShowEmail(false)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:"#fff", borderRadius:14, width:"100%", maxWidth:460, boxShadow:"0 8px 40px rgba(0,0,0,.25)", overflow:"hidden" }}>
+
+            {/* Header */}
+            <div style={{ background:`linear-gradient(135deg,${C.navy},${C.blue})`, color:"#fff", padding:"16px 20px" }}>
+              <div style={{ fontWeight:800, fontSize:15 }}>📧 Enviar contrato por correo</div>
+              <div style={{ fontSize:11, opacity:.8, marginTop:2 }}>Contrato N° {contrato.numero} — {contrato.contratista_nombre || "Sin nombre"}</div>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding:"20px 24px" }}>
+              {/* Resumen contrato */}
+              <div style={{ background:"#f0f4f8", borderRadius:8, padding:"10px 14px", fontSize:11, color:C.textMuted, marginBottom:18 }}>
+                <div><strong style={{ color:C.text }}>Conductor:</strong> {contrato.conductor_nombre || "—"}</div>
+                <div><strong style={{ color:C.text }}>Destino:</strong> {contrato.destino || "—"}</div>
+                <div><strong style={{ color:C.text }}>Facturas:</strong> {contrato.facturas || "—"}</div>
+                <div><strong style={{ color:C.text }}>Valor total:</strong> {fmt(contrato.valor_total)}</div>
+              </div>
+
+              {/* Email contratista */}
+              <div style={{ marginBottom:14 }}>
+                <label style={{ fontSize:11, fontWeight:700, color:C.navy, display:"block", marginBottom:5 }}>
+                  📨 Correo contratista / conductor
+                </label>
+                <input
+                  type="email"
+                  value={emailContratista}
+                  onChange={e => setEmailContratista(e.target.value)}
+                  placeholder="correo@transportista.com"
+                  style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:7, padding:"9px 12px",
+                    fontSize:13, color:C.text, outline:"none", boxSizing:"border-box" }}
+                />
+                {!contrato.contratista_email && (
+                  <div style={{ fontSize:10, color:C.accent, marginTop:3 }}>
+                    ⚠ No hay correo guardado en este contrato. Escríbelo y guarda el contrato para la próxima vez.
+                  </div>
+                )}
+              </div>
+
+              {/* Email cartera */}
+              <div style={{ marginBottom:20 }}>
+                <label style={{ fontSize:11, fontWeight:700, color:C.navy, display:"block", marginBottom:5 }}>
+                  📨 Correo cartera (revisado por)
+                </label>
+                <input
+                  type="email"
+                  value={emailCarteraEdit}
+                  onChange={e => setEmailCarteraEdit(e.target.value)}
+                  style={{ width:"100%", border:`1px solid ${C.border}`, borderRadius:7, padding:"9px 12px",
+                    fontSize:13, color:C.text, outline:"none", boxSizing:"border-box" }}
+                />
+              </div>
+
+              {/* Resultado */}
+              {resultEmail && (
+                <div style={{ padding:"10px 14px", borderRadius:8, marginBottom:14, fontSize:12, fontWeight:600,
+                  background: resultEmail.ok ? "#e8f5e9" : "#fdecea",
+                  color: resultEmail.ok ? C.green : C.red,
+                  border: `1px solid ${resultEmail.ok ? "#a5d6a7" : "#ef9a9a"}` }}>
+                  {resultEmail.msg}
+                </div>
+              )}
+
+              {/* Botones */}
+              <div style={{ display:"flex", gap:10 }}>
+                <button onClick={enviarContrato} disabled={enviandoEmail}
+                  style={{ flex:1, background: enviandoEmail ? "#ccc" : C.green, color:"white", border:"none",
+                    borderRadius:8, padding:"11px 0", fontSize:14, fontWeight:700, cursor: enviandoEmail?"not-allowed":"pointer" }}>
+                  {enviandoEmail ? "⏳ Enviando..." : "📨 Enviar contrato"}
+                </button>
+                <button onClick={() => setShowEmail(false)}
+                  style={{ background:"transparent", border:`1px solid ${C.border}`, borderRadius:8,
+                    padding:"11px 18px", fontSize:13, cursor:"pointer", color:C.textMuted }}>
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3834,6 +3955,7 @@ export default function App() {
               <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:12, padding:"1.25rem", boxShadow:C.shadow }}>
                 {contratos.map(c => (
                   <ContratoRow key={c.id} contrato={c}
+                    capiBase={CAPI_BASE}
                     onEdit={(ct) => { setEditingContrato(ct); setShowContratoForm(true); }}
                     onFirmar={(ct) => saveContrato({ ...ct, _firmado: true })} />
                 ))}

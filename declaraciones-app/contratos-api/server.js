@@ -33,7 +33,7 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'alumar-contratos-api', version: '2026-05-13-clean' }));
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'alumar-contratos-api', version: '2026-05-25-email-contrato' }));
 
 // ── GET /api/guias - List recent guides for the dropdown ──
 app.get('/api/guias', async (_req, res) => {
@@ -847,6 +847,118 @@ app.get('/api/rotacion-bodega', async (req, res) => {
   }
 });
 
+
+// ── Email via Resend (sin verificación de dominio — usa onboarding@resend.dev) ─
+async function enviarEmail({ to, subject, html }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) { console.warn('⚠️  RESEND_API_KEY no configurada'); return false; }
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'ALUMAR SAS <onboarding@resend.dev>', to, subject, html }),
+    });
+    const d = await r.json();
+    if (!r.ok) { console.warn('Resend error:', JSON.stringify(d)); return false; }
+    console.log('✅ Email enviado a:', to);
+    return true;
+  } catch (e) { console.warn('enviarEmail error:', e.message); return false; }
+}
+
+// ── POST /api/contrato/enviar-email ──────────────────────────────────────────
+// Body: { contrato: {...}, emails: [{rol, to}] }
+app.post('/api/contrato/enviar-email', async (req, res) => {
+  try {
+    const { contrato: c, emails } = req.body;
+    if (!emails || !emails.length) return res.status(400).json({ ok: false, error: 'Sin destinatarios' });
+
+    const fmt = (v) => v ? `$${Number(v).toLocaleString('es-CO')}` : '—';
+
+    const htmlContrato = `
+<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#1a2535">
+  <div style="background:linear-gradient(135deg,#0a1f3c,#1255a4);color:#fff;padding:22px 28px;border-radius:8px 8px 0 0">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="border:2px solid #fff;padding:3px 10px;border-radius:3px">
+        <div style="font-family:Arial Black,Arial,sans-serif;font-weight:900;font-size:18px;color:#cc1111">alumar</div>
+        <div style="font-size:8px;color:#fff;text-align:center">International Housewares</div>
+      </div>
+      <div>
+        <div style="font-size:17px;font-weight:800">Contrato de Transporte Terrestre</div>
+        <div style="font-size:12px;opacity:.8">N° ${c.numero || '—'} · Generado por ALUMAR SAS</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="border:1px solid #dde3ec;border-top:none;padding:22px 28px;border-radius:0 0 8px 8px">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:18px">
+      <tr style="background:#f0f4f8">
+        <td style="padding:8px 12px;color:#4a6380;width:40%">Fecha de cargue</td>
+        <td style="padding:8px 12px;font-weight:700">${c.fecha_cargue || '—'}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;color:#4a6380">Contratista / Transportador</td>
+        <td style="padding:8px 12px;font-weight:700">${c.contratista_nombre || '—'} · C.C. ${c.contratista_cc || '—'}</td>
+      </tr>
+      <tr style="background:#f0f4f8">
+        <td style="padding:8px 12px;color:#4a6380">Conductor</td>
+        <td style="padding:8px 12px;font-weight:700">${c.conductor_nombre || '—'} · Cel. ${c.conductor_celular || '—'}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;color:#4a6380">Vehículo</td>
+        <td style="padding:8px 12px">${c.vehiculo_marca || '—'} · Placa: <strong>${c.vehiculo_placas || '—'}</strong></td>
+      </tr>
+      <tr style="background:#f0f4f8">
+        <td style="padding:8px 12px;color:#4a6380">Destino</td>
+        <td style="padding:8px 12px;font-weight:700">${c.destino || '—'}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;color:#4a6380">Facturas</td>
+        <td style="padding:8px 12px">${c.facturas || '—'}</td>
+      </tr>
+      <tr style="background:#f0f4f8">
+        <td style="padding:8px 12px;color:#4a6380">Valor mercancía</td>
+        <td style="padding:8px 12px;font-weight:700">${fmt(c.valor_mercancia)}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;color:#4a6380">Valor contrato (flete)</td>
+        <td style="padding:8px 12px;font-weight:700">${fmt(c.valor_total)}</td>
+      </tr>
+      ${Number(c.anticipo) > 0 ? `<tr style="background:#f0f4f8"><td style="padding:8px 12px;color:#4a6380">Anticipo (60%)</td><td style="padding:8px 12px">${fmt(c.anticipo)}</td></tr>` : ''}
+      ${Number(c.saldo_pagar) > 0 ? `<tr style="border-top:2px solid #1e7e34"><td style="padding:10px 12px;color:#1e7e34;font-weight:700">Saldo a pagar (40%)</td><td style="padding:10px 12px;font-weight:800;color:#1e7e34;font-size:15px">${fmt(c.saldo_pagar)}</td></tr>` : ''}
+    </table>
+
+    ${c.observaciones ? `<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:10px 14px;font-size:12px;color:#7a5c00;margin-bottom:16px"><strong>Observaciones:</strong> ${c.observaciones}</div>` : ''}
+
+    <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:14px;font-size:12px;color:#1255a4">
+      📌 Por favor imprima este contrato, fírmelo con el conductor y entréguelo al Depto. de Tráfico de Alumar antes del despacho.
+    </div>
+  </div>
+  <p style="font-size:10px;color:#8fa3bc;text-align:center;margin-top:12px">ALUMAR SAS · NIT 800.193.639-5 · International Housewares</p>
+</div>`;
+
+    const resultados = [];
+    for (const dest of emails) {
+      const ok = await enviarEmail({
+        to: dest.to,
+        subject: `Contrato de transporte N° ${c.numero || ''} — ${c.destino || 'ALUMAR SAS'}`,
+        html: htmlContrato,
+      });
+      resultados.push({ rol: dest.rol, to: dest.to, enviado: ok });
+    }
+
+    const todosOk = resultados.every(r => r.enviado);
+    res.json({ ok: todosOk, resultados });
+  } catch (err) {
+    console.error('Error /api/contrato/enviar-email:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── CORS preflight para POST ──────────────────────────────────────────────────
+app.options('/api/contrato/enviar-email', (req, res) => {
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.sendStatus(204);
+});
 
 app.listen(PORT, () => {
   console.log(`Alumar Contratos → http://localhost:${PORT}`);
