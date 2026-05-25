@@ -33,7 +33,7 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'alumar-contratos-api', version: '2026-05-25-email-contrato' }));
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'alumar-contratos-api', version: '2026-05-25-cliente-por-cc' }));
 
 // ── GET /api/guias - List recent guides for the dropdown ──
 app.get('/api/guias', async (_req, res) => {
@@ -582,6 +582,60 @@ app.get('/api/lista-cargue/:fecha', async (req, res) => {
       bultos: parseFloat(r.bultos) || 0,
     }));
     res.json({ desde, hasta, tipos: tiposArr, total: facturas.length, facturas });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/cliente-por-cc - Busca cliente/transportista por cédula o NIT ────
+app.get('/api/cliente-por-cc', async (req, res) => {
+  try {
+    const cc = (req.query.cc || '').trim().replace(/[\s.,\-]/g, '');
+    if (!cc || cc.length < 4) return res.json({ encontrado: false });
+
+    // 1. Buscar en adn_clientes por CLT_RIF (NIT/cédula)
+    const [clts] = await getPool().query(`
+      SELECT
+        c.CLT_CODIGO     AS codigo,
+        c.CLT_NOMBRE     AS nombre,
+        c.CLT_RIF        AS cc,
+        COALESCE(NULLIF(TRIM(c.CLT_CELULAR),''), NULLIF(TRIM(c.CLT_TELEFONO1),''), NULLIF(TRIM(c.CLT_TELEFONO2),'')) AS telefono,
+        c.CLT_DIRECCION1 AS direccion,
+        cd.CDD_DESCRI    AS ciudad,
+        COALESCE(NULLIF(TRIM(c.CLT_EMAIL),''), NULLIF(TRIM(c.CLT_EMAILWEB),'')) AS email
+      FROM adn_clientes c
+      LEFT JOIN adn_ciudades cd ON c.CLT_CDD_CODIGO = cd.CDD_CODIGO
+      WHERE REPLACE(REPLACE(REPLACE(TRIM(c.CLT_RIF), '.', ''), '-', ''), ' ', '') = ?
+      ORDER BY
+        CASE WHEN c.CLT_CELULAR IS NOT NULL AND c.CLT_CELULAR != '' THEN 0 ELSE 1 END,
+        c.CLT_CODIGO
+      LIMIT 1
+    `, [cc]);
+
+    if (clts.length) {
+      return res.json({ encontrado: true, fuente: 'clientes', ...clts[0] });
+    }
+
+    // 2. Fallback: buscar en adn_transportistas por TRA_CEDULA
+    const [tras] = await getPool().query(`
+      SELECT
+        TRA_CEDULA                          AS cc,
+        CONCAT(TRA_NOMBRE,' ',TRA_APELLIDO) AS nombre,
+        TRA_TELEFONO                        AS telefono,
+        TRA_DIRECCION                       AS direccion,
+        TRA_EMAIL                           AS email,
+        NULL                                AS ciudad
+      FROM adn_transportistas
+      WHERE TRA_ACTIVO = 1
+        AND REPLACE(REPLACE(TRIM(TRA_CEDULA), '.', ''), ' ', '') = ?
+      LIMIT 1
+    `, [cc]);
+
+    if (tras.length) {
+      return res.json({ encontrado: true, fuente: 'transportistas', ...tras[0] });
+    }
+
+    res.json({ encontrado: false });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

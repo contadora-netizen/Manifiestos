@@ -1011,6 +1011,47 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     setForm(f => ({ ...f, saldo_pagar: base + apoyo - ant - ret - rica }));
   }, [form.valor_total, form.anticipo, form.retencion, form.reteica, form.apoyo_seguridad]);
 
+  // ── Búsqueda por cédula en BD ─────────────────────────────────────────────
+  const [ccLookup, setCcLookup] = useState(null);   // { nombre, telefono, direccion, ciudad, email, fuente } | null
+  const [ccLookupLoading, setCcLookupLoading] = useState(false);
+  const [ccLookupError, setCcLookupError] = useState("");
+
+  const buscarPorCC = async (cc) => {
+    const ccLimpio = cc.trim().replace(/[\s.,\-]/g, "");
+    if (ccLimpio.length < 4) { setCcLookup(null); setCcLookupError(""); return; }
+    setCcLookupLoading(true);
+    setCcLookup(null);
+    setCcLookupError("");
+    try {
+      const capiBase = (typeof CAPI_BASE !== "undefined" ? CAPI_BASE : "").replace(/\/api$/, "") || "http://localhost:3000";
+      const r = await fetch(`${capiBase}/api/cliente-por-cc?cc=${encodeURIComponent(ccLimpio)}`);
+      const d = await r.json();
+      if (d.encontrado) {
+        setCcLookup(d);
+      } else {
+        setCcLookupError("Cédula no encontrada en la base de datos.");
+      }
+    } catch {
+      setCcLookupError("Error al consultar la base de datos.");
+    } finally {
+      setCcLookupLoading(false);
+    }
+  };
+
+  const aplicarDatosCC = () => {
+    if (!ccLookup) return;
+    setForm(f => ({
+      ...f,
+      ...(ccLookup.nombre    && !f.contratista_nombre    ? { contratista_nombre:    ccLookup.nombre }    : {}),
+      ...(ccLookup.telefono  && !f.contratista_telefono  ? { contratista_telefono:  ccLookup.telefono }  : { contratista_telefono: ccLookup.telefono || f.contratista_telefono }),
+      ...(ccLookup.direccion && !f.contratista_domicilio ? { contratista_domicilio: ccLookup.direccion } : { contratista_domicilio: ccLookup.direccion || f.contratista_domicilio }),
+      ...(ccLookup.ciudad    && !f.contratista_ciudad    ? { contratista_ciudad:    ccLookup.ciudad }    : { contratista_ciudad: ccLookup.ciudad || f.contratista_ciudad }),
+      ...(ccLookup.email     && !f.contratista_email     ? { contratista_email:     ccLookup.email }     : {}),
+    }));
+    setCcLookup(null);
+    setCcLookupError("");
+  };
+
   const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState("");
   const [filtroCiudad, setFiltroCiudad] = useState("");
   const [filtroAnio, setFiltroAnio] = useState("");
@@ -1076,13 +1117,14 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   const inp = { width: "100%", border: `1px solid ${C.border}`, borderRadius: 5, padding: "6px 8px", fontSize: 12, color: C.text, outline: "none", background: C.white };
   const Sec = ({ t }) => <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, letterSpacing: "0.1em", margin: "16px 0 8px", paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>{t}</div>;
   const REQUIRED_FIELDS = new Set(["contratista_nombre","contratista_cc","contratista_telefono","contratista_domicilio","contratista_ciudad","conductor_nombre","conductor_celular","vehiculo_placas"]);
-  const F = ({ label, k, type="text", span=1, placeholder="", onEditClick }) => {
+  const F = ({ label, k, type="text", span=1, placeholder="", onEditClick, onBlur }) => {
     const isEmpty = REQUIRED_FIELDS.has(k) && !form[k];
     return (
       <div style={{ gridColumn: `span ${span}` }}>
         <label style={{ ...lbl, color: isEmpty ? C.red : C.textMuted }}>{label}{isEmpty && " *"}</label>
         <div style={{ position:"relative" }}>
           <input type={type} value={form[k]||""} onChange={e => set(k, e.target.value)} placeholder={placeholder}
+            onBlur={onBlur}
             style={{ ...inp, borderColor: isEmpty ? C.red : C.border, background: isEmpty ? "#fff5f5" : C.white }} />
           {isEmpty && onEditClick && (
             <button onClick={onEditClick} title="Editar ficha conductor"
@@ -1235,12 +1277,55 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
           <Sec t="CONTRATISTA (TRANSPORTADOR)" />
           <div style={g(4)}>
             <F label="Nombre completo" k="contratista_nombre" span={2} onEditClick={() => { onCancel(); }} />
-            <F label="C.C." k="contratista_cc" onEditClick={() => { onCancel(); }} />
+            <F label="C.C. / NIT"
+               k="contratista_cc"
+               placeholder="Ej: 13456789"
+               onEditClick={() => { onCancel(); }}
+               onBlur={e => buscarPorCC(e.target.value)} />
             <F label="Teléfono" k="contratista_telefono" onEditClick={() => { onCancel(); }} />
             <F label="Domicilio" k="contratista_domicilio" span={2} onEditClick={() => { onCancel(); }} />
             <F label="Ciudad" k="contratista_ciudad" onEditClick={() => { onCancel(); }} />
             <F label="Correo electrónico" k="contratista_email" span={2} placeholder="ejemplo@correo.com" />
           </div>
+
+          {/* Banner resultado búsqueda por CC */}
+          {ccLookupLoading && (
+            <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:11, color:C.blue, padding:"6px 10px", background:`${C.blue}08`, borderRadius:6, marginTop:4 }}>
+              <Spinner size={10}/> Buscando en base de datos...
+            </div>
+          )}
+          {ccLookup && !ccLookupLoading && (
+            <div style={{ background:"#e8f5e9", border:`1px solid ${C.green}44`, borderRadius:8, padding:"10px 14px", marginTop:4, display:"flex", alignItems:"flex-start", gap:12 }}>
+              <div style={{ fontSize:20, flexShrink:0 }}>🔍</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.green, marginBottom:4 }}>
+                  Encontrado en BD — {ccLookup.fuente === "clientes" ? "Lista de clientes" : "Transportistas"}
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"2px 16px", fontSize:11, color:C.text }}>
+                  {ccLookup.nombre    && <span><span style={{ color:C.textDim }}>Nombre: </span><strong>{ccLookup.nombre}</strong></span>}
+                  {ccLookup.telefono  && <span><span style={{ color:C.textDim }}>Teléfono: </span><strong>{ccLookup.telefono}</strong></span>}
+                  {ccLookup.direccion && <span><span style={{ color:C.textDim }}>Dirección: </span><strong>{ccLookup.direccion}</strong></span>}
+                  {ccLookup.ciudad    && <span><span style={{ color:C.textDim }}>Ciudad: </span><strong>{ccLookup.ciudad}</strong></span>}
+                  {ccLookup.email     && <span><span style={{ color:C.textDim }}>Email: </span><strong>{ccLookup.email}</strong></span>}
+                </div>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
+                <button onClick={aplicarDatosCC}
+                  style={{ background:C.green, color:"white", border:"none", borderRadius:6, padding:"6px 14px", cursor:"pointer", fontWeight:700, fontSize:11, whiteSpace:"nowrap" }}>
+                  ✅ Aplicar datos
+                </button>
+                <button onClick={() => { setCcLookup(null); setCcLookupError(""); }}
+                  style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.textMuted, borderRadius:6, padding:"5px 14px", cursor:"pointer", fontSize:11 }}>
+                  Ignorar
+                </button>
+              </div>
+            </div>
+          )}
+          {ccLookupError && !ccLookupLoading && (
+            <div style={{ fontSize:10, color:C.textMuted, padding:"4px 10px", fontStyle:"italic" }}>
+              ℹ {ccLookupError}
+            </div>
+          )}
 
           <Sec t="CONDUCTOR" />
           <div style={g(4)}>
