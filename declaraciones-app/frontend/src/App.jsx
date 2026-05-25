@@ -1042,11 +1042,13 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     if (!ccLookup) return;
     setForm(f => ({
       ...f,
-      ...(ccLookup.nombre    && !f.contratista_nombre    ? { contratista_nombre:    ccLookup.nombre }    : {}),
-      ...(ccLookup.telefono  && !f.contratista_telefono  ? { contratista_telefono:  ccLookup.telefono }  : { contratista_telefono: ccLookup.telefono || f.contratista_telefono }),
-      ...(ccLookup.direccion && !f.contratista_domicilio ? { contratista_domicilio: ccLookup.direccion } : { contratista_domicilio: ccLookup.direccion || f.contratista_domicilio }),
-      ...(ccLookup.ciudad    && !f.contratista_ciudad    ? { contratista_ciudad:    ccLookup.ciudad }    : { contratista_ciudad: ccLookup.ciudad || f.contratista_ciudad }),
-      ...(ccLookup.email     && !f.contratista_email     ? { contratista_email:     ccLookup.email }     : {}),
+      // Nombre: solo rellena si está vacío (no pisar lo que ya escribió el usuario)
+      ...(ccLookup.nombre && !f.contratista_nombre ? { contratista_nombre: ccLookup.nombre } : {}),
+      // Teléfono, domicilio, ciudad y email: siempre toma el dato más actualizado de la BD
+      ...(ccLookup.telefono  ? { contratista_telefono:  ccLookup.telefono  } : {}),
+      ...(ccLookup.direccion ? { contratista_domicilio: ccLookup.direccion } : {}),
+      ...(ccLookup.ciudad    ? { contratista_ciudad:    ccLookup.ciudad    } : {}),
+      ...(ccLookup.email     ? { contratista_email:     ccLookup.email     } : {}),
     }));
     setCcLookup(null);
     setCcLookupError("");
