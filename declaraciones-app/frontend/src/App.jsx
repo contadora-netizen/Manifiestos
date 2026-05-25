@@ -931,6 +931,7 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     valor_mercancia: "", valor_contrato: "", valor_pelete: "", valor_palencia: "", valor_total: "",
     anticipo: "", retencion: "", reteica: "", apoyo_seguridad: 60000, saldo_pagar: "",
     observaciones: "",
+    drive_adjuntos: [],
   };
   const [form, setForm] = useState(initial || empty);
   const [conductorHistorico, setConductorHistorico] = useState("");
@@ -947,6 +948,14 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
   const [bdConsultado, setBdConsultado] = useState(false);
 
   const [bdError, setBdError] = useState("");
+
+  // ── Drive PDF adjuntos ─────────────────────────────────────────────────────
+  const [driveSearch, setDriveSearch] = useState("FACTURAS");
+  const [driveFiles, setDriveFiles] = useState([]);
+  const [driveLoading, setDriveLoading] = useState(false);
+  const [driveSearched, setDriveSearched] = useState(false);
+  const [driveSeleccionados, setDriveSeleccionados] = useState(new Set());
+  const [driveError, setDriveError] = useState("");
 
   const consultarFacturasBD = async () => {
     setBdLoading(true);
@@ -1005,6 +1014,49 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
       ...(totalMercancia > 0 ? { valor_mercancia: Math.round(totalMercancia) } : {}),
       _facturasSeleccionadas: sels,
     }));
+  };
+
+  const buscarEnDrive = async () => {
+    setDriveLoading(true);
+    setDriveSearched(false);
+    setDriveError("");
+    try {
+      const results = await gsGet("listDriveFiles", { q: driveSearch.trim() || "FACTURAS" });
+      setDriveFiles(Array.isArray(results) ? results : []);
+      setDriveSearched(true);
+      const yaAdj = form.drive_adjuntos || [];
+      setDriveSeleccionados(new Set(yaAdj.map(a => a.id)));
+    } catch(e) {
+      setDriveError("Error al consultar Drive: " + e.message);
+      setDriveFiles([]);
+      setDriveSearched(true);
+    } finally {
+      setDriveLoading(false);
+    }
+  };
+
+  const aplicarAdjuntosDrive = () => {
+    const sels = driveFiles.filter(f => driveSeleccionados.has(f.id));
+    const actuales = form.drive_adjuntos || [];
+    const ids = new Set(actuales.map(a => a.id));
+    const nuevos = sels.filter(f => !ids.has(f.id));
+    setForm(prev => ({
+      ...prev,
+      drive_adjuntos: [...actuales, ...nuevos.map(f => ({ id: f.id, nombre: f.nombre, url: f.url }))]
+    }));
+    setDriveSeleccionados(new Set());
+  };
+
+  const toggleDriveSeleccion = (id) => {
+    setDriveSeleccionados(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
+  const quitarAdjuntoDrive = (idx) => {
+    setForm(prev => ({ ...prev, drive_adjuntos: (prev.drive_adjuntos || []).filter((_, j) => j !== idx) }));
   };
 
   useEffect(() => {
@@ -1431,6 +1483,97 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
                   })}
                 </div>
               </>
+            )}
+          </div>
+
+          {/* ── PDFs desde Google Drive ──────────────────────────────────────── */}
+          <div style={{ background:"#f9f4ff", border:"1px solid #c4a8e8", borderRadius:10, padding:"14px 16px", marginBottom:14 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:"#6a1b9a", letterSpacing:"0.1em", marginBottom:10 }}>
+              📁 ADJUNTAR PDFs DESDE GOOGLE DRIVE
+            </div>
+            <div style={{ display:"flex", gap:10, alignItems:"flex-end", marginBottom:10, flexWrap:"wrap" }}>
+              <div style={{ flex:1, minWidth:160 }}>
+                <label style={lbl}>Buscar en Drive</label>
+                <input value={driveSearch} onChange={e => setDriveSearch(e.target.value)}
+                  placeholder="Ej: MAYO, FACTURAS ADN..."
+                  style={{ ...inp }}
+                  onKeyDown={e => e.key === "Enter" && buscarEnDrive()} />
+              </div>
+              <button onClick={buscarEnDrive} disabled={driveLoading}
+                style={{ background:"#6a1b9a", color:"#fff", border:"none", borderRadius:7, padding:"7px 18px", cursor:"pointer", fontSize:12, fontWeight:700, whiteSpace:"nowrap", opacity:driveLoading?0.6:1 }}>
+                {driveLoading ? "⏳ Buscando..." : "📁 Buscar en Drive"}
+              </button>
+            </div>
+
+            {driveError && (
+              <div style={{ fontSize:11, color:C.red, background:"#fdecea", border:`1px solid ${C.red}33`, borderRadius:6, padding:"7px 10px", marginBottom:8 }}>
+                <strong>Error al consultar Drive:</strong> {driveError}
+              </div>
+            )}
+            {driveSearched && !driveError && driveFiles.length === 0 && (
+              <div style={{ fontSize:12, color:C.textMuted, padding:"6px 0" }}>
+                ⚠️ No se encontraron PDFs con ese término en Drive.
+              </div>
+            )}
+
+            {driveFiles.length > 0 && (
+              <>
+                <div style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
+                  <span style={{ fontSize:11, color:C.textMuted }}>{driveFiles.length} archivo(s) encontrado(s)</span>
+                  {driveSeleccionados.size > 0 && (
+                    <button onClick={aplicarAdjuntosDrive}
+                      style={{ fontSize:10, background:"#6a1b9a", color:"#fff", border:"none", borderRadius:5, padding:"3px 12px", cursor:"pointer", fontWeight:700, marginLeft:"auto" }}>
+                      ➕ Adjuntar {driveSeleccionados.size} seleccionado(s)
+                    </button>
+                  )}
+                </div>
+                <div style={{ maxHeight:200, overflowY:"auto", border:"1px solid #d1c4e9", borderRadius:7, background:"#fff" }}>
+                  {driveFiles.map((f, i) => {
+                    const sel = driveSeleccionados.has(f.id);
+                    const yaAdj = (form.drive_adjuntos||[]).some(a => a.id === f.id);
+                    return (
+                      <div key={f.id}
+                        onClick={() => !yaAdj && toggleDriveSeleccion(f.id)}
+                        style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 12px",
+                          cursor: yaAdj ? "default" : "pointer",
+                          background: yaAdj ? "#ede7f6" : sel ? "#f3e5f5" : (i%2===0?"#f9f7ff":"#fff"),
+                          borderBottom:"1px solid #ede7f6", transition:"background 0.1s" }}>
+                        <input type="checkbox" readOnly checked={sel || yaAdj}
+                          style={{ accentColor:"#6a1b9a", width:14, height:14 }} />
+                        <span style={{ fontSize:11, fontWeight:600, color:"#4a148c", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                          📄 {f.nombre}
+                        </span>
+                        <a href={f.url} target="_blank" rel="noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          style={{ fontSize:10, color:"#6a1b9a", whiteSpace:"nowrap", textDecoration:"none",
+                            background:"#ede7f6", padding:"2px 7px", borderRadius:4, border:"1px solid #c4a8e8" }}>
+                          🔗 Abrir
+                        </a>
+                        {yaAdj && <span style={{ fontSize:9, color:"#6a1b9a", fontWeight:700, whiteSpace:"nowrap" }}>✓ adjuntado</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Lista de adjuntos actuales */}
+            {(form.drive_adjuntos||[]).length > 0 && (
+              <div style={{ marginTop:10, paddingTop:8, borderTop:"1px dashed #c4a8e8" }}>
+                <div style={{ fontSize:10, fontWeight:700, color:"#6a1b9a", marginBottom:6 }}>PDFs adjuntos al contrato:</div>
+                {(form.drive_adjuntos||[]).map((a, i) => (
+                  <div key={a.id||i} style={{ display:"flex", alignItems:"center", gap:8, fontSize:11, marginBottom:4, background:"#ede7f6", borderRadius:6, padding:"5px 10px" }}>
+                    <span style={{ flex:1, color:"#4a148c", fontWeight:600 }}>📄 {a.nombre}</span>
+                    <a href={a.url} target="_blank" rel="noreferrer"
+                      style={{ color:"#6a1b9a", textDecoration:"none", fontSize:10, background:"#fff", padding:"2px 7px", borderRadius:4, border:"1px solid #c4a8e8" }}>
+                      🔗 Abrir
+                    </a>
+                    <button onClick={() => quitarAdjuntoDrive(i)}
+                      title="Quitar adjunto"
+                      style={{ color:C.red, background:"none", border:"none", cursor:"pointer", fontSize:13, lineHeight:1, padding:"0 2px" }}>✕</button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
@@ -2075,6 +2218,18 @@ function ContratoRow({ contrato, onEdit, onFirmar, onDelete, capiBase }) {
             <div><strong style={{ color:C.text }}>Vehículo:</strong> {contrato.vehiculo_marca} {contrato.vehiculo_placas}</div>
             <div><strong style={{ color:C.text }}>Aseguradora:</strong> {contrato.aseguradora || "—"}</div>
             <div style={{ gridColumn:"span 3" }}><strong style={{ color:C.text }}>Facturas:</strong> {contrato.facturas || "—"}</div>
+            {(contrato.drive_adjuntos||[]).length > 0 && (
+              <div style={{ gridColumn:"span 3", display:"flex", flexWrap:"wrap", gap:6, alignItems:"center" }}>
+                <strong style={{ color:C.text }}>PDFs Drive:</strong>{" "}
+                {(contrato.drive_adjuntos||[]).map((a, i) => (
+                  <a key={i} href={a.url} target="_blank" rel="noreferrer"
+                    style={{ fontSize:10, color:"#6a1b9a", textDecoration:"none",
+                      background:"#f3e5f5", padding:"2px 8px", borderRadius:4, border:"1px solid #d1c4e9", whiteSpace:"nowrap" }}>
+                    📄 {a.nombre}
+                  </a>
+                ))}
+              </div>
+            )}
             <div><strong style={{ color:C.text }}>Valor mercancía:</strong> {fmt(contrato.valor_mercancia)}</div>
             <div><strong style={{ color:C.text }}>Contrato:</strong> {fmt(contrato.valor_contrato)} · Pelete: {fmt(contrato.valor_pelete)}</div>
             <div><strong style={{ color:C.text }}>Palencia:</strong> {fmt(contrato.valor_palencia)}</div>
@@ -3361,7 +3516,17 @@ export default function App() {
           gsGet("getProcessados"),
         ]);
         setConductores(Array.isArray(conds) ? conds : []);
-        setContratos(Array.isArray(conts) ? conts : []);
+        setContratos(Array.isArray(conts) ? conts.map(c => ({
+          ...c,
+          drive_adjuntos: (() => {
+            try {
+              if (Array.isArray(c.drive_adjuntos)) return c.drive_adjuntos;
+              if (typeof c.drive_adjuntos === "string" && c.drive_adjuntos.trim().startsWith("["))
+                return JSON.parse(c.drive_adjuntos);
+            } catch {}
+            return [];
+          })()
+        })) : []);
         setProcesados(Array.isArray(procs) ? procs : []);
       } catch (e) {
         setGsError("No se pudo conectar con Google Sheets: " + e.message);
@@ -3669,9 +3834,15 @@ export default function App() {
   const saveContrato = async (contrato) => {
     try {
       const conFecha = { ...contrato, fecha_creacion: contrato.fecha_creacion || new Date().toISOString() };
-      await gsPost("saveContrato", { data: conFecha });
+      // Serializar drive_adjuntos a JSON string para la hoja de cálculo
+      const paraGS = {
+        ...conFecha,
+        drive_adjuntos: JSON.stringify(Array.isArray(conFecha.drive_adjuntos) ? conFecha.drive_adjuntos : [])
+      };
+      await gsPost("saveContrato", { data: paraGS });
       setContratos(prev => {
         const idx = prev.findIndex(c => c.id === conFecha.id);
+        // Mantener drive_adjuntos como array en el estado local
         return idx >= 0 ? prev.map(c => c.id === conFecha.id ? conFecha : c) : [conFecha, ...prev];
       });
       setShowContratoForm(false);
