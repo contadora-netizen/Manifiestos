@@ -436,7 +436,7 @@ function HistoryRow({ entry }) {
 function ConductorForm({ onSave, onCancel, initial }) {
   const empty = {
     id: crypto.randomUUID(),
-    nombre: "", cc: "", celular: "", telefono: "",
+    nombre: "", cc: "", celular: "", telefono: "", email: "",
     direccion: "", ciudad: "",
     licencia_numero: "", licencia_categoria: "", licencia_vencimiento: "",
     soat: "", tecnicomecanica: "",
@@ -479,6 +479,7 @@ function ConductorForm({ onSave, onCancel, initial }) {
             <F label="Cédula (C.C.)" k="cc" placeholder="Ej: 13 456 789" />
             <F label="Celular" k="celular" placeholder="Ej: 300 123 4567" />
             <F label="Teléfono fijo" k="telefono" placeholder="Opcional" />
+            <F label="Correo electrónico" k="email" span={2} placeholder="ej: conductor@correo.com" />
             <F label="Dirección" k="direccion" span={2} placeholder="Ej: Cra 5 # 12-34" />
             <F label="Ciudad" k="ciudad" placeholder="Ej: Cúcuta" />
           </div>
@@ -630,12 +631,13 @@ function ConductorRow({ conductor: c, onEdit }) {
         <div style={{ width:36, height:36, borderRadius:"50%", background:`linear-gradient(135deg,${C.blue},${C.navyMid})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>👤</div>
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{c.nombre || "Sin nombre"}</div>
-          <div style={{ fontSize:10, color:C.textMuted }}>{c.cc ? `C.C. ${c.cc}` : ""}{c.ciudad ? ` · ${c.ciudad}` : ""}{c.celular ? ` · ${c.celular}` : ""}</div>
+          <div style={{ fontSize:10, color:C.textMuted }}>{c.cc ? `C.C. ${c.cc}` : ""}{c.ciudad ? ` · ${c.ciudad}` : ""}{c.celular ? ` · ${c.celular}` : ""}{c.email ? ` · ${c.email}` : ""}</div>
         </div>
         {c.vehiculo_placas && <Badge color={C.navy}>{c.vehiculo_placas}</Badge>}
         {docs.length > 0 && <Badge color={C.blue}>📎 {docs.length} doc{docs.length!==1?"s":""}</Badge>}
         <FechaTag label="Lic." val={c.licencia_vencimiento} />
         <FechaTag label="SOAT" val={c.soat} />
+        <FechaTag label="Téc.Mec." val={c.tecnicomecanica} />
         <button onClick={e => { e.stopPropagation(); onEdit(c); }}
           style={{ fontSize:11, background:C.accent, color:"white", border:"none", borderRadius:5, padding:"4px 12px", cursor:"pointer", fontWeight:700, flexShrink:0 }}>✏ Editar</button>
         <span style={{ color:C.textDim, fontSize:12 }}>{open ? "▲" : "▼"}</span>
@@ -667,6 +669,7 @@ function ConductorRow({ conductor: c, onEdit }) {
                 {c.eps && <div><span style={{ color:C.textDim }}>EPS: </span><strong>{c.eps}</strong></div>}
                 {c.arl && <div><span style={{ color:C.textDim }}>ARL: </span><strong>{c.arl}</strong></div>}
                 {c.vehiculo_propietario && <div><span style={{ color:C.textDim }}>Propietario: </span><strong>{c.vehiculo_propietario}</strong></div>}
+                {c.email && <div><span style={{ color:C.textDim }}>Correo: </span><a href={`mailto:${c.email}`} style={{ color:C.blue, fontWeight:600, textDecoration:"none" }}>{c.email}</a></div>}
                 {c.contacto_emergencia_nombre && <div style={{ gridColumn:"span 2" }}><span style={{ color:C.textDim }}>Emergencias: </span><strong>{c.contacto_emergencia_nombre}</strong>{c.contacto_emergencia_telefono ? ` · ${c.contacto_emergencia_telefono}` : ""}</div>}
                 {c.observaciones && <div style={{ gridColumn:"span 3", color:C.textMuted, fontStyle:"italic" }}>{c.observaciones}</div>}
               </div>
@@ -1000,6 +1003,10 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
 
   const aplicarConductor = async (nombreConductor, vehiculo) => {
     const info = CONDUCTORES_INFO[nombreConductor];
+    // Buscar en la lista de conductores de Google Sheets (tiene email y datos actualizados)
+    const condGs = conductoresList.find(c =>
+      c.nombre?.trim().toUpperCase() === nombreConductor.trim().toUpperCase()
+    );
     // Buscar info adicional en la BD
     let bdInfo = {};
     try {
@@ -1013,11 +1020,12 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
       ...f,
       conductor_nombre: nombreConductor,
       contratista_nombre: nombreConductor,
-      contratista_cc: info?.cc || bdInfo.cc || f.contratista_cc || "",
-      contratista_telefono: bdInfo.telefono || f.contratista_telefono || "",
-      contratista_domicilio: bdInfo.direccion || f.contratista_domicilio || "",
-      contratista_ciudad: bdInfo.ciudad || f.contratista_ciudad || "",
-      conductor_celular: bdInfo.telefono || f.conductor_celular || "",
+      contratista_cc: condGs?.cc || info?.cc || bdInfo.cc || f.contratista_cc || "",
+      contratista_telefono: condGs?.celular || bdInfo.telefono || f.contratista_telefono || "",
+      contratista_domicilio: condGs?.direccion || bdInfo.direccion || f.contratista_domicilio || "",
+      contratista_ciudad: condGs?.ciudad || bdInfo.ciudad || f.contratista_ciudad || "",
+      contratista_email: condGs?.email || f.contratista_email || "",
+      conductor_celular: condGs?.celular || bdInfo.telefono || f.conductor_celular || "",
       eps: info?.eps || f.eps || "",
       arl: info?.arl || f.arl || "",
       licencia_categoria: info?.licencia_categoria || f.licencia_categoria || "",
@@ -4043,30 +4051,53 @@ export default function App() {
 
             {conductores.length > 0 && (() => {
               const hoy = new Date();
-              const proxVencer = conductores.filter(c => {
-                const fechas = [c.licencia_vencimiento, c.soat, c.tecnicomecanica].filter(Boolean);
-                return fechas.some(f => {
-                  const diff = (new Date(f) - hoy) / (1000*60*60*24);
-                  return diff >= 0 && diff <= 30;
+              const fmtD = (iso) => new Date(iso).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"});
+              // Construir lista detallada de alertas por documento
+              const alertasVencidos = [];
+              const alertasProximos = [];
+              conductores.forEach(c => {
+                const nombre = c.nombre || "Sin nombre";
+                const docs = [
+                  { label:"Licencia", fecha: c.licencia_vencimiento },
+                  { label:`SOAT${c.vehiculo_placas ? " "+c.vehiculo_placas : ""}`, fecha: c.soat },
+                  { label:`Téc.Mec.${c.vehiculo_placas ? " "+c.vehiculo_placas : ""}`, fecha: c.tecnicomecanica },
+                ];
+                docs.forEach(({ label, fecha }) => {
+                  if (!fecha) return;
+                  const diff = (new Date(fecha) - hoy) / (1000*60*60*24);
+                  if (diff < 0) alertasVencidos.push({ nombre, label, fecha, diff });
+                  else if (diff <= 30) alertasProximos.push({ nombre, label, fecha, diff });
                 });
               });
-              const vencidos = conductores.filter(c => {
-                const fechas = [c.licencia_vencimiento, c.soat, c.tecnicomecanica].filter(Boolean);
-                return fechas.some(f => new Date(f) < hoy);
-              });
-              if (!proxVencer.length && !vencidos.length) return null;
+              if (!alertasVencidos.length && !alertasProximos.length) return null;
               return (
                 <div style={{ marginTop:16, display:"flex", flexDirection:"column", gap:8 }}>
-                  {vencidos.length > 0 && (
-                    <div style={{ background:"#fdecea", border:`1px solid ${C.red}40`, borderRadius:10, padding:"10px 16px", fontSize:12 }}>
-                      <strong style={{ color:C.red }}>⚠ Documentos vencidos:</strong>{" "}
-                      {vencidos.map(c => c.nombre).join(", ")}
+                  {alertasVencidos.length > 0 && (
+                    <div style={{ background:"#fdecea", border:`1px solid ${C.red}40`, borderRadius:10, padding:"10px 16px" }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:C.red, marginBottom:6 }}>⚠ Documentos vencidos ({alertasVencidos.length})</div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                        {alertasVencidos.map((a,i) => (
+                          <div key={i} style={{ fontSize:11, display:"flex", gap:8, alignItems:"center" }}>
+                            <span style={{ background:`${C.red}18`, color:C.red, borderRadius:4, padding:"1px 7px", fontWeight:700, flexShrink:0 }}>{a.label}</span>
+                            <span style={{ color:"#5a0000", fontWeight:600 }}>{a.nombre}</span>
+                            <span style={{ color:C.textDim }}>· venció {fmtD(a.fecha)}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
-                  {proxVencer.length > 0 && (
-                    <div style={{ background:"#fff8e1", border:`1px solid ${C.gold}40`, borderRadius:10, padding:"10px 16px", fontSize:12 }}>
-                      <strong style={{ color:C.accent }}>⏰ Próximos a vencer (30 días):</strong>{" "}
-                      {proxVencer.map(c => c.nombre).join(", ")}
+                  {alertasProximos.length > 0 && (
+                    <div style={{ background:"#fff8e1", border:`1px solid ${C.gold}40`, borderRadius:10, padding:"10px 16px" }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:C.accent, marginBottom:6 }}>⏰ Próximos a vencer — 30 días ({alertasProximos.length})</div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                        {alertasProximos.map((a,i) => (
+                          <div key={i} style={{ fontSize:11, display:"flex", gap:8, alignItems:"center" }}>
+                            <span style={{ background:`${C.gold}22`, color:C.accent, borderRadius:4, padding:"1px 7px", fontWeight:700, flexShrink:0 }}>{a.label}</span>
+                            <span style={{ color:"#3a2000", fontWeight:600 }}>{a.nombre}</span>
+                            <span style={{ color:C.textDim }}>· vence {fmtD(a.fecha)} ({Math.ceil(a.diff)} días)</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
