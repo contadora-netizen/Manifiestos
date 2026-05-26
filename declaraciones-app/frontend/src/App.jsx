@@ -949,13 +949,14 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
 
   const [bdError, setBdError] = useState("");
 
-  // ── Drive PDF adjuntos ─────────────────────────────────────────────────────
-  const [driveSearch, setDriveSearch] = useState("FACTURAS");
-  const [driveFiles, setDriveFiles] = useState([]);
-  const [driveLoading, setDriveLoading] = useState(false);
-  const [driveSearched, setDriveSearched] = useState(false);
-  const [driveSeleccionados, setDriveSeleccionados] = useState(new Set());
-  const [driveError, setDriveError] = useState("");
+  // ── FELCO Drive — selector de facturas ────────────────────────────────────
+  const [felcoDesde, setFelcoDesde] = useState(hoyContrato);
+  const [felcoHasta, setFelcoHasta] = useState(hoyContrato);
+  const [felcoFiles, setFelcoFiles] = useState([]);
+  const [felcoLoading, setFelcoLoading] = useState(false);
+  const [felcoConsultado, setFelcoConsultado] = useState(false);
+  const [felcoSeleccionados, setFelcoSeleccionados] = useState(new Set());
+  const [felcoError, setFelcoError] = useState("");
 
   const consultarFacturasBD = async () => {
     setBdLoading(true);
@@ -1016,47 +1017,44 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
     }));
   };
 
-  const buscarEnDrive = async () => {
-    setDriveLoading(true);
-    setDriveSearched(false);
-    setDriveError("");
+  const consultarFelco = async () => {
+    setFelcoLoading(true);
+    setFelcoConsultado(false);
+    setFelcoError("");
     try {
-      const results = await gsGet("listDriveFiles", { q: driveSearch.trim() || "FACTURAS" });
-      setDriveFiles(Array.isArray(results) ? results : []);
-      setDriveSearched(true);
-      const yaAdj = form.drive_adjuntos || [];
-      setDriveSeleccionados(new Set(yaAdj.map(a => a.id)));
+      const results = await gsGet("listFelcoPDFs", { desde: felcoDesde, hasta: felcoHasta });
+      const arr = Array.isArray(results) ? results : [];
+      setFelcoFiles(arr);
+      setFelcoConsultado(true);
+      // Pre-marcar las que ya están en el campo facturas
+      const yaEnForm = new Set(
+        String(form.facturas || "").split(/[-–,;\s]+/).map(s => s.trim()).filter(Boolean)
+      );
+      setFelcoSeleccionados(new Set(arr.filter(f => yaEnForm.has(f.numero)).map(f => f.id)));
     } catch(e) {
-      setDriveError("Error al consultar Drive: " + e.message);
-      setDriveFiles([]);
-      setDriveSearched(true);
+      setFelcoError("Error al consultar Drive: " + e.message);
+      setFelcoFiles([]);
+      setFelcoConsultado(true);
     } finally {
-      setDriveLoading(false);
+      setFelcoLoading(false);
     }
   };
 
-  const aplicarAdjuntosDrive = () => {
-    const sels = driveFiles.filter(f => driveSeleccionados.has(f.id));
-    const actuales = form.drive_adjuntos || [];
-    const ids = new Set(actuales.map(a => a.id));
-    const nuevos = sels.filter(f => !ids.has(f.id));
-    setForm(prev => ({
-      ...prev,
-      drive_adjuntos: [...actuales, ...nuevos.map(f => ({ id: f.id, nombre: f.nombre, url: f.url }))]
-    }));
-    setDriveSeleccionados(new Set());
-  };
-
-  const toggleDriveSeleccion = (id) => {
-    setDriveSeleccionados(prev => {
+  const toggleFelcoSeleccion = (id) => {
+    setFelcoSeleccionados(prev => {
       const n = new Set(prev);
       n.has(id) ? n.delete(id) : n.add(id);
       return n;
     });
   };
 
-  const quitarAdjuntoDrive = (idx) => {
-    setForm(prev => ({ ...prev, drive_adjuntos: (prev.drive_adjuntos || []).filter((_, j) => j !== idx) }));
+  const aplicarFacturasFelco = () => {
+    if (!felcoSeleccionados.size) return;
+    const sels = felcoFiles.filter(f => felcoSeleccionados.has(f.id));
+    const nums = sels.map(f => f.numero);
+    const actuales = String(form.facturas || "").split(/\s*-\s*/).map(s => s.trim()).filter(Boolean);
+    const todos = [...new Set([...actuales, ...nums])];
+    setForm(f => ({ ...f, facturas: todos.join(" - ") }));
   };
 
   useEffect(() => {
@@ -1486,94 +1484,81 @@ function ContratoForm({ onSave, onCancel, initial, nextNumero, conductoresList =
             )}
           </div>
 
-          {/* ── PDFs desde Google Drive ──────────────────────────────────────── */}
-          <div style={{ background:"#f9f4ff", border:"1px solid #c4a8e8", borderRadius:10, padding:"14px 16px", marginBottom:14 }}>
-            <div style={{ fontSize:10, fontWeight:700, color:"#6a1b9a", letterSpacing:"0.1em", marginBottom:10 }}>
-              📁 ADJUNTAR PDFs DESDE GOOGLE DRIVE
+          {/* ── Selector facturas FELCO (Drive) ─────────────────────────────── */}
+          <div style={{ background:"#f0fff4", border:"1px solid #86efac", borderRadius:10, padding:"14px 16px", marginBottom:14 }}>
+            <div style={{ fontSize:10, fontWeight:700, color:"#166534", letterSpacing:"0.1em", marginBottom:10 }}>
+              📄 SELECCIONAR FACTURAS FELCO (DRIVE)
             </div>
-            <div style={{ display:"flex", gap:10, alignItems:"flex-end", marginBottom:10, flexWrap:"wrap" }}>
-              <div style={{ flex:1, minWidth:160 }}>
-                <label style={lbl}>Buscar en Drive</label>
-                <input value={driveSearch} onChange={e => setDriveSearch(e.target.value)}
-                  placeholder="Ej: MAYO, FACTURAS ADN..."
-                  style={{ ...inp }}
-                  onKeyDown={e => e.key === "Enter" && buscarEnDrive()} />
+            <div style={{ display:"flex", gap:10, alignItems:"flex-end", marginBottom:10 }}>
+              <div>
+                <label style={lbl}>Desde</label>
+                <input type="date" value={felcoDesde} onChange={e => setFelcoDesde(e.target.value)} style={{ ...inp, maxWidth:160 }} />
               </div>
-              <button onClick={buscarEnDrive} disabled={driveLoading}
-                style={{ background:"#6a1b9a", color:"#fff", border:"none", borderRadius:7, padding:"7px 18px", cursor:"pointer", fontSize:12, fontWeight:700, whiteSpace:"nowrap", opacity:driveLoading?0.6:1 }}>
-                {driveLoading ? "⏳ Buscando..." : "📁 Buscar en Drive"}
+              <div>
+                <label style={lbl}>Hasta</label>
+                <input type="date" value={felcoHasta} onChange={e => setFelcoHasta(e.target.value)} style={{ ...inp, maxWidth:160 }} />
+              </div>
+              <button onClick={consultarFelco} disabled={felcoLoading}
+                style={{ background:"#16a34a", color:"#fff", border:"none", borderRadius:7, padding:"7px 18px", cursor:"pointer", fontSize:12, fontWeight:700, whiteSpace:"nowrap", opacity:felcoLoading?0.6:1 }}>
+                {felcoLoading ? "⏳ Consultando..." : "🔍 Consultar FELCO"}
               </button>
             </div>
 
-            {driveError && (
+            {felcoError && (
               <div style={{ fontSize:11, color:C.red, background:"#fdecea", border:`1px solid ${C.red}33`, borderRadius:6, padding:"7px 10px", marginBottom:8 }}>
-                <strong>Error al consultar Drive:</strong> {driveError}
+                <strong>Error:</strong> {felcoError}
               </div>
             )}
-            {driveSearched && !driveError && driveFiles.length === 0 && (
+            {felcoConsultado && !felcoError && felcoFiles.length === 0 && (
               <div style={{ fontSize:12, color:C.textMuted, padding:"6px 0" }}>
-                ⚠️ No se encontraron PDFs con ese término en Drive.
+                ⚠️ No se encontraron facturas FELCO en Drive para ese período.
               </div>
             )}
 
-            {driveFiles.length > 0 && (
+            {felcoFiles.length > 0 && (
               <>
                 <div style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
-                  <span style={{ fontSize:11, color:C.textMuted }}>{driveFiles.length} archivo(s) encontrado(s)</span>
-                  {driveSeleccionados.size > 0 && (
-                    <button onClick={aplicarAdjuntosDrive}
-                      style={{ fontSize:10, background:"#6a1b9a", color:"#fff", border:"none", borderRadius:5, padding:"3px 12px", cursor:"pointer", fontWeight:700, marginLeft:"auto" }}>
-                      ➕ Adjuntar {driveSeleccionados.size} seleccionado(s)
+                  <span style={{ fontSize:11, color:C.textMuted }}>{felcoFiles.length} factura(s) encontrada(s)</span>
+                  <button onClick={() => setFelcoSeleccionados(new Set(felcoFiles.map(f => f.id)))}
+                    style={{ fontSize:10, background:"#dcfce7", color:"#166534", border:"1px solid #86efac", borderRadius:5, padding:"3px 9px", cursor:"pointer", fontWeight:700 }}>
+                    ✓ Todas
+                  </button>
+                  <button onClick={() => setFelcoSeleccionados(new Set())}
+                    style={{ fontSize:10, background:"#ffeee8", color:C.red, border:"1px solid #ffab91", borderRadius:5, padding:"3px 9px", cursor:"pointer", fontWeight:700 }}>
+                    ✗ Ninguna
+                  </button>
+                  {felcoSeleccionados.size > 0 && (
+                    <button onClick={aplicarFacturasFelco}
+                      style={{ fontSize:10, background:"#166534", color:"#fff", border:"none", borderRadius:5, padding:"3px 12px", cursor:"pointer", fontWeight:700, marginLeft:"auto" }}>
+                      ➕ Agregar {felcoSeleccionados.size} al contrato
                     </button>
                   )}
                 </div>
-                <div style={{ maxHeight:200, overflowY:"auto", border:"1px solid #d1c4e9", borderRadius:7, background:"#fff" }}>
-                  {driveFiles.map((f, i) => {
-                    const sel = driveSeleccionados.has(f.id);
-                    const yaAdj = (form.drive_adjuntos||[]).some(a => a.id === f.id);
+                <div style={{ maxHeight:200, overflowY:"auto", border:"1px solid #86efac", borderRadius:7, background:"#fff" }}>
+                  {felcoFiles.map((f, i) => {
+                    const sel = felcoSeleccionados.has(f.id);
+                    const yaEn = String(form.facturas||"").split(/[-–,;\s]+/).map(s=>s.trim()).includes(f.numero);
                     return (
-                      <div key={f.id}
-                        onClick={() => !yaAdj && toggleDriveSeleccion(f.id)}
-                        style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 12px",
-                          cursor: yaAdj ? "default" : "pointer",
-                          background: yaAdj ? "#ede7f6" : sel ? "#f3e5f5" : (i%2===0?"#f9f7ff":"#fff"),
-                          borderBottom:"1px solid #ede7f6", transition:"background 0.1s" }}>
-                        <input type="checkbox" readOnly checked={sel || yaAdj}
-                          style={{ accentColor:"#6a1b9a", width:14, height:14 }} />
-                        <span style={{ fontSize:11, fontWeight:600, color:"#4a148c", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                          📄 {f.nombre}
-                        </span>
-                        <a href={f.url} target="_blank" rel="noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          style={{ fontSize:10, color:"#6a1b9a", whiteSpace:"nowrap", textDecoration:"none",
-                            background:"#ede7f6", padding:"2px 7px", borderRadius:4, border:"1px solid #c4a8e8" }}>
-                          🔗 Abrir
+                      <div key={f.id} onClick={() => toggleFelcoSeleccion(f.id)}
+                        style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 12px", cursor:"pointer",
+                          background: yaEn ? "#dcfce7" : sel ? "#bbf7d0" : (i%2===0?"#f0fff4":"#fff"),
+                          borderBottom:"1px solid #dcfce7", transition:"background 0.1s" }}>
+                        <input type="checkbox" readOnly checked={sel}
+                          style={{ accentColor:"#16a34a", width:14, height:14 }} />
+                        <span style={{ fontSize:11, fontWeight:700, color:"#166534", minWidth:90 }}>{f.numero}</span>
+                        <span style={{ fontSize:11, color:C.textMuted, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.nombre}</span>
+                        <span style={{ fontSize:10, color:C.textDim, whiteSpace:"nowrap" }}>{f.fecha}</span>
+                        <a href={f.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                          style={{ fontSize:10, color:"#16a34a", whiteSpace:"nowrap", textDecoration:"none",
+                            background:"#dcfce7", padding:"2px 7px", borderRadius:4, border:"1px solid #86efac" }}>
+                          🔗 PDF
                         </a>
-                        {yaAdj && <span style={{ fontSize:9, color:"#6a1b9a", fontWeight:700, whiteSpace:"nowrap" }}>✓ adjuntado</span>}
+                        {yaEn && <span style={{ fontSize:9, color:"#166534", fontWeight:700, whiteSpace:"nowrap" }}>✓ ya agregada</span>}
                       </div>
                     );
                   })}
                 </div>
               </>
-            )}
-
-            {/* Lista de adjuntos actuales */}
-            {(form.drive_adjuntos||[]).length > 0 && (
-              <div style={{ marginTop:10, paddingTop:8, borderTop:"1px dashed #c4a8e8" }}>
-                <div style={{ fontSize:10, fontWeight:700, color:"#6a1b9a", marginBottom:6 }}>PDFs adjuntos al contrato:</div>
-                {(form.drive_adjuntos||[]).map((a, i) => (
-                  <div key={a.id||i} style={{ display:"flex", alignItems:"center", gap:8, fontSize:11, marginBottom:4, background:"#ede7f6", borderRadius:6, padding:"5px 10px" }}>
-                    <span style={{ flex:1, color:"#4a148c", fontWeight:600 }}>📄 {a.nombre}</span>
-                    <a href={a.url} target="_blank" rel="noreferrer"
-                      style={{ color:"#6a1b9a", textDecoration:"none", fontSize:10, background:"#fff", padding:"2px 7px", borderRadius:4, border:"1px solid #c4a8e8" }}>
-                      🔗 Abrir
-                    </a>
-                    <button onClick={() => quitarAdjuntoDrive(i)}
-                      title="Quitar adjunto"
-                      style={{ color:C.red, background:"none", border:"none", cursor:"pointer", fontSize:13, lineHeight:1, padding:"0 2px" }}>✕</button>
-                  </div>
-                ))}
-              </div>
             )}
           </div>
 
@@ -3116,6 +3101,13 @@ function ListaCargueTab({ capiBase, contratos = [] }) {
   const [ocultarAsignadas, setOcultarAsignadas] = useState(true);
   const [bdError, setBdError] = useState("");
 
+  // ── FELCO Drive — selector de facturas (Lista de Cargue) ─────────────────
+  const [felcoLCFiles, setFelcoLCFiles] = useState([]);
+  const [felcoLCLoading, setFelcoLCLoading] = useState(false);
+  const [felcoLCConsultado, setFelcoLCConsultado] = useState(false);
+  const [felcoLCSeleccionados, setFelcoLCSeleccionados] = useState(new Set());
+  const [felcoLCError, setFelcoLCError] = useState("");
+
   // ── Tipos de documento ────────────────────────────────────────────────────
   const [tiposActivos, setTiposActivos] = useState(new Set(["FVELE"]));
   const [tipoCustom, setTipoCustom] = useState("");
@@ -3188,6 +3180,54 @@ function ListaCargueTab({ capiBase, contratos = [] }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const consultarFelcoLC = async () => {
+    setFelcoLCLoading(true); setFelcoLCConsultado(false); setFelcoLCError("");
+    try {
+      const results = await gsGet("listFelcoPDFs", { desde, hasta });
+      const arr = Array.isArray(results) ? results : [];
+      setFelcoLCFiles(arr); setFelcoLCConsultado(true);
+      // pre-marcar los que ya están en filas
+      const yaEnFilas = new Set(
+        filas.filter(f => f._fromFelco).map(f => f._felcoId).filter(Boolean)
+      );
+      setFelcoLCSeleccionados(yaEnFilas);
+    } catch(e) {
+      setFelcoLCError("Error Drive: " + e.message);
+      setFelcoLCFiles([]); setFelcoLCConsultado(true);
+    } finally { setFelcoLCLoading(false); }
+  };
+
+  const toggleFilaFelco = (f) => {
+    const rowId = "FELCO_" + f.id;
+    const ya = filas.find(r => r._id === rowId);
+    if (ya) {
+      setFilas(prev => prev.filter(r => r._id !== rowId));
+      setFelcoLCSeleccionados(prev => { const n = new Set(prev); n.delete(f.id); return n; });
+    } else {
+      setFilas(prev => [...prev, {
+        _id: rowId,
+        _fromFelco: true,
+        _felcoId: f.id,
+        _driveUrl: f.url,
+        num_cliente: "",
+        cliente_codigo: "",
+        nombre: f.nombre,
+        factura: f.numero,
+        ciudad: "",
+        remesa: "",
+        transportadora: "",
+        bultos: "",
+      }]);
+      setFelcoLCSeleccionados(prev => new Set([...prev, f.id]));
+    }
+  };
+
+  const seleccionarTodasFelco = () => {
+    felcoLCFiles.forEach(f => {
+      if (!filas.find(r => r._id === "FELCO_" + f.id)) toggleFilaFelco(f);
+    });
   };
 
   const setFila = (id, campo, valor) => {
@@ -3317,11 +3357,15 @@ ${filasTrs}</table><div class="tot">Total bultos: ${totalBultos}</div></body></h
   const asignadasCount = todasFacturas.length - facturasVisibles.length;
 
   return (
-    <div style={{ padding:"1.5rem", maxWidth:1300, display:"flex", gap:14, alignItems:"flex-start" }}>
+    <div style={{ padding:"1.5rem", maxWidth:1400, display:"flex", gap:14, alignItems:"flex-start" }}>
+
+      {/* ── Columna izquierda: selector BD + selector FELCO ── */}
+      {true && (
+        <div style={{ width:310, flexShrink:0, display:"flex", flexDirection:"column", gap:12 }}>
 
       {/* ── Selector de facturas BD ── */}
       {consultado && todasFacturas.length > 0 && (
-        <div style={{ width:320, flexShrink:0 }}>
+        <div>
           <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden" }}>
             <div style={{ background:`linear-gradient(135deg,${C.navy},${C.navyMid})`, padding:"10px 14px", color:"#fff" }}>
               <div style={{ fontWeight:700, fontSize:12 }}>{[...tiposActivos].join(", ")} — {desde}{desde!==hasta?` al ${hasta}`:""}</div>
@@ -3365,6 +3409,81 @@ ${filasTrs}</table><div class="tot">Total bultos: ${totalBultos}</div></body></h
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Selector facturas FELCO (Drive) ── */}
+      <div style={{ background:"#f0fff4", border:"1px solid #86efac", borderRadius:10, overflow:"hidden" }}>
+        <div style={{ background:"linear-gradient(135deg,#166534,#15803d)", padding:"10px 14px" }}>
+          <div style={{ fontWeight:700, fontSize:11, color:"#fff" }}>📄 FELCO — DRIVE</div>
+          <div style={{ fontSize:10, color:"#bbf7d0", marginTop:2 }}>
+            {felcoLCConsultado ? `${felcoLCFiles.length} encontradas · ${felcoLCSeleccionados.size} seleccionadas` : "Facturas locales ADN"}
+          </div>
+        </div>
+        <div style={{ padding:"10px 12px", borderBottom:"1px solid #86efac" }}>
+          <button onClick={consultarFelcoLC} disabled={felcoLCLoading}
+            style={{ width:"100%", background:"#16a34a", color:"#fff", border:"none", borderRadius:7,
+              padding:"7px 0", cursor:"pointer", fontSize:12, fontWeight:700, opacity:felcoLCLoading?0.6:1 }}>
+            {felcoLCLoading ? "⏳ Consultando Drive..." : "🔍 Consultar FELCO"}
+          </button>
+          <div style={{ fontSize:9, color:"#166534", marginTop:5, textAlign:"center" }}>
+            Usará las fechas Desde / Hasta del panel principal
+          </div>
+        </div>
+        {felcoLCError && (
+          <div style={{ fontSize:11, color:C.red, padding:"8px 12px", background:"#fdecea" }}>
+            ⚠️ {felcoLCError}
+          </div>
+        )}
+        {felcoLCConsultado && !felcoLCError && felcoLCFiles.length === 0 && (
+          <div style={{ fontSize:12, color:C.textMuted, padding:"12px", textAlign:"center" }}>
+            Sin facturas FELCO en ese período.
+          </div>
+        )}
+        {felcoLCFiles.length > 0 && (
+          <>
+            <div style={{ padding:"6px 10px", borderBottom:"1px solid #86efac", display:"flex", gap:6, alignItems:"center" }}>
+              <button onClick={seleccionarTodasFelco}
+                style={{ fontSize:10, background:"#dcfce7", color:"#166534", border:"1px solid #86efac", borderRadius:4, padding:"2px 8px", cursor:"pointer", fontWeight:700 }}>
+                ✓ Todas
+              </button>
+              <button onClick={() => {
+                felcoLCFiles.forEach(f => {
+                  const rowId = "FELCO_" + f.id;
+                  setFilas(prev => prev.filter(r => r._id !== rowId));
+                });
+                setFelcoLCSeleccionados(new Set());
+              }}
+                style={{ fontSize:10, background:"#fef2f2", color:"#dc2626", border:"1px solid #fca5a5", borderRadius:4, padding:"2px 8px", cursor:"pointer", fontWeight:700 }}>
+                ✗ Ninguna
+              </button>
+            </div>
+            <div style={{ maxHeight:420, overflowY:"auto" }}>
+              {felcoLCFiles.map((f, i) => {
+                const sel = felcoLCSeleccionados.has(f.id);
+                return (
+                  <div key={f.id} onClick={() => toggleFilaFelco(f)}
+                    style={{ display:"flex", alignItems:"flex-start", gap:7, padding:"7px 10px", cursor:"pointer",
+                      background: sel ? "#dcfce7" : (i%2===0 ? "#f0fff4" : "#fff"),
+                      borderBottom:"1px solid #bbf7d0" }}>
+                    <input type="checkbox" readOnly checked={sel} style={{ accentColor:"#16a34a", marginTop:2, flexShrink:0 }} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:"#166534" }}>Fact. {f.numero}</div>
+                      <div style={{ fontSize:9, color:C.textMuted, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.nombre}</div>
+                      {f.fecha && <div style={{ fontSize:9, color:C.textDim }}>{f.fecha}</div>}
+                    </div>
+                    {f.url && (
+                      <a href={f.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                        style={{ fontSize:14, textDecoration:"none", flexShrink:0 }} title="Ver PDF en Drive">🔗</a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+
         </div>
       )}
 
@@ -3515,20 +3634,38 @@ ${filasTrs}</table><div class="tot">Total bultos: ${totalBultos}</div></body></h
                 </thead>
                 <tbody>
                   {filas.map((f, i) => (
-                    <tr key={f._id} style={{ background: i%2===0 ? "#f8fafc" : C.white }}>
+                    <tr key={f._id} style={{ background: f._fromFelco ? (i%2===0?"#f0fff4":"#e8fdf0") : (i%2===0 ? "#f8fafc" : C.white) }}>
                       <td style={{ padding:"5px 6px", borderBottom:`1px solid ${C.border}`, textAlign:"center", fontSize:10, color:C.textDim }}>{i+1}</td>
                       {COLS.map(col => (
                         <td key={col.key} style={{ padding:"5px 8px", borderBottom:`1px solid ${C.border}`, verticalAlign:"middle" }}>
                           {col.edit ? (
                             <input value={f[col.key]} onChange={e => setFila(f._id, col.key, e.target.value)}
                               style={{ ...inp, background:"#fffde7", borderColor:"#f9a825" }} />
+                          ) : col.key === "factura" ? (
+                            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                              {f._fromFelco && (
+                                <span style={{ fontSize:8, background:"#dcfce7", color:"#166534", border:"1px solid #86efac", borderRadius:3, padding:"1px 4px", fontWeight:700, whiteSpace:"nowrap" }}>
+                                  FELCO
+                                </span>
+                              )}
+                              <span style={{ color:"#166534", fontWeight:700 }}>{f[col.key]}</span>
+                              {f._driveUrl && (
+                                <a href={f._driveUrl} target="_blank" rel="noreferrer"
+                                  style={{ fontSize:13, textDecoration:"none" }} title="Ver PDF en Drive">🔗</a>
+                              )}
+                            </div>
                           ) : (
-                            <span style={{ color: col.key==="factura"?C.blue:C.text, fontWeight: col.key==="factura"?700:400 }}>{f[col.key]}</span>
+                            <span style={{ color:C.text }}>{f[col.key]}</span>
                           )}
                         </td>
                       ))}
                       <td style={{ padding:"4px 6px", borderBottom:`1px solid ${C.border}`, textAlign:"center" }}>
-                        <button onClick={() => setFilas(prev => prev.filter(r => r._id !== f._id))}
+                        <button onClick={() => {
+                          if (f._fromFelco && f._felcoId) {
+                            setFelcoLCSeleccionados(prev => { const n = new Set(prev); n.delete(f._felcoId); return n; });
+                          }
+                          setFilas(prev => prev.filter(r => r._id !== f._id));
+                        }}
                           style={{ background:"transparent", border:"none", cursor:"pointer", color:C.textDim, fontSize:14 }}>✕</button>
                       </td>
                     </tr>
